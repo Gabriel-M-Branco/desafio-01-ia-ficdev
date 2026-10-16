@@ -40,6 +40,8 @@ audit_logger = AuditLogger()
 # Montagem de arquivos estáticos da interface web e arquivos de resultados resolvidos dinamicamente
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "src" / "web")), name="static")
 app.mount("/arquivos", StaticFiles(directory=str(BASE_DIR)), name="arquivos")
+app.mount("/dados", StaticFiles(directory=str(BASE_DIR / "dados")), name="dados")
+app.mount("/resultados", StaticFiles(directory=str(BASE_DIR / "resultados")), name="resultados")
 
 
 # ==============================================================================
@@ -79,7 +81,19 @@ class RequisicaoGerarPdf(BaseModel):
 @app.get("/")
 def home():
     """Serve a Interface Web Institucional."""
-    return FileResponse("src/web/index.html")
+    return FileResponse(str(BASE_DIR / "src" / "web" / "index.html"))
+
+
+@app.get("/styles.css")
+def obter_styles_css():
+    """Serve o arquivo de estilos CSS na raiz."""
+    return FileResponse(str(BASE_DIR / "src" / "web" / "styles.css"))
+
+
+@app.get("/app.js")
+def obter_app_js():
+    """Serve o arquivo de controle JavaScript na raiz."""
+    return FileResponse(str(BASE_DIR / "src" / "web" / "app.js"))
 
 
 @app.get("/api/config")
