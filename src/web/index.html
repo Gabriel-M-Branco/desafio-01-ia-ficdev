@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central Inteligente de Atendimento - GOV.MT</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Faixa Tricolor Oficial GOV.MT -->
+  <div class="gov-top-bar">
+    <div class="bar-blue"></div>
+    <div class="bar-green"></div>
+    <div class="bar-yellow"></div>
+  </div>
+
+  <!-- Cabecalho Institucional -->
+  <header class="gov-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <img src="/arquivos/dados/originais/brasao.png" alt="Brasao do Estado de Mato Grosso" class="gov-logo" onerror="this.style.display='none'">
+        <div class="brand-text">
+          <h1>GOVERNO DO ESTADO DE MATO GROSSO</h1>
+          <h2>SECRETARIA DE ESTADO DE CIENCIA, TECNOLOGIA E INOVACAO (SECITECI/MT)</h2>
+          <p>Central Inteligente de Atendimento e Comunicacao Institucional - ETEC Cuiaba</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-hitl">Human-in-the-Loop Ativo</span>
+        <span id="badge-api-mode" class="badge badge-mode">Carregando modo...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navegacao Principal em Abas -->
+  <nav class="main-nav">
+    <div class="nav-container">
+      <button class="nav-tab active" data-tab="tab-atendimento">
+        Central de Atendimento
+      </button>
+      <button class="nav-tab" data-tab="tab-experimento">
+        Experimento de Prompts (RF02)
+      </button>
+      <button class="nav-tab" data-tab="tab-multimodal">
+        Audio e Visao (RF06, RF08)
+      </button>
+      <button class="nav-tab" data-tab="tab-imagem">
+        Comunicacao Visual (RF10)
+      </button>
+      <button class="nav-tab" data-tab="tab-auditoria">
+        Auditoria e LGPD (RF11, RF12)
+      </button>
+    </div>
+  </nav>
+
+  <!-- Conteudo Principal -->
+  <main class="main-content">
+    
+    <!-- ABA 1: CENTRAL DE ATENDIMENTO E REVISAO HUMANA (RF03, RF05, RF09, RF13) -->
+    <section id="tab-atendimento" class="tab-pane active">
+      <div class="pane-grid">
+        <!-- Coluna da Esquerda: Entrada de Solicitacao -->
+        <div class="card card-input">
+          <div class="card-header">
+            <h3>1. Entrada de Solicitacao do Cidadao</h3>
+            <span class="badge badge-info">Conteudo Nao Confiavel</span>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="caso-predefinido">Carregar Caso de Teste Ficticio:</label>
+              <select id="caso-predefinido" class="form-control">
+                <option value="texto_original">Caso Oficial 1: Matricula Enfermagem (entrada_texto.txt)</option>
+                <option value="prompt_injection">Caso de Teste: Tentativa de Prompt Injection (RF03)</option>
+                <option value="personalizado">Personalizado (Digitar abaixo)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="input-texto-solicitacao">Texto da Solicitacao:</label>
+              <textarea id="input-texto-solicitacao" class="form-control code-font" rows="12" placeholder="Insira aqui o texto da solicitacao..."></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button id="btn-processar-solicitacao" class="btn btn-primary">
+                Processar Solicitacao (RF03/RF05)
+              </button>
+              <button id="btn-limpar-texto" class="btn btn-secondary">Limpar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coluna da Direita: Extracao Estruturada e Minuta Oficial -->
+        <div class="card card-output">
+          <div class="card-header">
+            <h3>2. Analise Estruturada e Minuta Gerada</h3>
+            <span id="badge-status-revisao" class="badge badge-warning">Aguardando Processamento</span>
+          </div>
+          <div class="card-body">
+            <!-- Abas internas: Extracao vs Minuta -->
+            <div class="sub-nav">
+              <button class="sub-tab active" data-subtab="subtab-minuta">Minuta de Resposta Oficial (RF09)</button>
+              <button class="sub-tab" data-subtab="subtab-json">JSON Estruturado Extraido (RF05)</button>
+              <button class="sub-tab" data-subtab="subtab-metricas">Metricas e Seguranca</button>
+            </div>
+
+            <div id="subtab-minuta" class="subtab-pane active">
+              <div class="alert alert-notice">
+                <strong>Atencao do Servidor:</strong> Esta minuta foi elaborada com modelo de linguagem. Nenhuma resposta e enviada automaticamente ao cidadao. Faca a conferencia antes de aprovar.
+              </div>
+              <div class="form-group">
+                <label for="editor-minuta">Texto da Minuta Oficial (Editavel pelo Servidor):</label>
+                <textarea id="editor-minuta" class="form-control doc-editor" rows="13"></textarea>
+              </div>
+
+              <!-- Acoes do Documento Oficial -->
+              <div class="form-actions" style="margin-bottom: 14px;">
+                <button id="btn-exportar-pdf" class="btn btn-secondary">
+                  Visualizar / Baixar Minuta em PDF Oficial
+                </button>
+              </div>
+
+              <!-- Controles de Acessibilidade TTS -->
+              <div class="tts-section">
+                <button id="btn-gerar-tts" class="btn btn-access">
+                  Gerar Audio Acessivel (RF07)
+                </button>
+                <div id="tts-audio-container" class="audio-player-wrapper" style="display: none;">
+                  <audio id="tts-audio-player" controls></audio>
+                  <span class="tts-note">Filtro de "nao localizado" com aviso ao ouvinte ativo.</span>
+                </div>
+              </div>
+
+              <!-- Painel de Revisao Humana (Human-in-the-Loop) -->
+              <div class="hitl-box">
+                <h4>Decisao do Servidor Responsavel (RF13)</h4>
+                <div class="form-group">
+                  <label for="justificativa-revisao">Justificativa da Decisao (Obrigatoria para registro no log de auditoria):</label>
+                  <input type="text" id="justificativa-revisao" class="form-control" placeholder="Ex: Dados cadastrais conferidos com os registros da ETEC. Aprovado para emissao.">
+                </div>
+                <div class="hitl-actions">
+                  <button id="btn-aprovar-minuta" class="btn btn-success">Aprovar Resposta</button>
+                  <button id="btn-corrigir-minuta" class="btn btn-warning">Salvar com Correcoes</button>
+                  <button id="btn-rejeitar-minuta" class="btn btn-danger">Rejeitar / Solicitar Nova Geracao</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="subtab-json" class="subtab-pane">
+              <pre id="json-extracao-view" class="json-viewer">Aguardando execucao...</pre>
+            </div>
+
+            <div id="subtab-metricas" class="subtab-pane">
+              <div class="metrics-grid">
+                <div class="metric-card">
+                  <span class="metric-label">Tempo de Resposta</span>
+                  <span id="metric-duracao" class="metric-val">-</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Tokens Estimados</span>
+                  <span id="metric-tokens" class="metric-val">-</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Custo Estimado</span>
+                  <span id="metric-custo" class="metric-val">US$ 0.00</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Protecao Injecao</span>
+                  <span id="metric-injection" class="metric-val badge-ok">Ativa</span>
+                </div>
+              </div>
+              <div id="comparacao-gabarito-view" class="gabarito-eval-box"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: EXPERIMENTO DE ENGENHARIA DE PROMPTS (RF02) -->
+    <section id="tab-experimento" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>Experimento Controlado: Comparacao de Prompts A, B e C (RF02)</h3>
+          <button id="btn-rodar-experimento" class="btn btn-primary">
+            Executar Experimento de Prompts
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="section-desc">
+            Execucao com o mesmo caso de entrada e modelo para comparar: <strong>Prompt A</strong> (zero-shot curto),
+            <strong>Prompt B</strong> (estruturado manualmente com Persona, Contexto, Tarefa, Formato e Criterios) e
+            <strong>Prompt C</strong> (produzido com metaprompt e blindagem de seguranca).
+          </p>
+
+          <!-- Tabela de Comparacao -->
+          <div class="table-responsive">
+            <table class="table-gov">
+              <thead>
+                <tr>
+                  <th>Criterio de Avaliacao</th>
+                  <th>Prompt A (Zero-Shot)</th>
+                  <th>Prompt B (Estruturado)</th>
+                  <th>Prompt C (Metaprompt / Producao)</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-experimento-comparativo">
+                <tr>
+                  <td><strong>Formato de Saida</strong></td>
+                  <td>Texto livre desestruturado</td>
+                  <td>JSON estruturado com campos basicos</td>
+                  <td>JSON validavel com tratamento estrito de ausencias</td>
+                </tr>
+                <tr>
+                  <td><strong>Tratamento de Lacunas</strong></td>
+                  <td>Tende a omitir ou supor valores</td>
+                  <td>Usa 'nao localizado' parcialmente</td>
+                  <td>Usa obrigatoriamente 'nao localizado' e lista ausencias</td>
+                </tr>
+                <tr>
+                  <td><strong>Blindagem contra Prompt Injection</strong></td>
+                  <td>Inexistente (vulneravel a comandos)</td>
+                  <td>Basica</td>
+                  <td>Robusta (delimitadores XML nao confiaveis)</td>
+                </tr>
+                <tr>
+                  <td><strong>Fidelidade ao Contexto GOV.MT</strong></td>
+                  <td>Generica</td>
+                  <td>Boa conformidade</td>
+                  <td>Excelente conformidade institucional</td>
+                </tr>
+                <tr>
+                  <td><strong>Tempo de Execucao</strong></td>
+                  <td id="exp-tempo-a">-</td>
+                  <td id="exp-tempo-b">-</td>
+                  <td id="exp-tempo-c">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="prompt-details-grid">
+            <div class="prompt-box">
+              <h4>Prompt A (Zero-Shot)</h4>
+              <pre id="exp-out-a">Clique em 'Executar Experimento de Prompts' para gerar...</pre>
+            </div>
+            <div class="prompt-box">
+              <h4>Prompt B (Estruturado)</h4>
+              <pre id="exp-out-b">Clique em 'Executar Experimento de Prompts' para gerar...</pre>
+            </div>
+            <div class="prompt-box">
+              <h4>Prompt C (Metaprompt - Selecionado)</h4>
+              <pre id="exp-out-c">Clique em 'Executar Experimento de Prompts' para gerar...</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: TRANSCRICAO DE AUDIO E VISAO MULTIMODAL (RF06, RF08) -->
+    <section id="tab-multimodal" class="tab-pane">
+      <div class="pane-grid">
+        <!-- Audio STT (RF06) -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Mensagem de Voz / Audio (RF06)</h3>
+            <span class="badge badge-info">Whisper HF</span>
+          </div>
+          <div class="card-body">
+            <p>Arquivo: <code>dados/originais/entrada_audio.mp3</code></p>
+            <audio id="audio-input-player" src="/arquivos/dados/originais/entrada_audio.mp3" controls style="width: 100%; margin-bottom: 12px;"></audio>
+            <button id="btn-processar-audio" class="btn btn-primary" style="width: 100%;">
+              Transcrever Audio e Conferir Gabarito
+            </button>
+            <div id="resultado-audio-stt" style="margin-top: 15px;"></div>
+          </div>
+        </div>
+
+        <!-- Visao e OCR (RF08) -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Documento Digitalizado / Visao (RF08)</h3>
+            <span class="badge badge-info">VLM Multimodal</span>
+          </div>
+          <div class="card-body">
+            <p>Arquivo: <code>dados/originais/entrada_pdf-imagem.pdf</code> (Ficha de Matricula)</p>
+            <button id="btn-processar-visao" class="btn btn-primary" style="width: 100%;">
+              Executar Leitura Visual e OCR
+            </button>
+            <div id="resultado-visao-ocr" style="margin-top: 15px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 4: PECA VISUAL INSTITUCIONAL GOV.MT (RF10) -->
+    <section id="tab-imagem" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <h3>Geracao de Peca Visual Padronizada GOV.MT (RF10)</h3>
+          <button id="btn-gerar-imagem-peca" class="btn btn-primary">
+            Gerar Comunicado Visual Oficial
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="section-desc">
+            Abordagem Hibrida: Arte central ilustrada (sem texto, cores oficiais azul, verde e amarelo) e
+            composicao programatica em Pillow com Brasao do Estado de Mato Grosso e tarja de proveniencia de conteudo sintetico.
+          </p>
+
+          <div class="image-preview-wrapper">
+            <div class="image-box">
+              <img id="img-peca-visual" src="/arquivos/dados/originais/brasao.png" alt="Previa da Peca Visual" class="gov-piece-image">
+            </div>
+            <div class="image-meta-box">
+              <h4>Metadados da Peca Sintetica (RF10)</h4>
+              <div id="meta-peca-visual">
+                Clique no botao acima para produzir ou atualizar o comunicado visual.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 5: AUDITORIA, LGPD E RASTREABILIDADE (RF11, RF12, RF13) -->
+    <section id="tab-auditoria" class="tab-pane">
+      <div class="pane-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3>Relatorio de Conformidade LGPD (RF12)</h3>
+          </div>
+          <div class="card-body" id="lgpd-report-container">
+            Carregando conformidade LGPD...
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Trilha de Auditoria e Decisoes Humanas (RF11, RF13)</h3>
+            <button id="btn-atualizar-logs" class="btn btn-secondary btn-sm">Atualizar</button>
+          </div>
+          <div class="card-body">
+            <div id="audit-logs-container" class="log-list">
+              Carregando registros de auditoria...
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Rodape Institucional -->
+  <footer class="gov-footer">
+    <div class="footer-container">
+      <p>Desenvolvido para o Desafio Pratico 1 - FIC_DEV - Programador de Sistemas com IA (2026)</p>
+      <p>Padrao de Governanca Institucional: Decisao final e envio sob responsabilidade exclusiva de servidor humano.</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
