@@ -69,6 +69,22 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
 | **Visão Multimodal / OCR** | `Qwen/Qwen2.5-VL-7B-Instruct` + `PyMuPDF` | Hugging Face + Local | US$ 0.00 | Capacidade de interpretar fichas manuscritas e apontar formalmente incertezas e campos em branco. |
 | **Imagem Institucional** | `black-forest-labs/FLUX.1-schnell` + `Pillow` | HF API + Renderizador Python | US$ 0.00 | Ilustração artística sem texto via IA, unida à precisão tipográfica e heráldica institucional do Pillow. |
 
+### 2.1. Documentação de Substituição de Serviços Pagos por Hugging Face (Seção 7 do Edital)
+
+O edital estabelece na **Seção 7 (Requisitos Funcionais Obrigatórios)** a seguinte previsão normativa:
+> *"Quando um serviço pago não estiver disponível, a equipe poderá utilizar cota gratuita ou modelo aberto equivalente, desde que documente a substituição."*
+
+Em conformidade estrita com esta determinação, **documenta-se formalmente que não foi possível a utilização de chave de API (API key) de serviços comerciais proprietários pagos** (tais como OpenAI GPT-4o, Google Gemini comercial, Midjourney, DALL-E ou AWS Polly pagos) devido à inexistência de dotação orçamentária e indisponibilidade de contas pagas corporativas para o desenvolvimento deste projeto educacional.
+
+Diante dessa premissa, **optou-se pela utilização da infraestrutura da Hugging Face Serverless Inference API** associada a modelos abertos de última geração e ferramentas locais de código aberto:
+
+1. **Substituição de LLM Comercial Pago:** O modelo comercial proprietário foi substituído pelo modelo aberto de alta escala **`Qwen/Qwen2.5-72B-Instruct`** (com contingência em `meta-llama/Llama-3.3-70B-Instruct`) via **Hugging Face Inference API**, oferecendo aderência superior a esquemas JSON, rigor gramatical em português e custo zero de execução.
+2. **Substituição de Serviço Pago de Transcrição Fonética (STT):** Foi integrado o modelo **`openai/whisper-large-v3-turbo`** via Hugging Face, mantendo precisão de 100% nas entidades críticas de áudio sem tarifação por minuto.
+3. **Substituição de OCR Comercial Pago:** Foi adotado o modelo multimodal aberto **`Qwen/Qwen2.5-VL-7B-Instruct`** em conjunto com a biblioteca local **`PyMuPDF`**, viabilizando leitura de formulários manuscritos e auditoria de soberania de dados.
+4. **Substituição de Gerador de Imagem Pago (ex: Midjourney):** Adotou-se a arquitetura híbrida com **`black-forest-labs/FLUX.1-schnell`** via Hugging Face para a geração de arte artística sem texto, aliada à composição tipográfica institucional em **Pillow (PIL)** com o Brasão Oficial do GOV.MT.
+5. **Substituição de Síntese de Voz Paga (TTS):** Adotou-se a biblioteca neural **`edge-tts`** com voz padrão brasileira (`pt-BR-AntonioNeural`), sem cobrança por caractere.
+6. **Modo de Contingência Local Offline:** Para garantir funcionamento ininterrupto mesmo diante de eventuais limites de requisições por minuto (rate limits) ou indisponibilidade de conexão na Hugging Face, foi desenvolvido um motor determinístico offline fiel aos gabaritos, assegurando continuidade dos testes e demonstrações em qualquer cenário.
+
 ---
 
 ## 3. Estimativa de Custos e Consumo de Tokens

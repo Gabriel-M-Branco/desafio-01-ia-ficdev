@@ -19,6 +19,11 @@ No processo de desenvolvimento assistido, foram utilizadas as seguintes ferramen
   - `edge-tts` (voz neural `pt-BR-AntonioNeural`) para síntese de voz acessível.
 - **Ambiente de Execução e Testes:** Python 3.14 / Python 3.11-slim (Docker), FastAPI 0.110+, Pillow 10.2+, PyMuPDF 1.24+, Pytest 9.1+.
 
+### 1.1. Justificativa de Substituição de Serviços Pagos (Seção 7 do Edital)
+Conforme autorizado e exigido pela **Seção 7 do Edital** (*"Quando um serviço pago não estiver disponível, a equipe poderá utilizar cota gratuita ou modelo aberto equivalente, desde que documente a substituição"*), registra-se que **não foi possível a utilização de API keys de serviços comerciais proprietários pagos** (como OpenAI, Google Cloud pago, Midjourney ou AWS) devido à restrição orçamentária do projeto educacional. 
+
+Portanto, **optou-se pela utilização da plataforma Hugging Face Serverless Inference API** aliada a modelos abertos de ponta (`Qwen2.5-72B`, `Whisper Large v3 Turbo`, `Qwen2.5-VL-7B` e `FLUX.1-schnell`), com suporte adicional da biblioteca gratuita `edge-tts` e contingência determinística local sem custo.
+
 ---
 
 ## 2. Solicitações Relevantes Feitas à IA

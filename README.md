@@ -32,6 +32,9 @@ O sistema recebe solicitações fictícias em múltiplos formatos (**Texto**, **
 - **Modo de Contingência Local (Mock Inteligente):** Permite a execução, demonstração e testes completos do sistema mesmo sem conexão externa ou sem token configurado.
 - **Containerização:** Docker e Docker Compose com suporte a `ffmpeg`.
 
+> **Nota de Conformidade — Substituição de Serviços Pagos (Seção 7 do Edital):**  
+> Em conformidade estrita com a Seção 7 do Edital (*"Quando um serviço pago não estiver disponível, a equipe poderá utilizar cota gratuita ou modelo aberto equivalente, desde que documente a substituição"*), registra-se que não foi possível a utilização de API key de serviços comerciais pagos. Optou-se, portanto, pela substituição integral pela plataforma **Hugging Face Serverless Inference API** associada a modelos abertos de última geração e execução com custo zero.
+
 ---
 
 ## 3. Estrutura do Repositório
