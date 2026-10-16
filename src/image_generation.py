@@ -176,7 +176,7 @@ class ImageGenerator:
         )
         draw.text(
             (50, altura_total - altura_tarja + 65),
-            "Processamento Supervisionado | Human-in-the-Loop | Sistema ETEC/SECITECI/MT",
+            "Comunicação Institucional Oficial | ETEC Cuiabá - SECITECI/MT",
             fill="#A0C4E2",
             font_size=16,
         )

@@ -26,7 +26,7 @@ from src.pdf_generator import gerar_minuta_pdf
 # Inicialização da Aplicação FastAPI
 app = FastAPI(
     title="Central Inteligente de Atendimento e Comunicação Institucional - GOV.MT",
-    description="Sistema de triagem multimodal, extração estruturada, geração de minutas seguras e acessibilidade com governança humana.",
+    description="Sistema de triagem multimodal, extração estruturada, geração de minutas institucionais e acessibilidade.",
     version="1.0.0",
 )
 
