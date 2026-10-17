@@ -26,7 +26,7 @@ O sistema processa solicitações fictícias em **texto, áudio e imagem**, extr
 
   - **Imagem (RF10 - Abordagem Híbrida):** `black-forest-labs/FLUX.1-schnell` via HF Inference API (gera apenas a arte/ilustração central sem texto) + composição programática de layout institucional GOV.MT com `Pillow` (PIL).
 
-- **Provedor de Fallback (Opcional):** **OpenRouter API** (`OPENROUTER_API_KEY`) usando modelos `:free` caso o rate limit da Hugging Face seja atingido, além de modo `mock` local caso nenhuma chave esteja presente no `.env`.
+- **Provedor de Fallback / Contingência:** Modo de contingência determinístico local (`mock`) caso nenhuma chave esteja presente no `.env` ou ocorra erro de conexão/limite na Hugging Face.
 
 - **Síntese de Voz / Acessibilidade (RF07):** `edge-tts` (voz neural pt-BR gratuita com controle de entonação/velocidade) ou `gTTS` como fallback.
 
@@ -74,7 +74,7 @@ desafio_ia_generativa/
 
 │   ├── main.py           # Entrypoint: python -m src.main (inicia API/Web UI e CLI de testes)
 
-│   ├── llm_client.py     # Cliente Hugging Face + Fallback OpenRouter + Mock + cálculo de tokens/custo (RF04)
+│   ├── llm_client.py     # Cliente Hugging Face + Contingência Local + cálculo de tokens/custo (RF04)
 
 │   ├── prompts.py        # Prompts A, B e C + blindagem XML contra Prompt Injection (RF02, RF03)
 
@@ -118,7 +118,7 @@ desafio_ia_generativa/
 
 1. **Imutabilidade:** Nunca altere arquivos dentro de `dados/originais/`.
 
-2. **Segredos e Logs (RF04, RF11):** Jamais exponha `HF_TOKEN` ou `OPENROUTER_API_KEY` nos logs. Trate explicitamente chave ausente, erro 401/403, erro 429 (rate limit), timeout e resposta vazia.
+2. **Segredos e Logs (RF04, RF11):** Jamais exponha `HF_TOKEN` nos logs. Trate explicitamente chave ausente, erro 401/403, erro 429 (rate limit), timeout e resposta vazia.
 
 3. **Alucinação Zero e "não localizado" (RF03, RF05, RF09):** Qualquer campo obrigatório ausente deve receber exatamente o valor `"não localizado"`. É proibido inventar prazos, leis, protocolos ou autoridades.
 

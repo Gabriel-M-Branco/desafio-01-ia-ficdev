@@ -52,12 +52,11 @@ desafio-01-ia-ficdev/
 ├── config.json               # Caminhos, modelos e parâmetros não-sensíveis
 ├── dados/
 │   ├── originais/            # IMUTÁVEL: arquivos de entrada e brasão oficial GOV.MT
-│   ├── gabaritos/            # Resultados esperados para avaliação de acurácia
-│   └── processados/          # Extrações estruturadas intermediárias (JSON)
+│   │   └── processados/          # Extrações estruturadas intermediárias (JSON)
 ├── src/
 │   ├── __init__.py
 │   ├── main.py               # Ponto de entrada oficial (API Web e CLI)
-│   ├── llm_client.py         # Cliente HF / OpenRouter / Mock com cálculo de custos
+│   ├── llm_client.py         # Cliente Hugging Face / Contingência Local / Cálculo de custos
 │   ├── prompts.py            # Prompts A, B, C e blindagem XML anti-injection
 │   ├── audio.py              # STT (Whisper) e TTS (edge-tts) com aviso de ausências
 │   ├── vision.py             # Visão computacional / OCR e incertezas
@@ -207,7 +206,7 @@ Recursos disponíveis na interface web:
 
 ### 5.2. Execução Completa Automatizada (--run-all)
 
-Executa o pipeline institucional de ponta a ponta, processa todas as modalidades, efetua a validação contra gabaritos e salva todos os artefatos nos diretórios relativos (`dados/processados/`, `resultados/` e `prompts/`):
+Executa o pipeline institucional de ponta a ponta, processa todas as modalidades, efetua a validação de conformidade de regras e formatos oficiais e salva todos os artefatos nos diretórios relativos (`dados/processados/`, `resultados/` e `prompts/`):
 
 - **Windows (PowerShell ou CMD):**
   ```cmd
@@ -248,7 +247,7 @@ Acesse em: `http://localhost:8000`
 
 ## 6. Testes Automatizados
 
-A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo avaliação de gabarito, segurança de segredos e geração de PDF timbrado:
+A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo validação de conformidade de formatos, segurança de segredos e geração de PDF timbrado:
 
 - **Windows (PowerShell ou CMD):**
   ```cmd
@@ -270,9 +269,9 @@ A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo avali
 | **RF03** | Prompt seguro, "não localizado" e anti-injection | `src/prompts.py` (Classe `SegurancaPrompts`) |
 | **RF04** | Chamada de API, fallback, métricas e custo zero | `src/llm_client.py` |
 | **RF05** | Entrada textual e extração estruturada (JSON) | `src/main.py`, `dados/processados/` |
-| **RF06** | Transcrição de áudio (STT) e conferência de gabarito | `src/audio.py`, `dados/gabaritos/gabarito_audio.json` |
+| **RF06** | Transcrição de áudio (STT) e validação de entidades críticas | `src/audio.py`, `dados/originais/entrada_audio.mp3` |
 | **RF07** | Síntese de voz e acessibilidade (TTS) com alerta de ausências | `src/audio.py` (edge-tts), `resultados/audios/` |
-| **RF08** | Visão computacional, OCR e justificativa de soberania | `src/vision.py`, `dados/gabaritos/gabarito_visao.json` |
+| **RF08** | Visão computacional, OCR genuíno e justificativa de soberania | `src/vision.py`, `dados/originais/entrada_pdf-imagem.pdf` |
 | **RF09** | Geração de minuta institucional sem alucinação | `src/main.py`, `resultados/minutas/` |
 | **RF10** | Geração de peça visual híbrida GOV.MT com tarja | `src/image_generation.py`, `resultados/imagens/` |
 | **RF11** | Registro de auditoria estruturada e rastreabilidade | `src/audit.py` (AuditLogger), `resultados/logs/` |

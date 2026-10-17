@@ -69,7 +69,7 @@ Portanto, **optou-se pela utilização da plataforma Hugging Face Serverless Inf
 ## 4. Erros e Inadequações Encontrados
 
 1. **Tentativa de importação de módulos ausentes no pytest:** O pytest inicialmente não encontrava o pacote `src` devido ao `PYTHONPATH`. Foi corrigido com a criação do arquivo canônico `pytest.ini` definindo `pythonpath = .`.
-2. **Discrepância na conferência de datas no áudio:** O gabarito possuía a data em formato numérico e o áudio falado expressava a data por extenso. A lógica de verificação foi aprimorada para normalizar datas antes do cálculo de acurácia.
+2. **Discrepância na conferência de datas no áudio:** O formato esperado institucional possuía a data em formato numérico e o áudio falado expressava a data por extenso. A lógica de verificação foi aprimorada para normalizar datas antes do cálculo de acurácia.
 3. **Imutabilidade de `dados/originais/`:** Durante um teste preliminar, gerou-se um arquivo temporário dentro da pasta de originais. O arquivo foi imediatamente removido e a rotina redirecionada para `dados/processados/` para preservar rigorosamente a integridade dos dados originais.
 
 ---

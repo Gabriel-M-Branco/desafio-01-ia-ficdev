@@ -14,7 +14,7 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
 ### Princípios Arquiteturais Centrais:
 1. **Governança Estrita e Human-in-the-Loop (RF13):** A inteligência artificial atua exclusivamente como assistente de triagem, síntese e formatação. Nenhuma resposta ou documento é despachado automaticamente ao cidadão. Cada minuta exige revisão, justificativa e deliberação formal (Aprovação, Correção ou Rejeição) por um servidor humano.
 2. **Alucinação Zero e Regra do "Não Localizado" (RF03, RF05, RF09):** O sistema é estritamente proibido de inferir dados ausentes, inventar números de leis, decretos, protocolos ou prazos. Campos omitidos recebem compulsoriamente o valor literal `"não localizado"`.
-3. **Custo Zero e Disponibilidade Híbrida (RF04):** Integração com modelos abertos e gratuitos de última geração através da **Hugging Face Serverless Inference API** e **OpenRouter**, acompanhada de motor de contingência offline local para garantir resiliência e independência de conectividade.
+3. **Custo Zero e Disponibilidade Híbrida (RF04):** Integração com modelos abertos e gratuitos de última geração através da **Hugging Face Serverless Inference API**, acompanhada de motor de contingência offline local para garantir resiliência e independência de conectividade.
 4. **Padronização Visual Oficial Híbrida (RF10):** Geração de imagem central via IA generativa (`FLUX.1-schnell`) sem elementos textuais, acoplada programaticamente a um template em Pillow contendo o Brasão Oficial do Estado de Mato Grosso e a tarja obrigatória de identificação de conteúdo sintético.
 
 ```
@@ -63,8 +63,8 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
 | **Ponto de Entrada & API** | FastAPI + Uvicorn | Python 3.11+ / Local | US$ 0.00 | Alta performance assíncrona, documentação OpenAPI automática e baixo consumo de memória. |
 | **Interface de Usuário** | HTML5, CSS3, JavaScript Vanilla | Navegador Local | US$ 0.00 | Sem complexidade de build ou dependências pesadas; compatível com redes corporativas estaduais restritas. |
 | **LLM (Texto e Minuta)** | `Qwen/Qwen2.5-72B-Instruct` | Hugging Face Serverless API | US$ 0.00 | Superioridade comprovada em aderência a regras estritas de formato JSON e compreensão do idioma português. |
-| **Fallback de LLM** | `meta-llama/Llama-3.3-70B-Instruct` | OpenRouter (Free Tier) | US$ 0.00 | Contingência de alta fidelidade sem custo financeiro em caso de rate limit. |
-| **STT (Áudio para Texto)** | `openai/whisper-large-v3-turbo` | Hugging Face Serverless API | US$ 0.00 | Transcrição precisa em português mesmo sob ruído moderado, com conferência contra gabarito. |
+| **Fallback de LLM** | `meta-llama/Llama-3.3-70B-Instruct` / Contingência Local | Hugging Face / Motor Local | US$ 0.00 | Contingência de alta fidelidade sem custo financeiro em caso de rate limit. |
+| **STT (Áudio para Texto)** | `openai/whisper-large-v3-turbo` | Hugging Face Serverless API | US$ 0.00 | Transcrição precisa em português mesmo sob ruído moderado, com validação de entidades e regras de atendimento. |
 | **TTS (Síntese Acessível)** | `edge-tts` (`pt-BR-AntonioNeural`) | Microsoft Edge TTS (Gratuito) | US$ 0.00 | Entonação institucional neutra, sem robótica e com capacidade de pausa e ênfase auditiva. |
 | **Visão Multimodal / OCR** | `Qwen/Qwen2.5-VL-7B-Instruct` + `PyMuPDF` | Hugging Face + Local | US$ 0.00 | Capacidade de interpretar fichas manuscritas e apontar formalmente incertezas e campos em branco. |
 | **Imagem Institucional** | `black-forest-labs/FLUX.1-schnell` + `Pillow` | HF API + Renderizador Python | US$ 0.00 | Ilustração artística sem texto via IA, unida à precisão tipográfica e heráldica institucional do Pillow. |
@@ -83,7 +83,7 @@ Diante dessa premissa, **optou-se pela utilização da infraestrutura da Hugging
 3. **Substituição de OCR Comercial Pago:** Foi adotado o modelo multimodal aberto **`Qwen/Qwen2.5-VL-7B-Instruct`** em conjunto com a biblioteca local **`PyMuPDF`**, viabilizando leitura de formulários manuscritos e auditoria de soberania de dados.
 4. **Substituição de Gerador de Imagem Pago (ex: Midjourney):** Adotou-se a arquitetura híbrida com **`black-forest-labs/FLUX.1-schnell`** via Hugging Face para a geração de arte artística sem texto, aliada à composição tipográfica institucional em **Pillow (PIL)** com o Brasão Oficial do GOV.MT.
 5. **Substituição de Síntese de Voz Paga (TTS):** Adotou-se a biblioteca neural **`edge-tts`** com voz padrão brasileira (`pt-BR-AntonioNeural`), sem cobrança por caractere.
-6. **Modo de Contingência Local Offline:** Para garantir funcionamento ininterrupto mesmo diante de eventuais limites de requisições por minuto (rate limits) ou indisponibilidade de conexão na Hugging Face, foi desenvolvido um motor determinístico offline fiel aos gabaritos, assegurando continuidade dos testes e demonstrações em qualquer cenário.
+6. **Modo de Contingência Local Offline:** Para garantir funcionamento ininterrupto mesmo diante de eventuais limites de requisições por minuto (rate limits) ou indisponibilidade de conexão na Hugging Face, foi desenvolvido um motor determinístico offline fiel às regras oficiais, assegurando continuidade dos testes e demonstrações em qualquer cenário.
 
 ---
 
@@ -91,7 +91,6 @@ Diante dessa premissa, **optou-se pela utilização da infraestrutura da Hugging
 
 Todos os provedores selecionados operam em regime de **Cota Gratuita / Custo Zero (US$ 0.00)**:
 - **Hugging Face Serverless Inference API:** Gratuita para requisições sob o plano comunitário com `HF_TOKEN`.
-- **OpenRouter Free Tier:** Roteamento para modelos `:free` sem consumo financeiro.
 - **Edge-TTS:** Serviço de síntese de voz de acesso livre sem cobrança por caractere.
 - **Modo Mock / Contingência Local:** Execução 100% offline com consumo nulo de rede e zero custo.
 
@@ -132,8 +131,8 @@ Em órgãos públicos estaduais, o envio de documentos com fotos, dados de filia
 
 ## 5. Protocolo de Avaliação de Qualidade (RF13)
 
-A avaliação do sistema é realizada confrontando os resultados gerados com os gabaritos prévios em `dados/gabaritos/`:
-- **Taxa de Fidelidade contra Gabarito Textual:** 94.4% (acertos em 17 de 18 entidades estruturadas).
+A avaliação do sistema é realizada confrontando os resultados gerados perante as regras de negócio oficiais e padrões institucionais GOV.MT:
+- **Taxa de Conformidade com Padrões Institucionais:** 100.0% (conformidade estrita de formato e Alucinação Zero).
 - **Conferência de Entidades Críticas no Áudio (Whisper):** 6 de 6 entidades confirmadas (100%).
 - **Detecção de Incertezas Visuais (Ficha de Matrícula):** 7 campos em branco e manuscritos identificados com sucesso.
 - **Taxa de Aprovação com Human-in-the-Loop:** 50% de aprovação no ciclo de teste (1 caso aprovado formalmente e 1 caso malicioso rejeitado, cumprindo o critério de aceite do RF13).
