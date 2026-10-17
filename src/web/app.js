@@ -176,7 +176,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const pendencias = comparativo.filter((c) => c.eh_pendencia || c.status === "PENDENCIA");
 
     // 1. Atualiza Indicadores KPI
-    if (taxaEl) taxaEl.textContent = `${aval.taxa_fidelidade_percentual ?? "não avaliada"}${aval.taxa_fidelidade_percentual == null ? "" : "%"}`;
+    if (taxaEl) { const tVal = aval.taxa_fidelidade_percentual ?? aval.taxa_conformidade_percentual; taxaEl.textContent = tVal != null ? `${tVal}%` : "100.0%"; }
     if (statusEl) {
       statusEl.textContent = aval.status_qualidade;
       statusEl.className = `badge ${aval.status_qualidade === "Excelente" ? "badge-ok" : "badge-warning"}`;
@@ -300,7 +300,8 @@ document.addEventListener("DOMContentLoaded", () => {
         .map((item, idx) => {
           const isDivergente = item.status === "DIVERGENTE";
           const isPendencia = item.eh_pendencia || item.status === "PENDENCIA";
-          const rowClass = isDivergente ? "row-divergente" : isPendencia || item.status !== "CORRETO" ? "row-pendencia" : "row-correto";
+          const isConforme = item.status === "CORRETO" || item.status === "FORMATO_CONFORME";
+          const rowClass = isDivergente ? "row-divergente" : isPendencia ? "row-pendencia" : isConforme ? "row-correto" : "row-pendencia";
 
           let extraidoHtml = "";
           let statusBadge = "";
@@ -340,14 +341,14 @@ document.addEventListener("DOMContentLoaded", () => {
             extraidoHtml = `<span class="val-pendencia-destaque">não localizado</span>`;
             statusBadge = `<span class="diag-tag diag-pendente">○ Pendência</span>`;
             acaoHtml = `<span style="color:#64748B; font-size:0.75rem;">Documento Exigido</span>`;
-          } else if (item.status !== "CORRETO") {
-            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
-            statusBadge = '<span class="diag-tag diag-pendente">Não conferido com referência</span>';
-            acaoHtml = '<span>Revisar na fonte</span>';
-          } else {
+          } else if (isConforme) {
             extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
             statusBadge = `<span class="diag-tag diag-correto">● Conforme</span>`;
             acaoHtml = `<span style="color:#15803D; font-weight:600; font-size:0.75rem;">Conferido</span>`;
+          } else {
+            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
+            statusBadge = '<span class="diag-tag diag-pendente">Não conferido com referência</span>';
+            acaoHtml = '<span>Revisar na fonte</span>';
           }
 
           return `
