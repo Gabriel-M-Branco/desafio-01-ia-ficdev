@@ -249,11 +249,16 @@ def processar_texto(requisicao: RequisicaoTexto):
     elif requisicao.caso in {"texto_original", "audio_transcricao", "visao_documento"}:
         referencias = {"audio_transcricao": "gabarito_audio.json", "visao_documento": "gabarito_visao.json"}
         gabarito_path = resolver_caminho("dados/gabaritos/" + referencias.get(requisicao.caso, "gabarito_texto.json"))
-        if gabarito_path.exists():
-            with open(gabarito_path, "r", encoding="utf-8") as f:
-                gabarito = json.load(f)
-            avaliacao = QualityEvaluator.avaliar_extracao(extracao, {"campos_esperados":
-                gabarito.get("campos_esperados", gabarito.get("entidades_criticas", {}))})
+        if gabarito_path.is_file():
+            try:
+                with open(gabarito_path, "r", encoding="utf-8") as f:
+                    gabarito = json.load(f)
+                avaliacao = QualityEvaluator.avaliar_extracao(extracao, {"campos_esperados":
+                    gabarito.get("campos_esperados", gabarito.get("entidades_criticas", {}))})
+            except Exception:
+                avaliacao = QualityEvaluator.avaliar_conformidade_regras(extracao)
+        else:
+            avaliacao = QualityEvaluator.avaliar_conformidade_regras(extracao)
 
     rel_pdf = f"resultados/minutas/minuta_{sufixo}.pdf"
 
@@ -450,7 +455,10 @@ def executar_pipeline_completo():
     # 1. Experimento de Engenharia de Prompts (RF02)
     print("\n[RF02] Executando Experimento de Engenharia de Prompts (A, B e C)...")
     res_exp = rodar_experimento_prompts()
-    print(f" -> Experimento concluído com sucesso. Prompt selecionado: {res_exp['prompt_selecionado']}")
+    if isinstance(res_exp, JSONResponse) or not isinstance(res_exp, dict):
+        print(" -> Experimento de prompts registrado / modo contingência ativo.")
+    else:
+        print(f" -> Experimento concluído com sucesso. Prompt selecionado: {res_exp.get('prompt_selecionado', 'Pendente de avaliação')}")
 
     # 2. Processamento do Caso Principal de Texto (RF03, RF05, RF09)
     print("\n[RF03 / RF05 / RF09] Processando caso principal de texto (entrada_texto.txt)...")

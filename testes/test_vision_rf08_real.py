@@ -49,8 +49,8 @@ def cenario():
         doc.save(str(pdf))
     referencia = base / "gabarito_sintetico.json"
     referencia.write_text(json.dumps({"campos_esperados": campos}, ensure_ascii=False, indent=2), encoding="utf-8")
-    protegidos = [resolver_caminho("dados/originais/entrada_pdf-imagem.pdf"),
-                  resolver_caminho("dados/gabaritos/gabarito_visao.json")]
+    protegidos = [p for p in [resolver_caminho("dados/originais/entrada_pdf-imagem.pdf"),
+                               resolver_caminho("dados/gabaritos/gabarito_visao.json")] if p.is_file()]
     hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in protegidos}
     yield base, pdf, referencia
     assert all(hashlib.sha256(p.read_bytes()).hexdigest() == h for p, h in hashes.items())

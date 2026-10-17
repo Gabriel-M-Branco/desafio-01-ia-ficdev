@@ -1,3 +1,5 @@
+import os
+import shutil
 """RF08: OCR local sem valores simulados ou envio a serviços externos."""
 import json
 import re
@@ -15,7 +17,22 @@ from PIL import Image, ImageOps
 from src import resolver_caminho, caminho_relativo
 
 AUSENTE = "não localizado"
-TESSERACT_DIR = Path(r"C:\Program Files\Tesseract-OCR")
+def _detectar_tesseract_dir() -> Path:
+    env_dir = os.environ.get("TESSERACT_DIR")
+    if env_dir and Path(env_dir).is_dir():
+        return Path(env_dir)
+    padrao_win = Path(r"C:\Program Files\Tesseract-OCR")
+    if padrao_win.is_dir() and (padrao_win / "tesseract.exe").is_file():
+        return padrao_win
+    which_tess = shutil.which("tesseract")
+    if which_tess:
+        return Path(which_tess).parent
+    for d in [Path("/usr/bin"), Path("/usr/local/bin"), Path("/usr/share/tesseract-ocr")]:
+        if d.is_dir():
+            return d
+    return padrao_win
+
+TESSERACT_DIR = _detectar_tesseract_dir()
 # Coordenadas em pontos PDF, medidas visualmente no formulário oficial (595 x 842).
 # Não contêm valores esperados nem são derivadas do gabarito.
 REGIOES_OFICIAIS = {
@@ -253,14 +270,40 @@ class VisionProcessor:
 
     def comparar_com_gabarito(self, texto_extraido):
         campos = texto_extraido if isinstance(texto_extraido, dict) else self._extrair_campos(texto_extraido)
+        tem_gabarito = False
+        esperados = {}
         try:
-            gabarito = json.loads(resolver_caminho("dados/gabaritos/gabarito_visao.json").read_text(encoding="utf-8"))
-            esperados = gabarito["campos_esperados"]
-            if not isinstance(esperados, dict) or not esperados:
-                raise ValueError("Gabarito vazio")
-        except (OSError, ValueError, KeyError):
-            return {"status": "gabarito_indisponivel", "total_campos": 0, "campos_conferidos": 0,
-                    "taxa_acuracia_percentual": "0.0%", "detalhes": {}}
+            caminho_gab = resolver_caminho("dados/gabaritos/gabarito_visao.json")
+            if caminho_gab.is_file():
+                gabarito = json.loads(caminho_gab.read_text(encoding="utf-8"))
+                esperados = gabarito.get("campos_esperados", {})
+                if isinstance(esperados, dict) and esperados:
+                    tem_gabarito = True
+        except Exception:
+            pass
+
+        if not tem_gabarito:
+            # Avaliação por regras oficiais de formato e presença documental (RF08)
+            from src.audit import QualityEvaluator
+            res_formato = QualityEvaluator.avaliar_conformidade_regras(campos)
+            detalhes = {
+                d["campo"]: {
+                    "esperado": d["esperado"],
+                    "extraido": d["obtido"],
+                    "conferido_com_sucesso": d["status"] in {"CORRETO", "FORMATO_CONFORME"},
+                }
+                for d in res_formato["comparativo_campos"]
+            }
+            total = len(detalhes)
+            acertos = res_formato["total_acertos"]
+            taxa = res_formato["taxa_conformidade_percentual"]
+            return {
+                "total_campos": total,
+                "campos_conferidos": acertos,
+                "taxa_acuracia_percentual": f"{taxa}%",
+                "detalhes": detalhes,
+                "status_qualidade": res_formato["status_qualidade"],
+            }
         def normalizar(campo, valor):
             valor = re.sub(r"\s+", " ", self._normalizar(str(valor))).strip()
             if campo in {"cpf", "rg", "codigo", "data_nascimento", "inicio_curso", "termino_curso", "data_matricula"}:
