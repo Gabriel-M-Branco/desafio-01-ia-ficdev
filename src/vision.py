@@ -1,5 +1,8 @@
 """RF08: OCR local sem valores simulados ou envio a serviços externos."""
 import json
+import os
+import sys
+import shutil
 import re
 import time
 import unicodedata
@@ -15,7 +18,32 @@ from PIL import Image, ImageOps
 from src import resolver_caminho, caminho_relativo
 
 AUSENTE = "não localizado"
-TESSERACT_DIR = Path(r"C:\Program Files\Tesseract-OCR")
+def _detectar_tesseract_dir() -> Optional[Path]:
+    """
+    Localiza o diretório do Tesseract de forma dinâmica e independente de SO.
+    Localiza o executável do Tesseract no sistema operacional.
+    """
+    # 1. Variável de ambiente explícita de sobreposição (se configurada)
+    env_dir = os.environ.get("TESSERACT_DIR")
+    if env_dir and Path(env_dir).is_dir():
+        return Path(env_dir)
+    # 2. Busca dinâmica no PATH do sistema operacional (agnóstico a SO)
+    which_tess = shutil.which("tesseract") or shutil.which("tesseract.exe")
+    if which_tess:
+        return Path(which_tess).parent
+    # 3. Caminhos canônicos do sistema somente se fisicamente existentes
+    if sys.platform == "win32":
+        pf = os.environ.get("ProgramFiles") or r"C:\Program Files"
+        candidato = Path(pf) / "Tesseract-OCR"
+        if candidato.is_dir():
+            return candidato
+    else:
+        for d in [Path("/usr/bin"), Path("/usr/local/bin"), Path("/usr/share/tesseract-ocr")]:
+            if d.is_dir() and (d / "tesseract").is_file():
+                return d
+    return None
+
+TESSERACT_DIR = _detectar_tesseract_dir()
 # Coordenadas em pontos PDF, medidas visualmente no formulário oficial (595 x 842).
 # Não contêm valores esperados nem são derivadas do gabarito.
 REGIOES_OFICIAIS = {
@@ -51,6 +79,63 @@ ROTULOS = {
 
 
 class VisionProcessor:
+    @classmethod
+    def obter_executavel_tesseract(cls) -> Path:
+        """Localiza dinamicamente o executável do Tesseract de forma agnóstica ao SO."""
+        # 1. Se TESSERACT_DIR estiver definido (ou mockado em testes unitários)
+        if TESSERACT_DIR:
+            if (TESSERACT_DIR / "tesseract.exe").is_file():
+                return TESSERACT_DIR / "tesseract.exe"
+            if (TESSERACT_DIR / "tesseract").is_file():
+                return TESSERACT_DIR / "tesseract"
+            if sys.platform == "win32":
+                return TESSERACT_DIR / "tesseract.exe"
+            return TESSERACT_DIR / "tesseract"
+
+        # 2. Busca dinâmica no PATH do sistema operacional (independente de SO)
+        nomes_busca = ["tesseract.exe", "tesseract"] if sys.platform == "win32" else ["tesseract", "tesseract.exe"]
+        for nome in nomes_busca:
+            local = shutil.which(nome)
+            if local:
+                return Path(local)
+
+        # 3. Caminhos canônicos do SO somente se fisicamente existentes
+        if sys.platform == "win32":
+            pf = os.environ.get("ProgramFiles") or r"C:\Program Files"
+            padrao_win = Path(pf) / "Tesseract-OCR" / "tesseract.exe"
+            if padrao_win.is_file():
+                return padrao_win
+        else:
+            for p in [Path("/usr/bin/tesseract"), Path("/usr/local/bin/tesseract")]:
+                if p.is_file():
+                    return p
+
+        # 4. Fallback padrão pelo nome do comando no PATH do SO
+        return Path("tesseract.exe" if sys.platform == "win32" else "tesseract")
+
+    @classmethod
+    def obter_tessdata_dir(cls) -> Path:
+        """Localiza a pasta de modelos treinados (tessdata) com prioridade a TESSDATA_PREFIX."""
+        # 1. Subdiretório tessdata em TESSERACT_DIR (se configurado ou mockado em testes)
+        if TESSERACT_DIR and (TESSERACT_DIR / "tessdata").is_dir():
+            return TESSERACT_DIR / "tessdata"
+        # 2. Variável de ambiente padrão internacional do Tesseract
+        env_prefix = os.environ.get("TESSDATA_PREFIX")
+        if env_prefix and Path(env_prefix).is_dir():
+            return Path(env_prefix)
+        # 3. Caminhos canônicos em distribuições Linux (Debian, Ubuntu, Docker)
+        for d in [
+            Path("/usr/share/tesseract-ocr/5/tessdata"),
+            Path("/usr/share/tesseract-ocr/4.00/tessdata"),
+            Path("/usr/share/tesseract-ocr/tessdata"),
+            Path("/usr/share/tessdata"),
+        ]:
+            if d.is_dir() and (d / "por.traineddata").is_file():
+                return d
+        if TESSERACT_DIR:
+            return TESSERACT_DIR / "tessdata"
+        return Path("tessdata")
+
     def __init__(self, config_path="config.json"):
         try:
             self.config = json.loads(resolver_caminho(config_path).read_text(encoding="utf-8"))
@@ -106,7 +191,7 @@ class VisionProcessor:
 
     def _executar_tesseract(self, png, tessdata, psm, dpi):
         processo = subprocess.run(
-            [str(TESSERACT_DIR / "tesseract.exe"), "stdin", "stdout", "--tessdata-dir", str(tessdata),
+            [str(self.obter_executavel_tesseract()), "stdin", "stdout", "--tessdata-dir", str(tessdata),
              "-l", "por", "--dpi", str(dpi), "--psm", str(psm)],
             input=png, capture_output=True, timeout=90,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
@@ -158,8 +243,8 @@ class VisionProcessor:
                     {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
                     or not 0 < path.stat().st_size <= 50 * 1024 * 1024):
                 return falha("arquivo_invalido", "Documento ausente, vazio, muito grande ou formato inválido.")
-            tessdata = TESSERACT_DIR / "tessdata"
-            if not (TESSERACT_DIR / "tesseract.exe").is_file() or not (tessdata / "por.traineddata").is_file():
+            tessdata = self.obter_tessdata_dir()
+            if not self.obter_executavel_tesseract().is_file() or not (tessdata / "por.traineddata").is_file():
                 return falha("ocr_indisponivel", "Tesseract e idioma português não localizados no diretório configurado.")
             paginas = []
             hash_original = hashlib.sha256(path.read_bytes()).hexdigest()

@@ -14,6 +14,22 @@ from src.llm_client import LLMClient, LLMResponse
 from src.prompts import SegurancaPrompts
 
 
+def test_referencia_prompts_nao_inventa_tempos():
+    from src.main import obter_experimento_prompts
+    referencia = obter_experimento_prompts()
+    assert referencia["is_referencia"] is True
+    assert all(r["duracao_segundos"] is None for r in referencia["resultados"].values())
+
+
+def test_prompt_pendencias_nao_prescreve_documentos_fixos():
+    from src.prompts import montar_prompt
+    for tipo in ("B", "C"):
+        prompt = montar_prompt("Pedido fictício sem lista oficial", tipo)
+        assert "Fotos 3x4" not in prompt
+        assert "10 primeiros dias" not in prompt
+        assert "não invente" in prompt.lower() or "nunca criar" in prompt.lower()
+
+
 @pytest.fixture
 def llm(monkeypatch):
     monkeypatch.setenv("TEXT_PROVIDER", "huggingface")
@@ -210,6 +226,21 @@ def web(tmp_path, monkeypatch):
     import src.main as main
     monkeypatch.setattr(main, "audit_logger", AuditLogger(str(tmp_path/"logs")))
     monkeypatch.setattr(main.app, "dependency_overrides", {})
+    t_proc = tmp_path / "dados" / "processados"
+    t_minutas = tmp_path / "resultados" / "minutas"
+    t_proc.mkdir(parents=True, exist_ok=True)
+    t_minutas.mkdir(parents=True, exist_ok=True)
+    orig_resolver = main.resolver_caminho
+    def mock_resolver(caminho):
+        p_str = str(caminho).replace("\\", "/")
+        if "dados/processados" in p_str:
+            rel = p_str.split("dados/processados", 1)[1].lstrip("/")
+            return t_proc / rel if rel else t_proc
+        if "resultados/minutas" in p_str:
+            rel = p_str.split("resultados/minutas", 1)[1].lstrip("/")
+            return t_minutas / rel if rel else t_minutas
+        return orig_resolver(caminho)
+    monkeypatch.setattr(main, "resolver_caminho", mock_resolver)
     async def enviar(metodo, url, **kwargs):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://teste") as cliente:
             return await cliente.request(metodo,url,**kwargs)

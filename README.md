@@ -52,3 +52,11 @@ Docker/Linux necessita OCR, fontes e TTS compatível; SAPI5 depende de Windows. 
 RF10 no navegador continua bloqueado por falta de autenticação real. O [executor Windows isolado](documentacao/teste_local_rf10.md)
 é exclusivo para testes e não concede acesso às rotas normais. Não há publicação automática.
 Pendências: autenticação do grupo, revisão das saídas reais e qualidade do PDF oficial.
+
+## Integração da main (17/10/2026)
+Incorporadas melhorias de portabilidade do Tesseract, dependências OCR no Docker,
+responsividade, formatação visual de identificadores e testes temporários.
+A formatação do painel não altera JSON, minuta, métricas ou aprovação.
+Referências RF02 são históricas, sem tempos ou ranking presumidos.
+Rejeitados preenchimento fixo de OCR, parser permissivo, STT OpenRouter e geração
+implícita de imagem pelo pipeline. Gabaritos e evidências anteriores preservados.

@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     curl \
+    tesseract-ocr \
+    tesseract-ocr-por \
     && rm -rf /var/lib/apt/lists/*
+
+# Define o prefixo canônico do tessdata no Debian/Ubuntu
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
 
 # Copia e instala as dependências Python
 COPY requirements.txt .

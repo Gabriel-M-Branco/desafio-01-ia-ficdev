@@ -12,6 +12,26 @@ document.addEventListener("DOMContentLoaded", () => {
   let sintetizando = false;
   let exportando = false;
   let carregandoCaso = false;
+  let formatoVisual = "original";
+  let conferenciaAtual = null;
+
+  // Apenas apresentação: não altera extração, minuta, métricas ou aprovação.
+  function apresentarIdentificador(campo, valor) {
+    const texto = String(valor ?? "");
+    if (campo !== "cpf" && campo !== "rg") return texto;
+    if (!/^[\d.\s-]+$/.test(texto)) return texto;
+    const digitos = texto.replace(/\D/g, "");
+    if (formatoVisual === "digitos") return digitos;
+    if (formatoVisual === "mascara" && campo === "cpf" && digitos.length === 11)
+      return digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    return texto;
+  }
+  for (const [id, formato] of [["btn-aplicar-mascaras-todas", "mascara"], ["btn-aplicar-digitos-todas", "digitos"]]) {
+    document.getElementById(id)?.addEventListener("click", () => {
+      formatoVisual = formato;
+      if (conferenciaAtual) renderizarPainelConferencia(...conferenciaAtual);
+    });
+  }
 
   function mensagemSegura(data, status) {
     let detalhe = data?.detail ?? data?.erro;
@@ -238,6 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Função Especializada para o Painel de Conferência de Dados (RF13)
   function renderizarPainelConferencia(aval, extracao) {
+    conferenciaAtual = [aval, extracao];
     if (!aval) return;
 
     const banner = document.getElementById("banner-conferencia-operador");
@@ -412,7 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const formatoTexto = FORMATOS_MAP[item.campo] ? `<span class="formato-hint">Formato: ${FORMATOS_MAP[item.campo]}</span>` : "";
 
           if (isDivergente) {
-            extraidoHtml = `<span class="val-extraido-erro" id="val-extraido-${idx}">${esc(item.obtido || "Vazio")}</span>`;
+            extraidoHtml = `<span class="val-extraido-erro" id="val-extraido-${idx}">${esc(apresentarIdentificador(item.campo, item.obtido || "Vazio"))}</span>`;
             statusBadge = `<span class="diag-tag diag-divergente">▲ Divergente</span>`;
             acaoHtml = `<button type="button" class="btn-corrigir-inline" data-idx="${idx}" data-campo="${esc(item.campo)}" data-esperado="${esc(item.esperado)}" data-obtido="${esc(item.obtido)}">Aplicar Correção</button>`;
           } else if (isPendencia) {
@@ -420,11 +441,11 @@ document.addEventListener("DOMContentLoaded", () => {
             statusBadge = `<span class="diag-tag diag-pendente">○ Pendência</span>`;
             acaoHtml = `<span style="color:#64748B; font-size:0.75rem;">Documento Exigido</span>`;
           } else if (item.status !== "CORRETO") {
-            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
+            extraidoHtml = `<strong>${esc(apresentarIdentificador(item.campo, item.obtido))}</strong>`;
             statusBadge = '<span class="diag-tag diag-pendente">Não conferido com referência</span>';
             acaoHtml = '<span>Revisar na fonte</span>';
           } else {
-            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
+            extraidoHtml = `<strong>${esc(apresentarIdentificador(item.campo, item.obtido))}</strong>`;
             statusBadge = `<span class="diag-tag diag-correto">● Conforme</span>`;
             acaoHtml = `<span style="color:#15803D; font-weight:600; font-size:0.75rem;">Conferido</span>`;
           }

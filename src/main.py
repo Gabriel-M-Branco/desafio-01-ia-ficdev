@@ -375,7 +375,7 @@ def sintetizar_audio(req: RequisicaoSintese):
                             detail=resultado.get("erro", "Erro na síntese."))
     return {
         "sucesso": True,
-        "url_audio": f"/arquivos/{resultado['caminho_arquivo'].replace('\\', '/')}",
+        "url_audio": f"/arquivos/" + str(resultado['caminho_arquivo']).replace('\\', '/'),
         "detalhes": resultado,
     }
 
@@ -393,6 +393,26 @@ def registrar_decisao_humana(req: RequisicaoDecisaoHumana):
     if not sucesso:
         raise HTTPException(status_code=404, detail="Identificador de execução não encontrado.")
     return {"sucesso": True, "mensagem": f"Decisão '{req.decisao}' registrada com sucesso."}
+
+
+@app.get("/api/experimento/prompts")
+def obter_experimento_prompts():
+    """Retorna os dados e saídas de referência do experimento de prompts (RF02)."""
+    prompts_dir = resolver_caminho("prompts")
+    def ler(nome):
+        p = prompts_dir / nome
+        return p.read_text(encoding="utf-8") if p.exists() else ""
+    return {
+        "sucesso": True,
+        "is_referencia": True,
+        "resultados": {
+            "prompt_a": {"texto": ler("saida_prompt_a.txt"), "duracao_segundos": None},
+            "prompt_b": {"texto": ler("saida_prompt_b.txt"), "duracao_segundos": None},
+            "prompt_c": {"texto": ler("saida_prompt_c.txt"), "duracao_segundos": None},
+        },
+        "prompt_selecionado": "Referência histórica; avaliação humana necessária",
+        "matriz_comparativa": ler("matriz_comparativa.md"),
+    }
 
 
 @app.post("/api/experimento/prompts")

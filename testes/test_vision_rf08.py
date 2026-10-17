@@ -8,6 +8,15 @@ from src import vision
 from src.audit import AuditLogger
 
 
+def test_descoberta_tesseract_nao_depende_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(vision, "TESSERACT_DIR", tmp_path)
+    (tmp_path / "tesseract.exe").write_bytes(b"executavel ficticio")
+    (tmp_path / "tessdata").mkdir()
+    monkeypatch.setattr(vision.shutil, "which", lambda _: None)
+    assert vision.VisionProcessor.obter_executavel_tesseract() == tmp_path / "tesseract.exe"
+    assert vision.VisionProcessor.obter_tessdata_dir() == tmp_path / "tessdata"
+
+
 @pytest.fixture
 def ocr(tmp_path, monkeypatch):
     tess = tmp_path / "tesseract"

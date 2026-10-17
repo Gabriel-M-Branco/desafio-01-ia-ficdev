@@ -24,7 +24,7 @@ def main():
         destino = Path(tmp)
         for nome in ["config.json", "pytest.ini", ".env.example"]:
             shutil.copy2(raiz / nome, destino / nome)
-        for nome in ["testes", "dados/originais", "dados/gabaritos", "resultados/imagens", "src/web"]:
+        for nome in ["testes", "dados/originais", "dados/gabaritos", "resultados/imagens", "src/web", "prompts"]:
             shutil.copytree(raiz / nome, destino / nome)
         anterior, base = Path.cwd(), src.BASE_DIR
         os.chdir(destino)
