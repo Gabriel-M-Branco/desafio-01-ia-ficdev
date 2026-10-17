@@ -5,10 +5,8 @@
     "solicitante": "Marcos Vinícius de Almeida Santos",
     "cpf": "123.456.789-00",
     "rg": "1234567-8",
-    "orgao_expedidor": "não localizado",
     "data_nascimento": "12/08/2008",
     "naturalidade": "Cuiabá",
-    "uf": "não localizado",
     "nome_mae": "Lúcia Helena de Almeida Santos",
     "nome_pai": "não localizado",
     "curso": "Técnico em Enfermagem",
@@ -18,11 +16,9 @@
     "inicio_curso": "01/02/2027",
     "email": "marcos.almeida.teste@examplo.com",
     "telefone": "não localizado",
-    "assunto": "Efetivação de matrícula e consulta de pendências documentais",
-    "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e esclarecimento sobre quais documentos ainda precisam ser apresentados.",
-    "categoria": "Matrícula e Ingresso",
-    "confianca": "alta",
-    "necessidade_revisao_humana": true
+    "assunto": "Solicitação de efetivação de matrícula no curso Técnico em Enfermagem (eixo tecnológico Saúde, 1200 horas, turno noturno, início em 01/02/2027), com data de matrícula informada em 14/10/2026, e pedido de informação sobre documentos pendentes.",
+    "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e informação, pela instituição, de quais documentos ainda precisam ser apresentados. O solicitante declara ciência de que a matrícula será automaticamente cancelada caso falte, sem justificativa comprovada, nos dois primeiros dias de aula consecutivos ou em três dias de aula, consecutivos ou não, nos dez primeiros dias de aula.",
+    "categoria": "Matrícula e Ingresso"
   },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\n\nCOMUNICADO OFICIAL DE ATENDIMENTO\nProtocolo: 2026-000142 | Data: 14/10/2026\n\nPrezado(a) Marcos Vinícius de Almeida Santos,\n\nAcusamos o recebimento de sua manifestação formal referente à solicitação de matrícula no curso Técnico em Enfermagem (Eixo Tecnológico: Saúde, Carga Horária: 1200 horas, Turno: Noturno), com início previsto para 01/02/2027.\n\nInformamos que seu registro inicial foi localizado em nosso sistema sob o protocolo 2026-000142. Para a efetivação definitiva e validação cadastral, solicitamos a apresentação dos seguintes documentos complementares na secretaria escolar:\n1. Cópia do documento oficial de identidade com menção ao Órgão Expedidor (não localizado na documentação inicial);\n2. Comprovante de naturalidade e UF (não localizado);\n3. Dados de contato telefônico atualizado (não localizado).\n\nReiteramos a ciência manifestada sobre o regimento escolar: a matrícula será automaticamente cancelada caso ocorra falta sem justificativa comprovada nos dois primeiros dias letivos consecutivos ou em três dias nos primeiros dez dias letivos.\n\nArquivos de origem consultados: entrada_texto.txt e ficha cadastral 2026-000142.\n\nAtenciosamente,\n\nCoordenação de Registros Escolares\nEscola Técnica Estadual de Cuiabá\nSECITECI - Governo de Mato Grosso"
+  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO – SECITECI/MT\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\n\nCuiabá/MT, 14 de outubro de 2026.\n\nProtocolo: 2026-000142\n\nAo Senhor\nMarcos Vinícius de Almeida Santos\nE-mail: marcos.almeida.teste@examplo.com\n\nAssunto: Manifestação nº 2026-000142 – Efetivação de matrícula no curso Técnico em Enfermagem\n\nPrezado Senhor,\n\nEm atendimento à manifestação de nº 2026-000142, recebida em 14/10/2026, por meio do canal de e-mail, a Escola Técnica Estadual de Cuiabá, vinculada à Secretaria de Estado de Ciência, Tecnologia e Inovação – SECITECI/MT, registra o recebimento do pedido de efetivação de matrícula no curso Técnico em Enfermagem, eixo tecnológico Saúde, com carga horária de 1200 horas, turno noturno, com início previsto para 01/02/2027, conforme dados constantes na manifestação.\n\nInformamos que a solicitação será encaminhada à setor competente para análise e providências, observados os procedimentos internos da instituição. Quanto à relação de documentos pendentes, esclarecemos que tal informação não consta do teor da manifestação, de modo que será comunicada ao solicitante pela Escola Técnica Estadual de Cuiabá, no momento da conferência da documentação, por meio do e-mail informado.\n\nRegistramos que o solicitante declarou ciência de que a matrícula será automaticamente cancelada caso falte, sem justificativa comprovada, nos dois primeiros dias de aula consecutivos ou em três dias de aula, consecutivos ou não, nos dez primeiros dias de aula.\n\nDiante do exposto, solicitamos a gentileza de acompanhar o retorno por este mesmo canal e, caso seja necessário, apresentar os documentos solicitados, bem como indicar telefone para contato, não informado na manifestação.\n\nPermanecemos à disposição para quaisquer esclarecimentos adicionais, reafirmando o compromisso do Governo do Estado de Mato Grosso com a transparência e a qualidade do atendimento ao cidadão.\n\nAtenciosamente,\n\nServidor Público – Atendimento ao Cidadão\nEscola Técnica Estadual de Cuiabá\nSecretaria de Estado de Ciência, Tecnologia e Inovação – SECITECI/MT\nGoverno do Estado de Mato Grosso"
 }

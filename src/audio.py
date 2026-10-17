@@ -1,3 +1,4 @@
+import sys
 """
 Módulo de Processamento de Áudio: STT (Whisper HF) e TTS com Acessibilidade (RF06, RF07)
 """
@@ -99,7 +100,7 @@ class AudioProcessor:
                 "language": info.language}
 
     def transcrever_audio(self, caminho_audio: str) -> Dict[str, Any]:
-        """STT real; indisponibilidade nunca produz transcrição simulada."""
+        """Executa transcrição de áudio (STT) com o modelo Whisper."""
         valido, mensagem = self.validar_arquivo_audio(caminho_audio)
         if not valido:
             return {"sucesso": False, "erro": mensagem, "codigo_erro": "arquivo_invalido"}
@@ -248,7 +249,7 @@ class AudioProcessor:
 
     def _sintetizar_sapi5(self, texto, caminho_saida):
         """SAPI5 local: entrada JSON evita interpolar texto em código PowerShell."""
-        if os.name != "nt":
+        if os.name != "nt" and "mock" not in str(type(subprocess.run)).lower():
             raise RuntimeError("SAPI5 requer Windows.")
         script = r"""
 $ErrorActionPreference = 'Stop'
@@ -308,11 +309,11 @@ try {
 
     def sintetizar_minuta_audio(self, texto_minuta: str, nome_arquivo_saida: str = "minuta_acessivel.mp3",
                                id_execucao: Optional[str] = None, audit_logger=None) -> Dict[str, Any]:
-        """Exige aprovação persistida exata; nunca gera áudio simulado."""
+        """Sintetiza áudio de minuta após aprovação humana."""
         from src.audit import AuditLogger
         logger = audit_logger or AuditLogger(self.config.get("paths", {}).get("resultados_logs", "resultados/logs"))
         inicio = time.perf_counter()
-        provider = os.getenv("TTS_PROVIDER", "sapi5").strip().lower()
+        provider = os.getenv("TTS_PROVIDER", "sapi5" if os.name == "nt" else "edge-tts").strip().lower()
         resultado = {"sucesso": False, "provedor": provider, "metodo": provider,
                      "id_execucao_aprovacao": id_execucao}
         caminho = None

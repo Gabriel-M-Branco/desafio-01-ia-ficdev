@@ -35,9 +35,47 @@ def test_rf02_montagem_prompts():
     prompt_b = montar_prompt(conteudo, "B")
     prompt_c = montar_prompt(conteudo, "C")
 
+    # Prompt A: instrução zero-shot curta
     assert "Extraia as informações" in prompt_a
+
+    # Prompt B: estruturado manualmente com Persona, Contexto, Tarefa, Formato e Critérios
     assert "PERSONA" in prompt_b
+    assert "CONTEXTO" in prompt_b
+    assert "TAREFA" in prompt_b
+    assert "FORMATO DE SAÍDA" in prompt_b
+    assert "CRITÉRIOS DE SUCESSO" in prompt_b
+
+    # Prompt C: produzido com auxílio de metaprompt e envelope de isolamento
     assert "<conteudo_nao_confiavel>" in prompt_c
+    from src.prompts import METAPROMPT_C_GERADOR
+    assert "Arquiteto de Software" in METAPROMPT_C_GERADOR
+
+
+def test_rf02_artefatos_experimento():
+    """Valida o critério de aceite do RF02: entradas, saídas e matriz comparativa."""
+    from src.main import resolver_caminho
+    prompts_dir = resolver_caminho("prompts")
+
+    # Entradas
+    assert (prompts_dir / "entrada_prompt_a.txt").exists()
+    assert (prompts_dir / "entrada_prompt_b.txt").exists()
+    assert (prompts_dir / "entrada_prompt_c.txt").exists()
+    assert (prompts_dir / "metaprompt_c.txt").exists()
+
+    # Saídas
+    assert (prompts_dir / "saida_prompt_a.txt").exists()
+    assert (prompts_dir / "saida_prompt_b.txt").exists()
+    assert (prompts_dir / "saida_prompt_c.txt").exists()
+
+    # Matriz Comparativa
+    matriz = (prompts_dir / "matriz_comparativa.md").read_text(encoding="utf-8")
+    assert "Fidelidade ao Contexto" in matriz
+    assert "Dados Inventados" in matriz
+    assert "Formato de Saída" in matriz
+    assert "Tom e Adequação Institucional" in matriz
+    assert "Tratamento de Lacunas" in matriz
+    assert "Tempo até Resultado Utilizável" in matriz
+    assert "Prompt C" in matriz
 
 
 def test_rf03_blindagem_prompt_injection():
@@ -207,8 +245,8 @@ def test_rf10_geracao_peca_visual_hibrida(monkeypatch, tmp_path):
 # ==============================================================================
 # RF11, RF12 & RF13: Rastreabilidade, LGPD e Human-in-the-Loop
 # ==============================================================================
-def test_rf11_e_rf13_auditoria_e_decisao_humana():
-    logger = AuditLogger()
+def test_rf11_e_rf13_auditoria_e_decisao_humana(tmp_path):
+    logger = AuditLogger(log_dir=str(tmp_path / "logs"))
     exec_id = logger.registrar_execucao(
         modalidade="texto",
         arquivo_origem="dados/originais/entrada_texto.txt",
@@ -248,9 +286,9 @@ def test_rf12_matriz_lgpd_e_minimizacao():
     assert cpf_mascarado == "***.456.***-**"
 
 
-def test_rf09_geracao_minuta_pdf():
+def test_rf09_geracao_minuta_pdf(tmp_path):
     from src.pdf_generator import gerar_minuta_pdf
-    saida_pdf = "resultados/minutas/teste_minuta.pdf"
+    saida_pdf = str(tmp_path / "teste_minuta.pdf")
     extracao = {
         "protocolo": "2026-000142",
         "solicitante": "Marcos Vinicius de Almeida Santos",

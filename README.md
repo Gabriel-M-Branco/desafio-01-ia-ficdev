@@ -130,17 +130,9 @@ source .venv/bin/activate
 ### Passo 3: Instalar as Dependências
 
 Com o ambiente virtual ativado:
-
-#### Windows (PowerShell ou CMD):
-```cmd
+```
 pip install -r requirements.txt
 ```
-
-#### Linux e macOS:
-```bash
-pip install -r requirements.txt
-```
-
 ---
 
 ### Passo 4: Configurar Variáveis de Ambiente (.env)
@@ -232,14 +224,20 @@ Para operadores que optarem por interagir via terminal institucional:
 
 ---
 
-### 5.4. Execução Multiplataforma via Docker
+### 5.4. Execução Multiplataforma via Docker (Sem Instalações Locais)
 
-Caso prefira executar em container isolado com `ffmpeg` e todas as dependências pré-configuradas (funciona de forma idêntica em Windows, Linux e macOS):
+Caso queira executar a aplicação sem instalar **Tesseract OCR**, **ffmpeg** ou interpretador Python na máquina física (funciona de forma 100% idêntica em Windows, Linux e macOS):
 
 ```bash
+# Iniciar o servidor Web da Central Inteligente (porta 8000):
 docker compose up --build
+
+# Ou executar o pipeline completo em lote (--run-all):
+docker compose run --rm app python -m src.main --run-all
 ```
 Acesse em: `http://localhost:8000`
+
+Os resultados, minutas e logs de auditoria gerados são mapeados automaticamente para a pasta local `./resultados` via volumes Docker.
 
 ---
 
@@ -247,11 +245,15 @@ Acesse em: `http://localhost:8000`
 
 A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo avaliação de gabarito, segurança de segredos e geração de PDF timbrado:
 
-- **Windows (PowerShell ou CMD):**
-  ```cmd
-  pytest testes/ -v
+- **Execução via Docker (Zero Instalações no Host):**
+  ```bash
+  # Todos os 231 testes com Tesseract Linux embutido:
+  docker compose run --rm app pytest testes/ -v
+
+  # Incluindo extração real de OCR opt-in ponta a ponta:
+  docker compose run --rm -e RF08_REAL=1 app pytest testes/ -v
   ```
-- **Linux e macOS:**
+- **Execução Local (Windows / Linux / macOS):**
   ```bash
   pytest testes/ -v
   ```
@@ -288,7 +290,7 @@ A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo avali
 
 ## 9. Documentação e Entregáveis
 
-- [Relatório Técnico Arquitetural e Custos](file:///c:/Users/branco/Documents/GitHub/desafio-01-ia-ficdev/documentacao/relatorio_tecnico.md)
-- [Registro de Uso de Inteligência Artificial](file:///c:/Users/branco/Documents/GitHub/desafio-01-ia-ficdev/documentacao/registro_uso_ia.md)
-- [Matriz Comparativa do Experimento de Prompts](file:///c:/Users/branco/Documents/GitHub/desafio-01-ia-ficdev/prompts/matriz_comparativa.md)
-- [Diretrizes de Arquitetura e Regras de Negócio](file:///c:/Users/branco/Documents/GitHub/desafio-01-ia-ficdev/AGENTS.md)
+- [Relatório Técnico Arquitetural e Custos](documentacao/relatorio_tecnico.md)
+- [Registro de Uso de Inteligência Artificial](documentacao/registro_uso_ia.md)
+- [Matriz Comparativa do Experimento de Prompts](prompts/matriz_comparativa.md)
+- [Diretrizes de Arquitetura e Regras de Negócio](AGENTS.md)

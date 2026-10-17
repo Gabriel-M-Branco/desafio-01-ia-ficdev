@@ -1,28 +1,35 @@
-{
-  "extracao": {
-    "protocolo": "2026-000142",
-    "data": "14/10/2026",
-    "solicitante": "Marcos Vinícius de Almeida Santos",
-    "cpf": "123.456.789-00",
-    "rg": "1234567-8",
-    "orgao_expedidor": "não localizado",
-    "data_nascimento": "12/08/2008",
-    "naturalidade": "Cuiabá",
-    "uf": "não localizado",
-    "nome_mae": "Lúcia Helena de Almeida Santos",
-    "nome_pai": "não localizado",
-    "curso": "Técnico em Enfermagem",
-    "eixo_tecnologico": "Saúde",
-    "carga_horaria": "1200 horas",
-    "turno": "noturno",
-    "inicio_curso": "01/02/2027",
-    "email": "marcos.almeida.teste@examplo.com",
-    "telefone": "não localizado",
-    "assunto": "Efetivação de matrícula e consulta de pendências documentais",
-    "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e esclarecimento sobre quais documentos ainda precisam ser apresentados.",
-    "categoria": "Matrícula e Ingresso",
-    "confianca": "alta",
-    "necessidade_revisao_humana": true
-  },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\n\nCOMUNICADO OFICIAL DE ATENDIMENTO\nProtocolo: 2026-000142 | Data: 14/10/2026\n\nPrezado(a) Marcos Vinícius de Almeida Santos,\n\nAcusamos o recebimento de sua manifestação formal referente à solicitação de matrícula no curso Técnico em Enfermagem (Eixo Tecnológico: Saúde, Carga Horária: 1200 horas, Turno: Noturno), com início previsto para 01/02/2027.\n\nInformamos que seu registro inicial foi localizado em nosso sistema sob o protocolo 2026-000142. Para a efetivação definitiva e validação cadastral, solicitamos a apresentação dos seguintes documentos complementares na secretaria escolar:\n1. Cópia do documento oficial de identidade com menção ao Órgão Expedidor (não localizado na documentação inicial);\n2. Comprovante de naturalidade e UF (não localizado);\n3. Dados de contato telefônico atualizado (não localizado).\n\nReiteramos a ciência manifestada sobre o regimento escolar: a matrícula será automaticamente cancelada caso ocorra falta sem justificativa comprovada nos dois primeiros dias letivos consecutivos ou em três dias nos primeiros dez dias letivos.\n\nArquivos de origem consultados: entrada_texto.txt e ficha cadastral 2026-000142.\n\nAtenciosamente,\n\nCoordenação de Registros Escolares\nEscola Técnica Estadual de Cuiabá\nSECITECI - Governo de Mato Grosso"
-}
+**Resposta Oficial — Secretaria**
+
+**Assunto:** Requerimento de efetivação de matrícula — Curso Técnico em Enfermagem
+**Protocolo:** 2026-000142
+**Data:** 14/10/2026
+**Canal de atendimento:** E-mail
+
+**Ao cidadão:** Marcos Vinícius de Almeida Santos
+**CPF:** 123.456.789-00 | **RG:** 1234567-8
+**E-mail informado:** marcos.almeida.teste@examplo.com
+
+Prezado(a) Senhor(a),
+
+Em atenção ao seu contato, informamos que o requerimento de efetivação de matrícula no **curso Técnico em Enfermagem**, eixo tecnológico **Saúde**, carga horária de **1.200 horas**, **turno noturno**, com início em **01/02/2027**, foi registrado nesta Secretaria sob o protocolo **2026-000142**, na data de **14/10/2026**.
+
+Foram registrados, ainda, os seguintes dados: nascimento em 12/08/2008, em Cuiabá; nome da mãe, Lúcia Helena de Almeida Santos; e ciência das regras de cancelamento automático da matrícula em caso de falta sem justificativa comprovada nos dois primeiros dias de aula consecutivos ou em três dias de aula, consecutivos ou não, nos dez primeiros dias de aula.
+
+**Documentos pendentes de apresentação:**
+
+1. RG e CPF (original e cópia);
+2. Certidão de nascimento;
+3. Comprovante de residência atualizado;
+4. Histórico escolar ou declaração de conclusão do ensino médio;
+5. Uma foto 3x4 recente;
+6. Título de eleitor e comprovante de quitação eleitoral (maiores de 18 anos);
+7. Comprovante de quitação com o serviço militar (candidatos do sexo masculino, maiores de 18 anos).
+
+Solicitamos, ainda, a **confirmação do endereço de e-mail** informado, pois o mesmo pode conter incorreção, a fim de garantir o recebimento de comunicados sobre a matrícula.
+
+Os documentos deverão ser entregues na Secretaria antes do início das aulas, em 01/02/2027. Em caso de dúvidas, estamos à disposição por este canal, informando sempre o número do protocolo.
+
+Atenciosamente,
+
+**Secretaria de Registro Acadêmico**
+Protocolo 2026-000142

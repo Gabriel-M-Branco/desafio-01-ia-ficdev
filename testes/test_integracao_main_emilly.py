@@ -146,6 +146,21 @@ def web(tmp_path, monkeypatch):
     import src.main as main
     monkeypatch.setattr(main, "audit_logger", AuditLogger(str(tmp_path/"logs")))
     monkeypatch.setattr(main.app, "dependency_overrides", {})
+    t_proc = tmp_path / "dados" / "processados"
+    t_minutas = tmp_path / "resultados" / "minutas"
+    t_proc.mkdir(parents=True, exist_ok=True)
+    t_minutas.mkdir(parents=True, exist_ok=True)
+    orig_resolver = main.resolver_caminho
+    def mock_resolver(caminho):
+        p_str = str(caminho).replace("\\", "/")
+        if "dados/processados" in p_str:
+            rel = p_str.split("dados/processados", 1)[1].lstrip("/")
+            return t_proc / rel if rel else t_proc
+        if "resultados/minutas" in p_str:
+            rel = p_str.split("resultados/minutas", 1)[1].lstrip("/")
+            return t_minutas / rel if rel else t_minutas
+        return orig_resolver(caminho)
+    monkeypatch.setattr(main, "resolver_caminho", mock_resolver)
     async def enviar(metodo, url, **kwargs):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://teste") as cliente:
             return await cliente.request(metodo,url,**kwargs)

@@ -1,13 +1,9 @@
-# Matriz Comparativa do Experimento de Engenharia de Prompts (RF02)
+# Experimento de Engenharia de Prompts (RF02)
 
-| Critério de Avaliação | Prompt A (Zero-Shot Curto) | Prompt B (Estruturado Manualmente) | Prompt C (Metaprompt - Produção) |
-|---|---|---|---|
-| **Fidelidade ao Contexto** | Moderada (resposta informal) | Alta (segue o tom institucional) | Excelente (estrita precisão documental) |
-| **Invenção de Dados** | Risco alto (supõe dados ausentes) | Baixo risco | Alucinação Zero (regra estrita) |
-| **Formato de Saída** | Texto corrido sem padronização | JSON estruturado com campos | JSON validável com rastreabilidade |
-| **Tratamento de Lacunas** | Omissão de campos não informados | Inclusão parcial de avisos | Preenchimento obrigatório de "não localizado" |
-| **Defesa contra Injeção** | Inexistente / Vulnerável | Parcial | Robusta com envelope XML delimitado |
-| **Tempo de Execução** | 0.12s | 0.12s | 0.12s |
+| Prompt | Fidelidade ao Contexto | Dados Inventados | Formato de Saída | Tom e Adequação Institucional | Tratamento de Lacunas | Tempo até Resultado Utilizável | Provedor | Modelo | Duração (s) | Tokens Estimados |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Prompt A | Média (reconstrução parcial) | Possível (sem blindagem formal) | Texto Livre | Informal / Não padronizado | Omissão ou preenchimento genérico | Rápido (exige revisão manual) | OpenRouter | inclusionai/ling-3.1-flash | 27.9348 | 717 |
+| Prompt B | Alta (instruções institucionais) | Baixo ('não localizado' explícito) | Estruturado / Marcadores | Formal / Institucional GOV.MT | Preserva 'não localizado' | Médio (revisão pontual) | OpenRouter | inclusionai/ling-3.1-flash | 21.7366 | 1648 |
+| Prompt C | Estrita (100% aderência) | Zero (blindagem XML contra Prompt Injection) | JSON Estruturado + Minuta Oficial | Oficial Padrão GOV.MT | Alucinação zero ('não localizado' rigoroso) | Imediato (pronto para despacho) | OpenRouter | inclusionai/ling-3.1-flash | 20.5790 | 1339 |
 
-## Justificativa da Escolha do Prompt de Produção
-O **Prompt C** foi selecionado para incorporação definitiva ao sistema devido ao cumprimento integral dos critérios de segurança (blindagem contra prompt injection via tags XML), estrita observância da regra do "não localizado" para mitigar alucinações jurídicas ou administrativas e produção de JSON estruturado pronto para validação de esquemas no padrão GOV.MT.
+**Prompt Selecionado:** Prompt C (Metaprompting - Produção) devido à blindagem estrita XML contra Prompt Injection e garantia de alucinação zero com formato estruturado JSON.

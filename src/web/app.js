@@ -22,6 +22,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (targetId === "tab-auditoria") {
         carregarAuditoriaELgpd();
       }
+      if (targetId === "tab-experimento") {
+        carregarExperimentoPrompts();
+      }
     });
   });
 
@@ -111,8 +114,9 @@ document.addEventListener("DOMContentLoaded", () => {
       btnProcessar.disabled = false;
       btnProcessar.textContent = "Processar Solicitacao (RF03/RF05)";
 
-      if (!data.sucesso) {
-        alert("Erro no processamento: " + (data.erro || "Falha desconhecida"));
+      if (!res.ok || !data.sucesso) {
+        const msgErro = data.erro || data.detail || (data.codigo_erro ? `Código: ${data.codigo_erro}` : "Falha desconhecida na API");
+        alert("Erro no processamento:\n" + msgErro);
         return;
       }
 
@@ -585,6 +589,31 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-rejeitar-minuta")?.addEventListener("click", () => registrarDecisao("REJEITADO"));
 
   // 8. Experimento dos 3 Prompts (RF02)
+  async function carregarExperimentoPrompts() {
+    try {
+      const res = await fetch("/api/experimento/prompts");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sucesso && data.resultados) {
+          if (data.resultados.prompt_a) {
+            document.getElementById("exp-tempo-a").textContent = `${data.resultados.prompt_a.duracao_segundos}s`;
+            document.getElementById("exp-out-a").textContent = data.resultados.prompt_a.texto;
+          }
+          if (data.resultados.prompt_b) {
+            document.getElementById("exp-tempo-b").textContent = `${data.resultados.prompt_b.duracao_segundos}s`;
+            document.getElementById("exp-out-b").textContent = data.resultados.prompt_b.texto;
+          }
+          if (data.resultados.prompt_c) {
+            document.getElementById("exp-tempo-c").textContent = `${data.resultados.prompt_c.duracao_segundos}s`;
+            document.getElementById("exp-out-c").textContent = data.resultados.prompt_c.texto;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Falha ao carregar saídas de referência:", e);
+    }
+  }
+
   const btnExp = document.getElementById("btn-rodar-experimento");
   btnExp?.addEventListener("click", async () => {
     btnExp.disabled = true;
@@ -596,7 +625,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btnExp.disabled = false;
       btnExp.textContent = "Executar Experimento de Prompts";
 
-      if (data.sucesso) {
+      if (res.ok && data.sucesso) {
         document.getElementById("exp-tempo-a").textContent = `${data.resultados.prompt_a.duracao_segundos}s`;
         document.getElementById("exp-tempo-b").textContent = `${data.resultados.prompt_b.duracao_segundos}s`;
         document.getElementById("exp-tempo-c").textContent = `${data.resultados.prompt_c.duracao_segundos}s`;
@@ -604,6 +633,10 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("exp-out-a").textContent = data.resultados.prompt_a.texto;
         document.getElementById("exp-out-b").textContent = data.resultados.prompt_b.texto;
         document.getElementById("exp-out-c").textContent = data.resultados.prompt_c.texto;
+      } else {
+        const msgErro = data.erro || "O provedor remoto de LLM está indisponível ou sem créditos no momento.";
+        alert("Aviso na chamada ao vivo: " + msgErro + "\n\nExibindo saídas de referência homologadas do RF02.");
+        await carregarExperimentoPrompts();
       }
     } catch (e) {
       btnExp.disabled = false;
@@ -611,6 +644,9 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Erro ao rodar experimento: " + e.message);
     }
   });
+
+  // Carrega inicialmente as saídas de referência
+  carregarExperimentoPrompts();
 
   // 9. Multimodal: Audio STT (RF06)
   document.getElementById("btn-processar-audio")?.addEventListener("click", async () => {

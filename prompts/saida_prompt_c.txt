@@ -5,10 +5,8 @@
     "solicitante": "Marcos Vinícius de Almeida Santos",
     "cpf": "123.456.789-00",
     "rg": "1234567-8",
-    "orgao_expedidor": "não localizado",
     "data_nascimento": "12/08/2008",
     "naturalidade": "Cuiabá",
-    "uf": "não localizado",
     "nome_mae": "Lúcia Helena de Almeida Santos",
     "nome_pai": "não localizado",
     "curso": "Técnico em Enfermagem",
@@ -18,11 +16,12 @@
     "inicio_curso": "01/02/2027",
     "email": "marcos.almeida.teste@examplo.com",
     "telefone": "não localizado",
-    "assunto": "Efetivação de matrícula e consulta de pendências documentais",
-    "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e esclarecimento sobre quais documentos ainda precisam ser apresentados.",
+    "assunto": "Solicitação de efetivação de matrícula em curso técnico e pedido de informação sobre documentação pendente",
+    "pedido": "Efetivar a matrícula no curso Técnico em Enfermagem (eixo Saúde, 1200 horas, turno noturno, início em 01/02/2027) e informar quais documentos ainda precisam ser apresentados",
     "categoria": "Matrícula e Ingresso",
-    "confianca": "alta",
-    "necessidade_revisao_humana": true
+    "campos_ausentes": ["nome_pai", "telefone"],
+    "nivel_confianca": "media",
+    "necessidade_revisao": true
   },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\n\nCOMUNICADO OFICIAL DE ATENDIMENTO\nProtocolo: 2026-000142 | Data: 14/10/2026\n\nPrezado(a) Marcos Vinícius de Almeida Santos,\n\nAcusamos o recebimento de sua manifestação formal referente à solicitação de matrícula no curso Técnico em Enfermagem (Eixo Tecnológico: Saúde, Carga Horária: 1200 horas, Turno: Noturno), com início previsto para 01/02/2027.\n\nInformamos que seu registro inicial foi localizado em nosso sistema sob o protocolo 2026-000142. Para a efetivação definitiva e validação cadastral, solicitamos a apresentação dos seguintes documentos complementares na secretaria escolar:\n1. Cópia do documento oficial de identidade com menção ao Órgão Expedidor (não localizado na documentação inicial);\n2. Comprovante de naturalidade e UF (não localizado);\n3. Dados de contato telefônico atualizado (não localizado).\n\nReiteramos a ciência manifestada sobre o regimento escolar: a matrícula será automaticamente cancelada caso ocorra falta sem justificativa comprovada nos dois primeiros dias letivos consecutivos ou em três dias nos primeiros dez dias letivos.\n\nArquivos de origem consultados: entrada_texto.txt e ficha cadastral 2026-000142.\n\nAtenciosamente,\n\nCoordenação de Registros Escolares\nEscola Técnica Estadual de Cuiabá\nSECITECI - Governo de Mato Grosso"
+  "minuta_institucional": "Prezado(a) solicitante, registra-se o protocolo 2026-000142, de 14/10/2026, recebido por e-mail, em que Marcos Vinícius de Almeida Santos, CPF 123.456.789-00, RG 1234567-8, nascido em 12/08/2008, natural de Cuiabá, filho de Lúcia Helena de Almeida Santos, solicita a efetivação de matrícula no curso Técnico em Enfermagem, eixo tecnológico Saúde, carga horária de 1200 horas, turno noturno, com início previsto para 01/02/2027, além de informação sobre a documentação ainda necessária. Contato informado: marcos.almeida.teste@examplo.com. ALERTA: não foram localizados no documento os campos nome do pai e telefone, sendo imprescindível sua complementação. Adicionalmente, recomenda-se conferência dos dados informados, pois o CPF apresentado corresponde a uma sequência numérica padrão de exemplo e o domínio do e-mail apresenta possível incorreção de digitação, o que impede a validação automática. A matrícula permanece condicionada à apresentação da documentação exigida e à confirmação dos dados pelo setor competente."
 }

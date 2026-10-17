@@ -1,3 +1,4 @@
+import sys
 """Validação opt-in: RF08_REAL=1. OCR real, local; nenhum resultado simulado."""
 import hashlib
 import io
@@ -17,8 +18,8 @@ pytestmark = pytest.mark.skipif(os.getenv("RF08_REAL") != "1", reason="OCR real 
 
 
 @pytest.fixture(scope="module")
-def cenario():
-    base = resolver_caminho("dados/processados/validacao_rf08")
+def cenario(tmp_path_factory):
+    base = tmp_path_factory.mktemp("validacao_rf08")
     base.mkdir(parents=True, exist_ok=True)
     # Referência própria do documento sintético. Nunca preenche resultados do OCR.
     campos = {
@@ -34,7 +35,26 @@ def cenario():
     }
     imagem = Image.new("RGB", (2480, 3508), "white")
     draw = ImageDraw.Draw(imagem)
-    font = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 44)
+    # Descoberta dinâmica de fontes TrueType multiplataforma (Windows / Linux / macOS)
+    windir = os.environ.get("WINDIR") or r"C:\Windows"
+    candidatos = [
+        os.getenv("IMAGE_FONT_PATH"),
+        str(Path(windir) / "Fonts" / "arial.ttf") if sys.platform == "win32" else None,
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "DejaVuSans.ttf",
+        "arial.ttf",
+    ]
+    font = None
+    for cand in candidatos:
+        if cand:
+            try:
+                font = ImageFont.truetype(cand, 44)
+                break
+            except (OSError, ValueError):
+                continue
+    if font is None:
+        font = ImageFont.load_default()
     draw.text((100, 70), "TESTE SINTETICO - SEM VALIDADE", font=font, fill="black")
     labels = {"tel_celular": "TELEFONE CELULAR", "ch": "CARGA HORARIA"}
     for i, (campo, valor) in enumerate(campos.items()):
