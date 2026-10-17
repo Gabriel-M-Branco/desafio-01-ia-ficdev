@@ -106,6 +106,13 @@ Em órgãos públicos estaduais, o envio de documentos com fotos, dados de filia
 
 ## 5. Protocolo de Avaliação de Qualidade (RF13)
 
+**RF06 — validação real final informada pelo operador:** após reiniciar/liberar memória,
+o processamento passou pela interface em `http://127.0.0.1:8000`, com faster-whisper
+small local, CPU/int8. O áudio de 89,16 s gerou transcrição, com 3/6 entidades críticas
+conferidas. A revisão humana continua obrigatória; as demais entidades não foram
+conferidas com sucesso. O processamento concluído não equivale a aprovação humana
+nem a fidelidade integral. A falha anterior de alocação de memória foi superada nessa execução.
+
 Metricas devem ser obtidas dos registros da execucao correspondente. Gabaritos foram preservados, sem uso para preencher resultados. Ausencias coincidentes sao pendencias, nao acertos nem divergencias; fidelidade exclui esses casos. O PDF oficial de baixa qualidade exige revisao humana; nao ha garantia de recuperacao dos manuscritos. Testes offline com mocks nao comprovam qualidade de inferencia real.
 
 ---

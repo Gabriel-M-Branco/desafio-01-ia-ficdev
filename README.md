@@ -35,9 +35,12 @@ Erros de API aparecem com status HTTP; falhas de geração nunca produzem respos
 
 ## Funcionalidades e limites reais
 - RF06: faster-whisper small/CPU/int8/pt ou HF; bruto/revisado, metadados, referência e auditoria. Sem fallback fictício.
-  Limitação atual: a última tentativa pela interface falhou ao carregar o modelo com
-  `mkl_malloc: failed to allocate memory`. Libere memória e confira a paginação do Windows
-  antes de repetir; o backend registra a causa e responde HTTP 503, sem simular transcrição.
+  Validação real final informada pelo operador: após reiniciar/liberar memória, passou pela
+  interface em `http://127.0.0.1:8000`, usando faster-whisper small local, CPU/int8.
+  O áudio de 89,16 s produziu transcrição; 3/6 entidades críticas foram conferidas.
+  A revisão humana permanece obrigatória; sucesso de processamento não significa fidelidade integral.
+  A falha anterior `mkl_malloc: failed to allocate memory` foi superada nessa execução;
+  memória disponível continua necessária. Em nova falta de memória, o backend registra a causa e retorna HTTP 503.
 - RF07: SAPI5/Microsoft Maria no Windows; edge-tts opcional. Texto aprovado por hash, áudio verdadeiro e validação de saída.
 - RF08: PyMuPDF/Tesseract português, alternativas Pillow/PSM e regiões. Preserva versões, divergências e JSON; ausentes permanecem “não localizado”. PDF oficial de baixa qualidade exige revisão humana.
 - RF10: Cloudflare Workers AI/HF/endpoint compatível. Pillow somente compõe/corrige, sem substituir IA. Preservados bruto, prompt, hashes, fonte Unicode, brasão, tarja e auditoria.
