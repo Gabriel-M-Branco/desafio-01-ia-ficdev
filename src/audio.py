@@ -99,24 +99,77 @@ class AudioProcessor:
         return {"text": "".join(segmento.text for segmento in segmentos),
                 "language": info.language}
 
+    def _transcrever_openrouter(self, path: Path) -> Dict[str, Any]:
+        """Executa STT multimodal utilizando a API do OpenRouter (ex: google/gemini-3.8-flash)."""
+        import requests
+        key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        model = os.getenv("OPENROUTER_STT_MODEL") or os.getenv("STT_MODEL") or "google/gemini-3.8-flash"
+        ext = path.suffix.lower().lstrip(".")
+        fmt = "mp3" if ext in ("mp3", "mpeg") else ("wav" if ext == "wav" else ext)
+        audio_b64 = base64.b64encode(path.read_bytes()).decode("utf-8")
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Transcreva o áudio a seguir com fidelidade palavra por palavra em português. Retorne apenas o texto transcrito, sem comentários:",
+                        },
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_b64,
+                                "format": fmt,
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+        timeout = self.config.get("generation_params", {}).get("timeout_seconds", 60)
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+        if resp.status_code != 200:
+            err_msg = ""
+            try:
+                err_msg = resp.json().get("error", {}).get("message", "")
+            except Exception:
+                pass
+            raise RuntimeError(f"OpenRouter STT retornou status {resp.status_code}: {err_msg}")
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        return {"text": content, "language": "pt", "model": model}
+
     def transcrever_audio(self, caminho_audio: str) -> Dict[str, Any]:
-        """Executa transcrição de áudio (STT) com o modelo Whisper."""
+        """Executa transcrição de áudio (STT) com Whisper ou OpenRouter Gemini."""
         valido, mensagem = self.validar_arquivo_audio(caminho_audio)
         if not valido:
             return {"sucesso": False, "erro": mensagem, "codigo_erro": "arquivo_invalido"}
         provider = os.getenv("STT_PROVIDER", "huggingface").strip().lower()
-        if provider not in {"local", "huggingface"}:
-            return {"sucesso": False, "erro": "STT_PROVIDER deve ser local ou huggingface.",
+        if provider not in {"local", "huggingface", "openrouter"}:
+            return {"sucesso": False, "erro": "STT_PROVIDER deve ser local, huggingface ou openrouter.",
                     "codigo_erro": "provedor_invalido"}
         token = os.getenv("HF_TOKEN", "").strip()
         if provider == "huggingface" and (os.getenv("EXECUTION_MODE", "auto").lower() == "mock" or not token):
             return {"sucesso": False, "erro": "STT real requer HF_TOKEN e modo diferente de mock.",
+                    "codigo_erro": "stt_indisponivel"}
+        openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if provider == "openrouter" and (os.getenv("EXECUTION_MODE", "auto").lower() == "mock" or not openrouter_key):
+            return {"sucesso": False, "erro": "STT via OpenRouter requer OPENROUTER_API_KEY e modo diferente de mock.",
                     "codigo_erro": "stt_indisponivel"}
         path = resolver_caminho(caminho_audio)
         inicio = time.perf_counter()
         try:
             if provider == "local":
                 resultado = self._transcrever_local(path)
+            elif provider == "openrouter":
+                resultado = self._transcrever_openrouter(path)
             else:
                 from huggingface_hub import InferenceClient
                 client = InferenceClient(token=token, timeout=self.config.get(
@@ -130,6 +183,9 @@ class AudioProcessor:
             if provider == "local":
                 metadados.update(modelo_stt="small", dispositivo="cpu", compute_type="int8",
                                  idioma_configurado="pt")
+            elif provider == "openrouter":
+                metadados.update(modelo_stt=resultado.get("model", "google/gemini-3.8-flash"),
+                                 provedor="OpenRouter", idioma_detectado="pt")
             idioma = resultado.get("language") if isinstance(resultado, dict) else getattr(resultado, "language", None)
             if isinstance(idioma, str) and idioma.strip():
                 metadados["idioma_detectado"] = idioma.strip()
@@ -155,7 +211,7 @@ class AudioProcessor:
             "transcricao_bruta": bruta, "transcricao_revisada": revisada,
             "revisao_aplicada": "Normalização de espaços; conteúdo pendente de revisão humana.",
             "origem_processamento": "local" if provider == "local" else "api_remota",
-            "provedor": "faster-whisper" if provider == "local" else "HuggingFace",
+            "provedor": "faster-whisper" if provider == "local" else ("OpenRouter" if provider == "openrouter" else "HuggingFace"),
             "tempo_processamento_segundos": round(time.perf_counter() - inicio, 3),
             "exige_confirmacao_humana": True,
             "comparacao_gabarito": self.comparar_com_gabarito(bruta),
@@ -178,9 +234,11 @@ class AudioProcessor:
                 resultado.pop("arquivo_transcricao", None)
                 resultado.update(sucesso=False, codigo_erro="falha_persistencia",
                                  erro="Não foi possível salvar a transcrição.")
+        stt_env = os.getenv("STT_PROVIDER", "huggingface").strip().lower()
         provider = resultado.get("provedor") or (
-            "faster-whisper" if os.getenv("STT_PROVIDER", "huggingface").strip().lower() == "local"
-            else "HuggingFace")
+            "faster-whisper" if stt_env == "local"
+            else ("OpenRouter" if stt_env == "openrouter" else "HuggingFace")
+        )
         exec_id = audit_logger.registrar_execucao(
             modalidade="audio",
             arquivo_origem="dados/originais/entrada_audio.mp3",
