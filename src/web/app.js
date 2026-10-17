@@ -199,8 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 6. Sintese de Voz TTS da Minuta Aprovada/Editada (RF07)
   const btnTts = document.getElementById("btn-gerar-tts");
   btnTts?.addEventListener("click", async () => {
-    const textoMinuta = document.getElementById("editor-minuta")?.value.trim();
-    if (!textoMinuta) {
+    const textoMinuta = document.getElementById("editor-minuta")?.value || "";
+    if (!textoMinuta.trim()) {
       alert("Nenhuma minuta disponivel para sintese de voz.");
       return;
     }
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/sintetizar/audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto: textoMinuta }),
+        body: JSON.stringify({ texto: textoMinuta, id_execucao: ultimaExecucaoId }),
       });
 
       const data = await res.json();
@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
           audioPlayer.play();
         }
       } else {
-        alert("Erro na sintese: " + (data.erro || "Falha na geracao de audio"));
+        alert("Erro na sintese: " + (data.detail || data.erro || "Falha na geracao de audio"));
       }
     } catch (e) {
       btnTts.disabled = false;
@@ -250,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const textoAtualizado = document.getElementById("editor-minuta")?.value.trim();
+    const textoAtualizado = document.getElementById("editor-minuta")?.value;
 
     try {
       const res = await fetch("/api/revisao/decisao", {
@@ -405,9 +405,37 @@ document.addEventListener("DOMContentLoaded", () => {
             <p><strong>Dimensões:</strong> ${data.metadados.dimensoes}</p>
             <p><strong>Modelo de IA:</strong> ${data.metadados.modelo_ia_utilizado}</p>
             <p><strong>Data de Geração:</strong> ${data.metadados.data_geracao}</p>
+            <p><strong>Estado:</strong> <span id="estado-revisao-imagem">${data.metadados.estado_imagem}</span></p>
             <p><strong>Tarja de Proveniência:</strong> <span class="badge badge-warning">${data.metadados.declaracao_proveniencia}</span></p>
             <p style="margin-top:8px;"><strong>Prompt Estruturado:</strong><br><small>${data.metadados.prompt_estruturado.sujeito}</small></p>
+            <label><input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual.</label>
+            <p><label>Responsável: <input id="responsavel-imagem" type="text"></label></p>
+            <p><label>Justificativa: <input id="justificativa-imagem" type="text"></label></p>
+            <button type="button" id="aprovar-imagem">Aprovar imagem</button>
+            <button type="button" id="rejeitar-imagem">Rejeitar imagem</button>
           `;
+          const revisarImagem = async (decisao) => {
+            const operador = document.getElementById("responsavel-imagem").value.trim();
+            const justificativa = document.getElementById("justificativa-imagem").value.trim();
+            if (!operador || !justificativa || (decisao === "APROVADO" && !document.getElementById("conferencia-imagem").checked)) {
+              alert("Informe responsável, justificativa e confirme a conferência visual antes da aprovação.");
+              return;
+            }
+            try {
+              const resposta = await fetch("/api/revisao/imagem", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_execucao: data.id_execucao, hash_imagem: data.metadados.sha256_imagem,
+                  decisao, justificativa, operador }),
+              });
+              const revisao = await resposta.json();
+              if (!revisao.sucesso) throw new Error(revisao.erro || "Falha ao registrar revisão.");
+              document.getElementById("estado-revisao-imagem").textContent = revisao.metadados.estado_imagem;
+              document.getElementById("aprovar-imagem").disabled = true;
+              document.getElementById("rejeitar-imagem").disabled = true;
+            } catch (erro) { alert(erro.message); }
+          };
+          document.getElementById("aprovar-imagem").onclick = () => revisarImagem("APROVADO");
+          document.getElementById("rejeitar-imagem").onclick = () => revisarImagem("REJEITADO");
         }
       }
     } catch (e) {

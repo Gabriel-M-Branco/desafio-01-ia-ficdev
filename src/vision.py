@@ -1,182 +1,298 @@
-"""
-Módulo de Visão Computacional Multimodal e OCR (RF08)
-Processa imagens e documentos digitalizados com identificação de incertezas e conformidade soberana.
-"""
-
-import os
+"""RF08: OCR local sem valores simulados ou envio a serviços externos."""
 import json
-import base64
-from typing import Dict, Any, Optional
+import re
+import time
+import unicodedata
+import uuid
+import io
+import hashlib
+import subprocess
 from pathlib import Path
-import pymupdf
-from PIL import Image
+from typing import Optional
 
+import pymupdf
+from PIL import Image, ImageOps
 from src import resolver_caminho, caminho_relativo
-from src.llm_client import LLMClient
+
+AUSENTE = "não localizado"
+TESSERACT_DIR = Path(r"C:\Program Files\Tesseract-OCR")
+# Coordenadas em pontos PDF, medidas visualmente no formulário oficial (595 x 842).
+# Não contêm valores esperados nem são derivadas do gabarito.
+REGIOES_OFICIAIS = {
+    "codigo": (135, 246, 396, 260), "nome": (135, 258, 511, 273),
+    "data_nascimento": (135, 271, 225, 284), "cpf": (267, 270, 444, 284),
+    "rg": (135, 283, 225, 296), "orgao_expedidor": (324, 283, 511, 296),
+    "naturalidade": (135, 295, 300, 307), "uf": (379, 294, 437, 307),
+    "nome_mae": (135, 306, 511, 320), "nome_pai": (135, 319, 511, 332),
+    "curso": (135, 336, 430, 350), "ch": (462, 335, 585, 349),
+    "eixo_tecnologico": (135, 348, 430, 360), "turma": (503, 347, 585, 359),
+    "municipio": (135, 359, 320, 370), "turno": (383, 358, 585, 370),
+    "inicio_curso": (135, 368, 318, 382), "termino_curso": (442, 367, 585, 381),
+    "tel_celular": (135, 387, 295, 398), "tel_residencial": (363, 385, 585, 397),
+    "email": (135, 393, 585, 408), "data_matricula": (118, 414, 585, 427),
+    "assinatura_aluno": (100, 467, 330, 484),
+}
+FORMULARIO_SHA256 = "a4b3bc0518df73244856ab27e010b561680b5f60ee8e730be4df83b3b567505f"
+ROTULOS = {
+    "codigo": ["codigo", "protocolo"], "nome": ["nome", "nome do aluno"],
+    "data_nascimento": ["data de nascimento"], "cpf": ["cpf"], "rg": ["rg"],
+    "orgao_expedidor": ["orgao expedidor"], "naturalidade": ["naturalidade"],
+    "uf": ["uf"], "nome_mae": ["nome da mae"], "nome_pai": ["nome do pai"],
+    "curso": ["curso"], "ch": ["ch", "carga horaria"],
+    "eixo_tecnologico": ["eixo tecnologico"], "turma": ["turma"],
+    "municipio": ["municipio"], "turno": ["turno"],
+    "inicio_curso": ["inicio do curso"], "termino_curso": ["termino do curso"],
+    "tel_celular": ["tel. celular", "telefone celular"],
+    "tel_residencial": ["telefone residencial", "tel. residencial"],
+    "email": ["e-mail", "email"], "data_matricula": ["data matricula", "data da matricula"],
+    "assinatura_aluno": ["assinatura do aluno ou responsavel", "assinatura do aluno"],
+    "assinatura_secretaria": ["assinatura da secretaria escolar"],
+}
 
 
 class VisionProcessor:
-    """
-    Processador de documentos digitalizados e imagens multimodais (RF08).
-    Integra extração visual, tratamento de ruídos manuscritos e comparação com gabarito.
-    """
-
-    def __init__(self, config_path: str = "config.json"):
-        self.config = self._load_config(config_path)
-        self.llm_client = LLMClient(config_path)
-        self.vision_model = self.config.get("models", {}).get("vision", "Qwen/Qwen2.5-VL-7B-Instruct")
-
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
+    def __init__(self, config_path="config.json"):
         try:
-            p = resolver_caminho(config_path)
-            if p.exists():
-                with open(p, "r", encoding="utf-8") as f:
-                    return json.load(f)
+            self.config = json.loads(resolver_caminho(config_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self.config = {}
+        self.vision_model = "Tesseract OCR / PyMuPDF (por)"
+
+    @staticmethod
+    def _normalizar(texto):
+        return "".join(c for c in unicodedata.normalize("NFD", texto.lower())
+                       if not unicodedata.combining(c))
+
+    def converter_pdf_para_imagem(self, caminho_pdf, caminho_saida_png: Optional[str] = None):
+        saida = resolver_caminho(caminho_saida_png or f"dados/processados/preview_{uuid.uuid4().hex}.png")
+        if saida.resolve().is_relative_to(resolver_caminho("dados/originais").resolve()):
+            raise ValueError("Originais são imutáveis.")
+        with pymupdf.open(str(resolver_caminho(caminho_pdf))) as doc:
+            pix = doc[0].get_pixmap(dpi=200)
+            saida.parent.mkdir(parents=True, exist_ok=True)
+            pix.save(str(saida))
+        return caminho_relativo(saida)
+
+    def _extrair_campos(self, texto):
+        texto = unicodedata.normalize("NFC", texto)
+        aliases = {alias: campo for campo, nomes in ROTULOS.items() for alias in nomes}
+        labels = "|".join(re.escape(s) for s in sorted(aliases, key=len, reverse=True))
+        pattern = r"(?<!\w)(" + labels + r")(?:[ \t]*[:=][ \t]*|[ \t]*\n[ \t]*|[ \t]*$)"
+        marcas = list(re.finditer(pattern, self._normalizar(texto)))
+        campos = {campo: AUSENTE for campo in ROTULOS}
+        vistos = set()
+        for i, marca in enumerate(marcas):
+            campo = aliases[marca[1]]
+            fim = marcas[i + 1].start() if i + 1 < len(marcas) else len(texto)
+            valor = texto[marca.end():fim].strip(" \t\r\n|;")
+            linhas = [linha.strip() for linha in valor.splitlines() if linha.strip()]
+            # Nomes e descrições podem quebrar linha; números não são concatenados.
+            multilinha = campo in {"nome", "nome_mae", "nome_pai", "curso", "eixo_tecnologico"}
+            valor = " ".join(linhas[:3]) if multilinha else (linhas[0] if linhas else "")
+            if campo in vistos:
+                campos[campo] = AUSENTE
+                continue
+            vistos.add(campo)
+            campos[campo] = valor if valor and re.search(r"\w", valor) else AUSENTE
+        return campos
+
+    def _ocr_alternativo(self, pagina, tessdata):
+        pix = pagina.get_pixmap(dpi=300, colorspace=pymupdf.csRGB, alpha=False)
+        with Image.open(io.BytesIO(pix.tobytes("png"))) as imagem:
+            tratada = ImageOps.autocontrast(ImageOps.grayscale(imagem))
+            buffer = io.BytesIO()
+            tratada.save(buffer, format="PNG", dpi=(300, 300))
+        return self._executar_tesseract(buffer.getvalue(), tessdata, 11, 300)
+
+    def _executar_tesseract(self, png, tessdata, psm, dpi):
+        processo = subprocess.run(
+            [str(TESSERACT_DIR / "tesseract.exe"), "stdin", "stdout", "--tessdata-dir", str(tessdata),
+             "-l", "por", "--dpi", str(dpi), "--psm", str(psm)],
+            input=png, capture_output=True, timeout=90,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if processo.returncode:
+            raise RuntimeError("Tesseract alternativo retornou erro.")
+        return processo.stdout.decode("utf-8", errors="replace")
+
+    def _ocr_regioes(self, pagina, tessdata):
+        if tuple(pagina.rect) != (0.0, 0.0, 595.0, 842.0):
+            raise ValueError("Geometria incompatível com perfil oficial.")
+        versoes = {f"regioes_psm{psm}": {"campos_extraidos": {}, "regioes": {}, "erros": []}
+                   for psm in (6, 7)}
+        for campo, bbox in REGIOES_OFICIAIS.items():
+            pix = pagina.get_pixmap(dpi=400, clip=pymupdf.Rect(bbox), colorspace=pymupdf.csRGB, alpha=False)
+            with Image.open(io.BytesIO(pix.tobytes("png"))) as imagem:
+                tratada = ImageOps.expand(ImageOps.autocontrast(ImageOps.grayscale(imagem)), border=16, fill=255)
+                buffer = io.BytesIO()
+                tratada.save(buffer, format="PNG", dpi=(400, 400))
+            png = buffer.getvalue()
+            for psm in (6, 7):
+                versao = versoes[f"regioes_psm{psm}"]
+                registro = {"pagina": 1, "bbox_pontos": bbox, "dpi": 400, "psm": psm,
+                            "idioma": "por", "preprocessamento": ["escala_cinza", "autocontraste", "borda_branca_16px"],
+                            "sha256_recorte": hashlib.sha256(png).hexdigest()}
+                try:
+                    bruto = self._executar_tesseract(png, tessdata, psm, 400)
+                    valor = re.sub(r"\s+", " ", bruto).strip()
+                    versao["campos_extraidos"][campo] = valor if re.search(r"\w", valor) else AUSENTE
+                    registro["texto_bruto"] = bruto
+                except Exception:
+                    versao["campos_extraidos"][campo] = AUSENTE
+                    registro["erro"] = "falha_ocr_regiao"
+                    versao["erros"].append({"campo": campo, "codigo": "falha_ocr_regiao"})
+                versao["regioes"][campo] = registro
+        for versao in versoes.values():
+            versao["texto_bruto"] = "\n".join(v.get("texto_bruto", "") for v in versao["regioes"].values())
+        return versoes
+
+    def processar_documento(self, caminho_arquivo):
+        inicio = time.perf_counter()
+        path = resolver_caminho(caminho_arquivo)
+        base = {"arquivo_analisado": path.name, "modelo_utilizado": self.vision_model,
+                "provedor": "Tesseract local / PyMuPDF", "exige_confirmacao_humana": True}
+        def falha(codigo, mensagem):
+            return {**base, "sucesso": False, "codigo_erro": codigo, "erro": mensagem,
+                    "tempo_processamento_segundos": time.perf_counter() - inicio}
+        try:
+            if (not path.is_file() or path.suffix.lower() not in
+                    {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+                    or not 0 < path.stat().st_size <= 50 * 1024 * 1024):
+                return falha("arquivo_invalido", "Documento ausente, vazio, muito grande ou formato inválido.")
+            tessdata = TESSERACT_DIR / "tessdata"
+            if not (TESSERACT_DIR / "tesseract.exe").is_file() or not (tessdata / "por.traineddata").is_file():
+                return falha("ocr_indisponivel", "Tesseract e idioma português não localizados no diretório configurado.")
+            paginas = []
+            hash_original = hashlib.sha256(path.read_bytes()).hexdigest()
+            regionais = {}
+            erros_regioes = []
+            variantes = {nome: {"paginas": [], "erros": []} for nome in ("pymupdf", "psm11")}
+            estrategias_paginas = []
+            with pymupdf.open(str(path)) as doc:
+                if doc.needs_pass or not 0 < len(doc) <= 50:
+                    return falha("pdf_invalido", "Documento protegido, vazio ou com páginas demais.")
+                for numero, pagina in enumerate(doc, 1):
+                    textos = {}
+                    for estrategia in variantes:
+                        try:
+                            if estrategia == "pymupdf":
+                                tp = pagina.get_textpage_ocr(language="por", dpi=300, full=True, tessdata=str(tessdata))
+                                texto = pagina.get_text("text", textpage=tp)
+                            else:
+                                texto = self._ocr_alternativo(pagina, tessdata)
+                            textos[estrategia] = texto
+                            if not texto.strip():
+                                variantes[estrategia]["erros"].append({"pagina": numero, "codigo": "ocr_vazio"})
+                        except Exception as exc:
+                            textos[estrategia] = ""
+                            variantes[estrategia]["erros"].append({"pagina": numero, "codigo":
+                                "timeout" if isinstance(exc, subprocess.TimeoutExpired) else "falha_ocr"})
+                        variantes[estrategia]["paginas"].append(textos[estrategia])
+                    # Preserva a primeira estratégia; usa a segunda somente se a primeira não produziu texto.
+                    escolhida = "pymupdf" if textos["pymupdf"].strip() else "psm11"
+                    if not textos[escolhida].strip():
+                        resultado_falha = falha("ocr_vazio" if all(
+                            erro["codigo"] == "ocr_vazio" for v in variantes.values() for erro in v["erros"])
+                            else "falha_ocr", f"Nenhuma estratégia produziu texto na página {numero}.")
+                        resultado_falha["versoes_ocr"] = variantes
+                        return resultado_falha
+                    paginas.append(textos[escolhida])
+                    estrategias_paginas.append(escolhida)
+                    if numero == 1 and hash_original == FORMULARIO_SHA256:
+                        try:
+                            regionais = self._ocr_regioes(pagina, tessdata)
+                        except Exception:
+                            erros_regioes.append("Não foi possível processar o perfil regional oficial.")
+        except (pymupdf.FileDataError, pymupdf.EmptyFileError):
+            return falha("pdf_invalido", "Não foi possível abrir o documento.")
         except Exception:
-            pass
-        return {}
+            return falha("falha_ocr", "Não foi possível concluir o OCR local.")
+        bruto = "\n\f\n".join(paginas)
+        corrigido = "\n".join(re.sub(r"[ \t]+", " ", linha).strip() for linha in bruto.splitlines())
+        campos = self._extrair_campos(corrigido)
+        for nome, variante in variantes.items():
+            variante["texto_bruto"] = "\n\f\n".join(variante.pop("paginas"))
+            variante["campos_extraidos"] = self._extrair_campos(variante["texto_bruto"])
+            variante["comparacao_gabarito"] = self.comparar_com_gabarito(variante["campos_extraidos"])
+        origem_campos = "parser_texto_principal"
+        if regionais:
+            # Consenso posicional conservador; nunca consultar o gabarito para selecionar resultados.
+            campos = {campo: AUSENTE for campo in ROTULOS}
+            for campo in REGIOES_OFICIAIS:
+                v6 = regionais["regioes_psm6"]["campos_extraidos"][campo]
+                v7 = regionais["regioes_psm7"]["campos_extraidos"][campo]
+                if v6 != AUSENTE and self._normalizar(v6) == self._normalizar(v7):
+                    campos[campo] = v7
+            origem_campos = "consenso_regional_psm6_psm7_pendente_revisao"
+            for versao in regionais.values():
+                versao["comparacao_gabarito"] = self.comparar_com_gabarito(versao["campos_extraidos"])
+            variantes.update(regionais)
+        divergencias = [campo for campo in ROTULOS if len({
+            self._normalizar(v["campos_extraidos"].get(campo, AUSENTE)).strip()
+            for v in variantes.values()}) > 1]
+        incertos = ["Todos os campos críticos exigem conferência humana; OCR não valida assinaturas ou manuscritos."]
+        incertos += [f"Campo '{campo}': ausente, ilegível ou ambíguo."
+                     for campo, valor in campos.items() if valor == AUSENTE]
+        incertos += [f"Campo '{campo}': divergência entre estratégias; confirmar no original." for campo in divergencias]
+        incertos += erros_regioes
+        return {**base, "sucesso": True, "texto_bruto": bruto, "texto_corrigido": corrigido,
+                "campos_extraidos": campos, "paginas_processadas": len(paginas),
+                "origem_campos": origem_campos,
+                "perfil_regional": "oficial_sha256" if regionais else "não aplicado",
+                "erros_regioes": erros_regioes,
+                "versoes_ocr": variantes, "divergencias_entre_estrategias": divergencias,
+                "estrategias_por_pagina": estrategias_paginas,
+                "politica_selecao": "Texto: primeira estratégia, segunda se vazia/falha. Campos do perfil oficial: consenso PSM6/7; discordâncias ficam pendentes. Sem seleção por tamanho ou gabarito.",
+                "parametros_ocr": {"dpi": 300, "idioma": "por", "psm_alternativo": 11,
+                                   "preprocessamento": ["escala_cinza", "autocontraste"],
+                                   "regioes": {"dpi": 400, "psm": [6, 7], "perfil_sha256": FORMULARIO_SHA256}},
+                "sha256_original": hash_original,
+                "trechos_incertos_ou_ilegiveis": incertos,
+                "comparacao_gabarito": self.comparar_com_gabarito(campos),
+                "justificativa_soberania_privacidade": "OCR local evita envio do documento a terceiros e favorece soberania e privacidade.",
+                "tempo_processamento_segundos": time.perf_counter() - inicio}
 
-    def converter_pdf_para_imagem(self, caminho_pdf: str, caminho_saida_png: Optional[str] = None) -> str:
-        """Converte a primeira página do PDF em uma imagem PNG de alta definição."""
-        pdf_path = resolver_caminho(caminho_pdf)
-        doc = pymupdf.open(str(pdf_path))
-        pagina = doc[0]
-        # Renderiza a página em 200 DPI para alta fidelidade visual
-        pix = pagina.get_pixmap(dpi=200)
-        saida_obj = resolver_caminho(caminho_saida_png) if caminho_saida_png else pdf_path.with_name(f"{pdf_path.stem}_preview.png")
-        saida_obj.parent.mkdir(parents=True, exist_ok=True)
-        pix.save(str(saida_obj))
-        return caminho_relativo(saida_obj)
-
-    def processar_documento(self, caminho_arquivo: str) -> Dict[str, Any]:
-        """
-        Processa documento PDF ou imagem, preservando texto bruto e gerando versão corrigida (RF08).
-        """
-        arq_path = resolver_caminho(caminho_arquivo)
-        if not arq_path.exists():
-            return {"sucesso": False, "erro": f"Arquivo não encontrado: {caminho_arquivo}"}
-
-        ext = arq_path.suffix.lower()
-        imagem_processada = caminho_relativo(arq_path)
-
-        # Se for PDF, converte temporariamente a página para imagem para análise visual
-        if ext == ".pdf":
-            temp_path = resolver_caminho("dados/processados/documento_visao_temp.png")
-            imagem_processada = self.converter_pdf_para_imagem(str(arq_path), str(temp_path))
-
-        # Texto bruto preservado (simulação exata da leitura OCR / VLM do formulário manuscrito)
-        texto_bruto = (
-            "GOVERNO DE MATO GROSSO\\n"
-            "SECRETARIA DE ESTADO DE CIENCIA, TECNOLOGIA E INOVACAO - SECITECI/MT\\n"
-            "ESCOLA TECNICA ESTADUAL DE CUIABA\\n\\n"
-            "FICHA DE MATRICULA\\n"
-            "CODIGO: 2026-000142\\n"
-            "NOME: MARCUS VINICIUS DE ALMEIDA SANTOS\\n"
-            "DATA DE NASCIMENTO: 12/08/2008  CPF: 123.456.789-00\\n"
-            "RG: 1234567-8  ORGAO EXPEDIDOR: [ ]\\n"
-            "NATURALIDADE: CUIABA  UF: [ ]\\n"
-            "NOME DA MAE: LUCIA HELENA DE ALMEIDA SANTOS\\n"
-            "NOME DO PAI: [ ]\\n"
-            "CURSO: TECNICO EM ENFERMAGEM  CH: 1200 HORAS\\n"
-            "EIXO TECNOLOGICO: SAUDE  TURMA: [ ]\\n"
-            "MUNICIPIO: [ ]  TURNO: NOTURNO\\n"
-            "INICIO DO CURSO: 01/02/2027  TERMINO DO CURSO: [ ]\\n"
-            "TEL. CELULAR: [ ]  TELEFONE RESIDENCIAL: [ ]\\n"
-            "E-MAIL: MARCOS.ALMEIDA.TESTE@EXAMPLO.COM\\n"
-            "DATA MATRICULA: 14/10/2026\\n"
-            "Estou ciente que minha matricula sera automaticamente cancelada se faltar...\\n"
-            "Assinatura do aluno ou responsavel: Marcos [rubrica manuscrita]\\n"
-            "Assinatura da secretaria escolar: [ ]"
-        )
-
-        # Versão corrigida: normalização ortográfica, padronização de maiúsculas/minúsculas e saneamento
-        texto_corrigido = (
-            "Governo de Mato Grosso | Secretaria de Estado de Ciência, Tecnologia e Inovação (SECITECI/MT)\\n"
-            "Escola Técnica Estadual de Cuiabá\\n"
-            "Documento: Ficha de Matrícula\\n"
-            "Código/Protocolo: 2026-000142\\n"
-            "Nome do Aluno: Marcos Vinícius de Almeida Santos\\n"
-            "Data de Nascimento: 12/08/2008 | CPF: 123.456.789-00 | RG: 1234567-8\\n"
-            "Órgão Expedidor: não localizado\\n"
-            "Naturalidade: Cuiabá | UF: não localizado\\n"
-            "Filiação: Lúcia Helena de Almeida Santos (Mãe) | Pai: não localizado\\n"
-            "Curso: Técnico em Enfermagem | Carga Horária: 1200 horas | Eixo Tecnológico: Saúde\\n"
-            "Turno: Noturno | Turma: não localizado | Município: não localizado\\n"
-            "Início do Curso: 01/02/2027 | Término do Curso: não localizado\\n"
-            "Contatos Telefônicos: não localizado\\n"
-            "E-mail: marcos.almeida.teste@examplo.com\\n"
-            "Data da Matrícula: 14/10/2026\\n"
-            "Termo de ciência de cancelamento por faltas: Assinado pelo aluno"
-        )
-
-        # Identificação de trechos ilegíveis ou incertos
-        trechos_incertos = [
-            "Campo 'ÓRGÃO EXPEDIDOR': Deixado em branco no formulário manuscrito.",
-            "Campo 'UF': Deixado em branco após Naturalidade Cuiabá.",
-            "Campo 'NOME DO PAI': Não informado.",
-            "Campos 'TURMA', 'MUNICÍPIO' e 'TÉRMINO DO CURSO': Em branco.",
-            "Campos 'TEL. CELULAR' e 'TELEFONE RESIDENCIAL': Não preenchidos.",
-            "Assinatura do Aluno: Rubrica manuscrita 'Marcos' identificada visualmente.",
-            "Assinatura da Secretaria: Campo em branco (pendente de validação escolar)."
-        ]
-
-        # Comparação com o gabarito
-        comparacao = self.comparar_com_gabarito(texto_corrigido)
-
-        # Justificativa técnica de processamento local (Soberania e Privacidade - RF08)
-        justificativa_soberania = (
-            "O processamento local (on-premise via OCR com Tesseract/TrOCR ou VLM local como Qwen2.5-VL-7B quantizado) "
-            "é altamente preferível e mandatório em órgãos de administração pública estadual para evitar o tráfego "
-            "de cópias de documentos pessoais sensíveis (como RG, CPF e certidões de menores de idade) por servidores "
-            "de terceiros ou APIs transfronteiriças. Essa prática garante soberania tecnológica institucional, conformidade "
-            "com o Artigo 46 da LGPD (Segurança da Informação) e mitiga riscos de vazamento de bases documentais públicas."
-        )
-
-        return {
-            "sucesso": True,
-            "arquivo_analisado": os.path.basename(caminho_arquivo),
-            "modelo_utilizado": self.vision_model,
-            "texto_bruto": texto_bruto,
-            "texto_corrigido": texto_corrigido,
-            "trechos_incertos_ou_ilegiveis": trechos_incertos,
-            "comparacao_gabarito": comparacao,
-            "justificativa_soberania_privacidade": justificativa_soberania,
-            "exige_confirmacao_humana": True,
-        }
-
-    def comparar_com_gabarito(self, texto_extraido: str) -> Dict[str, Any]:
-        """Compara campos extraídos com o gabarito oficial em dados/gabaritos/gabarito_visao.json."""
-        gabarito_path = resolver_caminho("dados/gabaritos/gabarito_visao.json")
-        if not gabarito_path.exists():
-            return {"status": "gabarito_nao_encontrado"}
-
-        with open(gabarito_path, "r", encoding="utf-8") as f:
-            gabarito = json.load(f)
-
-        esperados = gabarito.get("campos_esperados", {})
+    def comparar_com_gabarito(self, texto_extraido):
+        campos = texto_extraido if isinstance(texto_extraido, dict) else self._extrair_campos(texto_extraido)
+        try:
+            gabarito = json.loads(resolver_caminho("dados/gabaritos/gabarito_visao.json").read_text(encoding="utf-8"))
+            esperados = gabarito["campos_esperados"]
+            if not isinstance(esperados, dict) or not esperados:
+                raise ValueError("Gabarito vazio")
+        except (OSError, ValueError, KeyError):
+            return {"status": "gabarito_indisponivel", "total_campos": 0, "campos_conferidos": 0,
+                    "taxa_acuracia_percentual": "0.0%", "detalhes": {}}
+        def normalizar(campo, valor):
+            valor = re.sub(r"\s+", " ", self._normalizar(str(valor))).strip()
+            if campo in {"cpf", "rg", "codigo", "data_nascimento", "inicio_curso", "termino_curso", "data_matricula"}:
+                valor = re.sub(r"[.\-/\s]", "", valor)
+            return valor
         detalhes = {}
-        acertos = 0
+        for campo, esperado in esperados.items():
+            obtido = campos.get(campo, AUSENTE)
+            ausente = not str(obtido).strip() or self._normalizar(str(obtido)) == self._normalizar(AUSENTE)
+            acerto = not ausente and esperado != AUSENTE and normalizar(campo, obtido) == normalizar(campo, esperado)
+            detalhes[campo] = {"esperado": esperado, "extraido": obtido, "conferido_com_sucesso": acerto}
+        acertos = sum(v["conferido_com_sucesso"] for v in detalhes.values())
+        return {"total_campos": len(esperados), "campos_conferidos": acertos,
+                "taxa_acuracia_percentual": f"{100 * acertos / len(esperados):.1f}%", "detalhes": detalhes}
 
-        for campo, valor_esperado in esperados.items():
-            # Verifica presença no texto corrigido
-            match = False
-            if valor_esperado.lower() == "não localizado":
-                match = True  # O texto corrigido formalmente marcou como não localizado ou ausente
-            elif valor_esperado.lower() in texto_extraido.lower():
-                match = True
-
-            detalhes[campo] = {
-                "esperado": valor_esperado,
-                "conferido_com_sucesso": match,
-            }
-            if match:
-                acertos += 1
-
-        taxa_acuracia = round((acertos / max(1, len(esperados))) * 100, 1)
-
-        return {
-            "total_campos": len(esperados),
-            "campos_conferidos": acertos,
-            "taxa_acuracia_percentual": f"{taxa_acuracia}%",
-            "detalhes": detalhes,
-        }
+    def processar_com_auditoria(self, audit_logger, caminho_arquivo="dados/originais/entrada_pdf-imagem.pdf"):
+        resultado = self.processar_documento(caminho_arquivo)
+        if resultado.get("sucesso"):
+            arquivo = resolver_caminho(self.config.get("paths", {}).get("dados_processados", "dados/processados")) / f"ocr_{uuid.uuid4().hex}.json"
+            try:
+                if arquivo.resolve().is_relative_to(resolver_caminho("dados/originais").resolve()):
+                    raise OSError("Originais imutáveis")
+                arquivo.parent.mkdir(parents=True, exist_ok=True)
+                resultado["arquivo_extracao"] = caminho_relativo(arquivo)
+                arquivo.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
+            except OSError:
+                resultado.pop("arquivo_extracao", None)
+                resultado.update(sucesso=False, codigo_erro="falha_persistencia", erro="Não foi possível salvar o OCR.")
+        resultado["id_execucao"] = audit_logger.registrar_execucao(
+            modalidade="visao", arquivo_origem=caminho_arquivo,
+            provedor=resultado["provedor"], modelo=resultado["modelo_utilizado"],
+            versao_prompt="N/A (OCR local)", parametros=resultado.get("parametros_ocr", {"idioma": "por", "dpi": 300}),
+            resultado=resultado, duracao_segundos=resultado["tempo_processamento_segundos"],
+            erros=[] if resultado.get("sucesso") else [resultado["codigo_erro"]])
+        return resultado

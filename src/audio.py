@@ -7,8 +7,14 @@ import json
 import asyncio
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
-import mutagen
-from mutagen.mp3 import MP3
+import re
+import unicodedata
+import wave
+import time
+import uuid
+import base64
+import hashlib
+import subprocess
 
 from src import resolver_caminho, caminho_relativo
 from src.llm_client import LLMClient
@@ -26,6 +32,8 @@ class AudioProcessor:
         self.config = self._load_config(config_path)
         self.llm_client = LLMClient(config_path)
         self.stt_model = self.config.get("models", {}).get("stt", "openai/whisper-large-v3-turbo")
+        if os.getenv("STT_PROVIDER", "huggingface").strip().lower() == "local":
+            self.stt_model = "small"
         self.tts_voice = self.config.get("models", {}).get("tts_voice", "pt-BR-AntonioNeural")
         self.audios_dir = resolver_caminho(self.config.get("paths", {}).get("resultados_audios", "resultados/audios"))
         self.audios_dir.mkdir(parents=True, exist_ok=True)
@@ -41,202 +49,325 @@ class AudioProcessor:
         return {}
 
     def validar_arquivo_audio(self, caminho_audio: str) -> Tuple[bool, str]:
-        """Valida a extensão e o tamanho máximo do arquivo de áudio recebido (RF06)."""
-        audio_path = resolver_caminho(caminho_audio)
-        if not audio_path.exists():
-            return False, f"Arquivo não encontrado: {caminho_audio}"
-
-        ext = audio_path.suffix.lower()
-        if ext not in ALLOWED_AUDIO_EXTENSIONS:
-            return False, f"Extensão '{ext}' inválida. Formatos permitidos: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
-
-        tamanho = os.path.getsize(caminho_audio)
-        if tamanho > MAX_AUDIO_SIZE_BYTES:
-            return False, f"Tamanho do arquivo ({tamanho / (1024*1024):.2f} MB) excede o limite máximo de 25 MB."
-
+        """Valida arquivo, extensão, tamanho e cabeçalho/duração legíveis."""
+        path = resolver_caminho(caminho_audio)
+        try:
+            if not path.is_file():
+                return False, "Arquivo de áudio não encontrado."
+            if path.suffix.lower() not in ALLOWED_AUDIO_EXTENSIONS:
+                return False, "Formato de áudio não permitido."
+            if not 0 < path.stat().st_size <= MAX_AUDIO_SIZE_BYTES:
+                return False, "áudio vazio ou maior que 25 MB."
+            self.extrair_metadados_audio(str(path))
+        except (OSError, ValueError, ImportError):
+            return False, "áudio ilegível, inválido ou dependência de leitura indisponível."
         return True, "Arquivo de áudio válido."
 
     def extrair_metadados_audio(self, caminho_audio: str) -> Dict[str, Any]:
-        """Extrai duração, taxa de amostragem e tamanho do arquivo."""
-        duracao = 0.0
-        try:
-            audio_info = mutagen.File(caminho_audio)
-            if audio_info is not None and audio_info.info is not None:
-                duracao = round(audio_info.info.length, 2)
-        except Exception:
-            duracao = 89.16  # fallback aproximado para o caso padrão
-
+        path = resolver_caminho(caminho_audio)
+        if path.suffix.lower() == ".wav":
+            try:
+                with wave.open(str(path), "rb") as audio:
+                    duracao = audio.getnframes() / audio.getframerate()
+            except (wave.Error, EOFError, ZeroDivisionError) as exc:
+                raise ValueError("WAV inválido") from exc
+        else:
+            import mutagen
+            try:
+                audio = mutagen.File(str(path))
+                duracao = audio.info.length if audio is not None and audio.info is not None else 0
+            except Exception as exc:
+                raise ValueError("áudio inválido") from exc
+        if duracao <= 0:
+            raise ValueError("Duração de áudio inválida")
         return {
-            "arquivo": os.path.basename(caminho_audio),
-            "duracao_segundos": duracao,
-            "tamanho_bytes": os.path.getsize(caminho_audio),
+            "arquivo": path.name,
+            "duracao_segundos": round(duracao, 3),
+            "tamanho_bytes": path.stat().st_size,
             "modelo_stt": self.stt_model,
-            "idioma_detectado": "pt",
+            # O endpoint STT não garante detecção de idioma; não presumir português.
+            "idioma_detectado": "não localizado",
         }
+
+    def _transcrever_local(self, path: Path) -> Dict[str, Any]:
+        """Usa somente modelo previamente baixado; nunca baixa nem aciona API."""
+        from faster_whisper import WhisperModel
+        model = WhisperModel("small", device="cpu", compute_type="int8", local_files_only=True)
+        segmentos, info = model.transcribe(str(path), language="pt")
+        # A inferência é lazy: consumir dentro do tratamento de erros do chamador.
+        return {"text": "".join(segmento.text for segmento in segmentos),
+                "language": info.language}
 
     def transcrever_audio(self, caminho_audio: str) -> Dict[str, Any]:
-        """
-        Executa STT com preservação da transcrição bruta e produção de versão revisada (RF06).
-        """
-        valido, msg_validacao = self.validar_arquivo_audio(caminho_audio)
+        """STT real; indisponibilidade nunca produz transcrição simulada."""
+        valido, mensagem = self.validar_arquivo_audio(caminho_audio)
         if not valido:
-            return {"sucesso": False, "erro": msg_validacao}
-
-        audio_path = resolver_caminho(caminho_audio)
-        metadados = self.extrair_metadados_audio(str(audio_path))
-        transcricao_bruta = ""
-        origem = "api_remota"
-
-        # Tentar chamada remota via HF se houver token e modo != mock
-        hf_token = os.getenv("HF_TOKEN", "")
-        mode = os.getenv("EXECUTION_MODE", "auto").lower()
-
-        if hf_token and mode != "mock":
-            try:
-                import requests
-                headers = {"Authorization": f"Bearer {hf_token}"}
-                with open(audio_path, "rb") as f:
-                    dados = f.read()
-
-                url = f"https://api-inference.huggingface.co/models/{self.stt_model}"
-                resp = requests.post(url, headers=headers, data=dados, timeout=45)
-                if resp.status_code == 200:
-                    resultado = resp.json()
-                    transcricao_bruta = resultado.get("text", "")
-            except Exception:
-                pass
-
-        # Fallback offline para o arquivo de teste oficial
-        if not transcricao_bruta:
-            origem = "mock_offline_fiel"
-            transcricao_bruta = (
-                "ola prezados meu nome e marcos vinicius de almeida santos estou ligando "
-                "referente a minha matricula pro curso tecnico em enfermagem eixo tecnologico saude "
-                "periodo noturno carga horaria de 1200 horas protocolo 2026-000142 dia 14 de outubro de 2026 "
-                "gostaria de confirmar se foi efetivada e quais documentos ainda preciso levar na escola tecnica estadual de cuiaba muito obrigado"
-            )
-
-        # Versão revisada: pontuação, maiúsculas e concordância formal preservando o sentido
-        transcricao_revisada = (
-            "Olá, prezados. Meu nome é Marcos Vinícius de Almeida Santos. "
-            "Estou entrando em contato referente à minha matrícula para o curso Técnico em Enfermagem, "
-            "no eixo tecnológico de Saúde, período noturno, com carga horária de 1200 horas. "
-            "O número do meu protocolo é 2026-000142 e a data é 14 de outubro de 2026. "
-            "Gostaria de confirmar se minha matrícula já foi efetivada e quais documentos ainda preciso "
-            "apresentar na secretaria da Escola Técnica Estadual de Cuiabá. Muito obrigado."
-        )
-
-        # Comparação com o gabarito de áudio
-        comparacao = self.comparar_com_gabarito(transcricao_revisada)
-
+            return {"sucesso": False, "erro": mensagem, "codigo_erro": "arquivo_invalido"}
+        provider = os.getenv("STT_PROVIDER", "huggingface").strip().lower()
+        if provider not in {"local", "huggingface"}:
+            return {"sucesso": False, "erro": "STT_PROVIDER deve ser local ou huggingface.",
+                    "codigo_erro": "provedor_invalido"}
+        token = os.getenv("HF_TOKEN", "").strip()
+        if provider == "huggingface" and (os.getenv("EXECUTION_MODE", "auto").lower() == "mock" or not token):
+            return {"sucesso": False, "erro": "STT real requer HF_TOKEN e modo diferente de mock.",
+                    "codigo_erro": "stt_indisponivel"}
+        path = resolver_caminho(caminho_audio)
+        inicio = time.perf_counter()
+        try:
+            if provider == "local":
+                resultado = self._transcrever_local(path)
+            else:
+                from huggingface_hub import InferenceClient
+                client = InferenceClient(token=token, timeout=self.config.get(
+                    "generation_params", {}).get("timeout_seconds", 30))
+                resultado = client.automatic_speech_recognition(str(path), model=self.stt_model)
+            bruta = resultado.get("text") if isinstance(resultado, dict) else resultado.text
+            if not isinstance(bruta, str) or not bruta.strip():
+                return {"sucesso": False, "erro": "Provedor retornou transcrição vazia.",
+                        "codigo_erro": "resposta_vazia"}
+            metadados = self.extrair_metadados_audio(str(path))
+            if provider == "local":
+                metadados.update(modelo_stt="small", dispositivo="cpu", compute_type="int8",
+                                 idioma_configurado="pt")
+            idioma = resultado.get("language") if isinstance(resultado, dict) else getattr(resultado, "language", None)
+            if isinstance(idioma, str) and idioma.strip():
+                metadados["idioma_detectado"] = idioma.strip()
+        except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if provider == "local" and isinstance(exc, FileNotFoundError):
+                codigo = "modelo_local_indisponivel"
+            elif status in (401, 403):
+                codigo = "autenticacao"
+            elif status == 429:
+                codigo = "limite_requisicoes"
+            elif "timeout" in type(exc).__name__.lower() or isinstance(exc, TimeoutError):
+                codigo = "timeout"
+            elif isinstance(exc, ImportError):
+                codigo = "dependencia_ausente"
+            else:
+                codigo = "falha_provedor"
+            # Não propagar mensagens externas que possam conter credenciais.
+            return {"sucesso": False, "erro": "Não foi possível concluir o STT.", "codigo_erro": codigo}
+        revisada = re.sub(r"\s+", " ", bruta).strip()
         return {
-            "sucesso": True,
-            "arquivo_audio": caminho_relativo(audio_path),
-            "metadados": metadados,
-            "transcricao_bruta": transcricao_bruta,
-            "transcricao_revisada": transcricao_revisada,
-            "origem_processamento": origem,
-            "comparacao_gabarito": comparacao,
+            "sucesso": True, "arquivo_audio": caminho_relativo(path), "metadados": metadados,
+            "transcricao_bruta": bruta, "transcricao_revisada": revisada,
+            "revisao_aplicada": "Normalização de espaços; conteúdo pendente de revisão humana.",
+            "origem_processamento": "local" if provider == "local" else "api_remota",
+            "provedor": "faster-whisper" if provider == "local" else "HuggingFace",
+            "tempo_processamento_segundos": round(time.perf_counter() - inicio, 3),
+            "exige_confirmacao_humana": True,
+            "comparacao_gabarito": self.comparar_com_gabarito(bruta),
         }
+
+    def processar_com_auditoria(self, audit_logger) -> Dict[str, Any]:
+        """Transcreve, persiste o resultado RF06 e registra o provedor efetivo."""
+        inicio = time.perf_counter()
+        caminho = resolver_caminho("dados/originais/entrada_audio.mp3")
+        resultado = self.transcrever_audio(str(caminho))
+        if resultado.get("sucesso"):
+            diretorio = resolver_caminho(self.config.get("paths", {}).get(
+                "dados_processados", "dados/processados"))
+            arquivo = diretorio / f"transcricao_audio_{uuid.uuid4().hex}.json"
+            try:
+                diretorio.mkdir(parents=True, exist_ok=True)
+                resultado["arquivo_transcricao"] = caminho_relativo(arquivo)
+                arquivo.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
+            except OSError:
+                resultado.pop("arquivo_transcricao", None)
+                resultado.update(sucesso=False, codigo_erro="falha_persistencia",
+                                 erro="Não foi possível salvar a transcrição.")
+        provider = resultado.get("provedor") or (
+            "faster-whisper" if os.getenv("STT_PROVIDER", "huggingface").strip().lower() == "local"
+            else "HuggingFace")
+        exec_id = audit_logger.registrar_execucao(
+            modalidade="audio",
+            arquivo_origem="dados/originais/entrada_audio.mp3",
+            provedor=provider,
+            modelo=resultado.get("metadados", {}).get("modelo_stt", self.stt_model),
+            versao_prompt="N/A (STT Direto)",
+            parametros={},
+            resultado=resultado,
+            duracao_segundos=time.perf_counter() - inicio,
+            erros=[] if resultado.get("sucesso") else [resultado.get("codigo_erro", "falha_stt")],
+        )
+        resultado["id_execucao"] = exec_id
+        return resultado
+
+    @staticmethod
+    def _normalizar_comparacao(texto: str) -> str:
+        texto = "".join(c for c in unicodedata.normalize("NFKD", texto.casefold())
+                        if not unicodedata.combining(c))
+        meses = "janeiro fevereiro marco abril maio junho julho agosto setembro outubro novembro dezembro".split()
+        for numero, mes in enumerate(meses, 1):
+            texto = re.sub(r"\b(\d{1,2}) de " + mes + r" de (\d{4})\b",
+                           lambda m: f"{int(m[1]):02d}/{numero:02d}/{m[2]}", texto)
+        texto = re.sub(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b",
+                       lambda m: f"{int(m[1]):02d}/{int(m[2]):02d}/{m[3]}", texto)
+        return re.sub(r"\s+", " ", texto).strip()
 
     def comparar_com_gabarito(self, transcricao: str) -> Dict[str, Any]:
-        """Compara a transcrição obtida com o gabarito oficial em dados/gabaritos/gabarito_audio.json."""
-        gabarito_path = resolver_caminho("dados/gabaritos/gabarito_audio.json")
-        if not gabarito_path.exists():
-            return {"status": "gabarito_nao_encontrado"}
-
-        with open(gabarito_path, "r", encoding="utf-8") as f:
-            gabarito = json.load(f)
-
-        entidades = gabarito.get("entidades_criticas", {})
-        verificacoes = {}
-        todos_corretos = True
-
-        texto_norm = transcricao.lower().replace("14 de outubro de 2026", "14/10/2026")
-
+        path = resolver_caminho("dados/gabaritos/gabarito_audio.json")
+        try:
+            gabarito = json.loads(path.read_text(encoding="utf-8"))
+            entidades = gabarito["entidades_criticas"]
+            if not isinstance(entidades, dict) or not entidades:
+                raise ValueError("Gabarito vazio")
+        except (OSError, ValueError, KeyError):
+            return {"status": "gabarito_indisponivel", "todos_campos_criticos_conferidos": False,
+                    "acuracia_entidades": "0/0", "detalhes": {}}
+        texto = self._normalizar_comparacao(transcricao)
+        detalhes = {}
         for campo, valor in entidades.items():
-            val_norm = str(valor).lower()
-            encontrado = val_norm in texto_norm or val_norm in transcricao.lower()
-            verificacoes[campo] = {
-                "valor_esperado": valor,
-                "localizado_na_transcricao": encontrado,
-            }
-            if not encontrado:
-                todos_corretos = False
-
-        return {
-            "todos_campos_criticos_conferidos": todos_corretos,
-            "detalhes": verificacoes,
-            "acuracia_entidades": f"{sum(1 for v in verificacoes.values() if v['localizado_na_transcricao'])}/{len(verificacoes)}",
-        }
+            esperado = self._normalizar_comparacao(str(valor))
+            localizado = bool(esperado) and bool(re.search(r"(?<!\w)" + re.escape(esperado) + r"(?!\w)", texto))
+            detalhes[campo] = {"valor_esperado": valor, "localizado_na_transcricao": localizado}
+        erros = [campo for campo, item in detalhes.items() if not item["localizado_na_transcricao"]]
+        return {"todos_campos_criticos_conferidos": not erros, "detalhes": detalhes,
+                "campos_divergentes_ou_ausentes": erros,
+                "acuracia_entidades": f"{len(detalhes)-len(erros)}/{len(detalhes)}",
+                "confirmacao_humana_pendente": True}
 
     def preparar_texto_para_acessibilidade(self, texto_minuta: str) -> str:
-        """
-        Substitui ou precede qualquer menção a 'não localizado' por aviso formal ao ouvinte (RF07).
-        """
-        aviso_ouvinte = "Atenção: informação pendente de localização no sistema."
-        # Trata variações de escrita de 'não localizado'
-        texto_tratado = texto_minuta
-        padroes = ["não localizado", "Não localizado", "NÃO LOCALIZADO", "nao localizado"]
-        for p in padroes:
-            texto_tratado = texto_tratado.replace(p, f"{aviso_ouvinte}")
-
-        return texto_tratado
+        aviso = "Atenção: informação pendente de localização no sistema."
+        return re.sub(r"n[ãa]o localizado", aviso, texto_minuta, flags=re.IGNORECASE)
 
     async def _sintetizar_edge_tts(self, texto: str, caminho_saida: str) -> bool:
-        """Executa síntese com a biblioteca edge-tts de alta fidelidade neural."""
         import edge_tts
-        communicate = edge_tts.Communicate(texto, self.tts_voice)
-        await communicate.save(caminho_saida)
+        await edge_tts.Communicate(texto, self.tts_voice).save(caminho_saida)
         return True
 
-    def sintetizar_minuta_audio(self, texto_minuta: str, nome_arquivo_saida: str = "minuta_acessivel.mp3") -> Dict[str, Any]:
-        """
-        Gera áudio falado da minuta com filtro de acessibilidade e voz institucional (RF07).
-        """
-        caminho_saida = (self.audios_dir / nome_arquivo_saida).resolve()
-        caminho_saida.parent.mkdir(parents=True, exist_ok=True)
-        texto_acessivel = self.preparar_texto_para_acessibilidade(texto_minuta)
+    def _sintetizar_sapi5(self, texto, caminho_saida):
+        """SAPI5 local: entrada JSON evita interpolar texto em código PowerShell."""
+        if os.name != "nt":
+            raise RuntimeError("SAPI5 requer Windows.")
+        script = r"""
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+$data = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$voice = New-Object -ComObject SAPI.SpVoice
+$tokens = $voice.GetVoices('Language=416')
+$selected = $null
+for ($i = 0; $i -lt $tokens.Count; $i++) {
+    $token = $tokens.Item($i)
+    if ($token.GetDescription().IndexOf($data.voz, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        $selected = $token
+        break
+    }
+}
+if ($null -eq $selected) { throw 'Voz pt-BR solicitada indisponivel.' }
+$voice.Voice = $selected
+$voice.Rate = 0
+$voice.Volume = 100
+$stream = New-Object -ComObject SAPI.SpFileStream
+try {
+    $stream.Open($data.caminho, 3, $false)
+    $voice.AudioOutputStream = $stream
+    [void]$voice.Speak($data.texto)
+} finally {
+    $stream.Close()
+}
+@{ voz = $selected.GetDescription() } | ConvertTo-Json -Compress
+"""
+        executavel = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        resposta = subprocess.run(
+            [str(executavel), "-NoProfile", "-NonInteractive", "-EncodedCommand",
+             base64.b64encode(script.encode("utf-16le")).decode("ascii")],
+            input=json.dumps({"texto": texto, "caminho": caminho_saida,
+                              "voz": os.getenv("TTS_LOCAL_VOICE", "Microsoft Maria")}).encode("ascii"),
+            capture_output=True, timeout=120, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if resposta.returncode:
+            raise RuntimeError("Falha no SAPI5.")
+        return json.loads(resposta.stdout.decode("utf-8-sig"))["voz"]
 
-        sucesso = False
-        metodo = "edge-tts"
+    @staticmethod
+    def _validar_audio_tts(path, provider):
+        if not path.is_file() or path.stat().st_size <= 44:
+            raise ValueError("Áudio ausente ou vazio.")
+        if provider == "sapi5":
+            with wave.open(str(path), "rb") as wav:
+                frames, rate = wav.getnframes(), wav.getframerate()
+                esperado = frames * wav.getnchannels() * wav.getsampwidth()
+                if frames <= 0 or rate <= 0 or len(wav.readframes(frames)) != esperado:
+                    raise ValueError("WAV incompleto.")
+                return frames / rate
+        from mutagen.mp3 import MP3
+        duracao = MP3(str(path)).info.length
+        if duracao <= 0:
+            raise ValueError("MP3 inválido.")
+        return duracao
 
-        try:
-            asyncio.run(self._sintetizar_edge_tts(texto_acessivel, str(caminho_saida)))
-            sucesso = True
-        except Exception:
-            # Fallback seguro caso haja indisponibilidade de rede temporária
+    def sintetizar_minuta_audio(self, texto_minuta: str, nome_arquivo_saida: str = "minuta_acessivel.mp3",
+                               id_execucao: Optional[str] = None, audit_logger=None) -> Dict[str, Any]:
+        """Exige aprovação persistida exata; nunca gera áudio simulado."""
+        from src.audit import AuditLogger
+        logger = audit_logger or AuditLogger(self.config.get("paths", {}).get("resultados_logs", "resultados/logs"))
+        inicio = time.perf_counter()
+        provider = os.getenv("TTS_PROVIDER", "sapi5").strip().lower()
+        resultado = {"sucesso": False, "provedor": provider, "metodo": provider,
+                     "id_execucao_aprovacao": id_execucao}
+        caminho = None
+
+        def registrar():
+            resultado["tempo_processamento_segundos"] = time.perf_counter() - inicio
             try:
-                # Gera um arquivo MP3 válido de silêncio/tom audível institucional via síntese simples ou buffer
-                metodo = "contingencia_local"
-                self._gerar_audio_contingencia(str(caminho_saida))
-                sucesso = True
-            except Exception as e:
-                return {
-                    "sucesso": False,
-                    "erro": f"Falha na síntese de áudio: {str(e)}",
-                }
+                identificador = logger.registrar_execucao(
+                    modalidade="tts", arquivo_origem=str(logger.log_dir / f"{id_execucao}.json") if id_execucao else "",
+                    provedor=provider, modelo=resultado.get("voz_utilizada", "não localizado"),
+                    versao_prompt="N/A (síntese de texto aprovado)",
+                    parametros={"id_execucao_aprovacao": id_execucao,
+                                "hash_texto_aprovado": resultado.get("hash_texto_aprovado")},
+                    resultado=resultado, duracao_segundos=resultado["tempo_processamento_segundos"],
+                    decisao_humana=aprovacao if resultado["sucesso"] else None,
+                    erros=[] if resultado["sucesso"] else [resultado.get("codigo_erro", "falha_tts")])
+                resultado["id_execucao"] = identificador
+                resultado["caminho_metadados"] = caminho_relativo(logger.log_dir / f"{identificador}.json")
+            except OSError:
+                if caminho and caminho.exists():
+                    caminho.unlink()
+                resultado.pop("caminho_arquivo", None)
+                resultado.update(sucesso=False, codigo_erro="falha_auditoria",
+                                 erro="Não foi possível registrar a síntese.")
+            return resultado
 
-        tamanho = caminho_saida.stat().st_size if caminho_saida.exists() else 0
-
-        return {
-            "sucesso": sucesso,
-            "caminho_arquivo": caminho_relativo(caminho_saida),
-            "voz_utilizada": self.tts_voice,
-            "metodo": metodo,
-            "tamanho_bytes": tamanho,
-            "aviso_acessibilidade_aplicado": True,
-            "impacto_acessibilidade": (
-                "Permite acesso autônomo ao conteúdo formal da resposta para cidadãos com deficiência visual, "
-                "baixa visão, dificuldades de leitura ou analfabetismo funcional. Informações pendentes recebem "
-                "destaque auditivo explícito para evitar qualquer confusão sobre o andamento do processo."
-            ),
-        }
-
-    def _gerar_audio_contingencia(self, caminho_saida: str) -> None:
-        """Gera um arquivo de áudio sintético válido para garantir integridade do fluxo."""
-        # Cria um arquivo mp3 sintetizado simples ou cabeçalho ID3 válido
-        with open(caminho_saida, "wb") as f:
-            # Escreve um frame MPEG áudio silent válido de 1 segundo
-            silent_frame = b"\xff\xfb\x90d\x00\x00\x00\x00" * 200
-            f.write(silent_frame)
+        aprovacao = logger.obter_aprovacao_texto(id_execucao, texto_minuta) if isinstance(texto_minuta, str) and texto_minuta.strip() else None
+        if not aprovacao:
+            resultado.update(codigo_erro="texto_nao_aprovado",
+                             erro="Aprove o texto exato antes de gerar o áudio.")
+            return registrar()
+        if provider not in {"sapi5", "edge-tts"}:
+            resultado.update(codigo_erro="provedor_invalido", erro="TTS_PROVIDER deve ser sapi5 ou edge-tts.")
+            return registrar()
+        try:
+            nome = Path(nome_arquivo_saida)
+            if nome.name != nome_arquivo_saida or "/" in nome_arquivo_saida or "\\" in nome_arquivo_saida:
+                raise ValueError("Nome de saída inválido.")
+            extensao = ".wav" if provider == "sapi5" else ".mp3"
+            caminho = (self.audios_dir / f"{nome.stem}_{uuid.uuid4().hex}{extensao}").resolve()
+            if not caminho.is_relative_to(self.audios_dir.resolve()):
+                raise ValueError("Caminho inválido.")
+            caminho.parent.mkdir(parents=True, exist_ok=True)
+            acessivel = self.preparar_texto_para_acessibilidade(texto_minuta)
+            if provider == "sapi5":
+                voz = self._sintetizar_sapi5(acessivel, str(caminho))
+            else:
+                asyncio.run(self._sintetizar_edge_tts(acessivel, str(caminho)))
+                voz = self.tts_voice
+            duracao = self._validar_audio_tts(caminho, provider)
+            atual = logger.obter_aprovacao_texto(id_execucao, texto_minuta)
+            if not atual or atual["id_aprovacao"] != aprovacao["id_aprovacao"]:
+                raise ValueError("Aprovação revogada durante a síntese.")
+            resultado.update(
+                sucesso=True, caminho_arquivo=caminho_relativo(caminho), voz_utilizada=voz,
+                formato=extensao[1:], tamanho_bytes=caminho.stat().st_size, duracao_segundos=duracao,
+                id_aprovacao=aprovacao["id_aprovacao"], hash_texto_aprovado=logger.hash_texto(texto_minuta),
+                texto_sintetizado=acessivel, hash_texto_sintetizado=logger.hash_texto(acessivel),
+                sha256_audio=hashlib.sha256(caminho.read_bytes()).hexdigest(),
+                aviso_acessibilidade_aplicado=acessivel != texto_minuta,
+                impacto_acessibilidade="Leitura da minuta aprovada com aviso explícito sobre informações pendentes.")
+        except Exception as exc:
+            if caminho and caminho.exists():
+                caminho.unlink()
+            resultado.update(sucesso=False, codigo_erro="timeout" if isinstance(exc, subprocess.TimeoutExpired) else "falha_tts",
+                             erro="Não foi possível gerar e validar o áudio institucional.")
+        return registrar()

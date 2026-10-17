@@ -4,6 +4,8 @@ Módulo de Auditoria, Rastreabilidade, LGPD e Avaliação de Qualidade (RF11, RF
 
 import json
 import uuid
+import hashlib
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -81,11 +83,34 @@ class AuditLogger:
 
         return exec_id
 
-    def atualizar_decisao_humana(self, exec_id: str, decisao: str, justificativa: str, operador: str = "Servidor Público") -> bool:
+    @staticmethod
+    def hash_texto(texto: str) -> str:
+        return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+    def obter_aprovacao_texto(self, exec_id: str, texto: str):
+        """Lê a aprovação persistida; não aceita flags enviadas pelo cliente."""
+        if not exec_id or not re.fullmatch(r"[A-Za-z0-9_-]+", exec_id):
+            return None
+        try:
+            dado = json.loads((self.log_dir / f"{exec_id}.json").read_text(encoding="utf-8"))
+            decisao = dado.get("decisao_humana", {})
+            if (decisao.get("status") == "APROVADO" and decisao.get("id_aprovacao")
+                    and dado.get("texto_final") == texto
+                    and decisao.get("hash_texto_aprovado") == self.hash_texto(texto)):
+                return decisao
+        except (OSError, ValueError, AttributeError, TypeError):
+            pass
+        return None
+
+    def atualizar_decisao_humana(self, exec_id: str, decisao: str, justificativa: str, operador: str = "Servidor Público", texto_final: Optional[str] = None) -> bool:
         """
         Atualiza o status de Human-in-the-Loop de uma execução (RF13).
         decisao: 'APROVADO', 'REJEITADO', 'CORRIGIDO'
         """
+        if (not re.fullmatch(r"[A-Za-z0-9_-]+", exec_id) or decisao not in {"APROVADO", "CORRIGIDO", "REJEITADO"}
+                or not justificativa.strip() or not operador.strip()
+                or (decisao == "APROVADO" and (not isinstance(texto_final, str) or not texto_final.strip()))):
+            return False
         individual_file = self.log_dir / f"{exec_id}.json"
         if not individual_file.exists():
             return False
@@ -99,6 +124,11 @@ class AuditLogger:
             "justificativa": justificativa,
             "data_decisao": datetime.now().isoformat(),
         }
+        if texto_final is not None:
+            dado["texto_final"] = texto_final
+        if decisao == "APROVADO":
+            dado["decisao_humana"].update(
+                id_aprovacao=uuid.uuid4().hex, hash_texto_aprovado=self.hash_texto(texto_final))
 
         with open(individual_file, "w", encoding="utf-8") as f:
             json.dump(dado, f, ensure_ascii=False, indent=2)

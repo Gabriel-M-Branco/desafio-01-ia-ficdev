@@ -9,9 +9,9 @@ import json
 import argparse
 import uvicorn
 from typing import Dict, Any, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from src import BASE_DIR, resolver_caminho
@@ -22,6 +22,8 @@ from src.vision import VisionProcessor
 from src.image_generation import ImageGenerator
 from src.audit import AuditLogger, LGPDManager, QualityEvaluator
 from src.pdf_generator import gerar_minuta_pdf
+from src.web_files import arquivo_publico
+from src.image_access import ImageAccessError, exigir_revisor_imagem, identidade_revisor, carregar_imagem, imagem_publicavel
 
 # Inicialização da Aplicação FastAPI
 app = FastAPI(
@@ -37,9 +39,26 @@ vision_processor = VisionProcessor()
 image_generator = ImageGenerator()
 audit_logger = AuditLogger()
 
+
+@app.exception_handler(ImageAccessError)
+async def erro_acesso_imagem(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail},
+                        headers={"Cache-Control": "no-store"})
+
 # Montagem de arquivos estáticos da interface web e arquivos de resultados resolvidos dinamicamente
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "src" / "web")), name="static")
-app.mount("/arquivos", StaticFiles(directory=str(BASE_DIR)), name="arquivos")
+class ArquivosPublicos(StaticFiles):
+    def lookup_path(self, path):
+        if not arquivo_publico(BASE_DIR, path):
+            return "", None
+        # Inclui a pasta RF10 configurada, mesmo fora de resultados/imagens.
+        candidato = (BASE_DIR / path).resolve()
+        if candidato.is_relative_to(image_generator.output_dir.resolve()):
+            return "", None
+        return super().lookup_path(path)
+
+
+app.mount("/arquivos", ArquivosPublicos(directory=str(BASE_DIR)), name="arquivos")
 
 
 # ==============================================================================
@@ -54,6 +73,7 @@ class RequisicaoTexto(BaseModel):
 class RequisicaoSintese(BaseModel):
     texto: str
     nome_arquivo: Optional[str] = "minuta_acessivel.mp3"
+    id_execucao: Optional[str] = None
 
 
 class RequisicaoDecisaoHumana(BaseModel):
@@ -248,10 +268,12 @@ def gerar_pdf_minuta_endpoint(req: RequisicaoGerarPdf):
 
 @app.post("/api/sintetizar/audio")
 def sintetizar_audio(req: RequisicaoSintese):
-    """Sintetiza áudio acessível da minuta com edge-tts (RF07)."""
-    resultado = audio_processor.sintetizar_minuta_audio(req.texto, req.nome_arquivo)
+    """Sintetiza somente o texto vinculado a uma aprovação humana persistida."""
+    resultado = audio_processor.sintetizar_minuta_audio(
+        req.texto, req.nome_arquivo or "minuta_acessivel.wav", req.id_execucao, audit_logger)
     if not resultado.get("sucesso"):
-        raise HTTPException(status_code=500, detail=resultado.get("erro", "Erro na síntese."))
+        raise HTTPException(status_code=403 if resultado.get("codigo_erro") == "texto_nao_aprovado" else 500,
+                            detail=resultado.get("erro", "Erro na síntese."))
     return {
         "sucesso": True,
         "url_audio": f"/arquivos/{resultado['caminho_arquivo'].replace('\\', '/')}",
@@ -267,6 +289,7 @@ def registrar_decisao_humana(req: RequisicaoDecisaoHumana):
         decisao=req.decisao,
         justificativa=req.justificativa,
         operador=req.operador,
+        texto_final=req.texto_final,
     )
     if not sucesso:
         raise HTTPException(status_code=404, detail="Identificador de execução não encontrado.")
@@ -333,66 +356,61 @@ O **Prompt C** foi selecionado para incorporação definitiva ao sistema devido 
 
 @app.post("/api/processar/audio")
 def processar_audio():
-    """Transcreve áudio com Whisper HF (RF06) e audita o processo."""
-    caminho = resolver_caminho("dados/originais/entrada_audio.mp3")
-    resultado = audio_processor.transcrever_audio(str(caminho))
-
-    audit_logger.registrar_execucao(
-        modalidade="audio",
-        arquivo_origem="dados/originais/entrada_audio.mp3",
-        provedor="HuggingFace / Whisper",
-        modelo=audio_processor.stt_model,
-        versao_prompt="N/A (STT Direto)",
-        parametros={},
-        resultado=resultado,
-        duracao_segundos=1.5,
-    )
-    return resultado
+    return audio_processor.processar_com_auditoria(audit_logger)
 
 
 @app.post("/api/processar/visao")
 def processar_visao():
-    """Processa documento de imagem/PDF via VLM (RF08) e audita o processo."""
-    caminho = resolver_caminho("dados/originais/entrada_pdf-imagem.pdf")
-    resultado = vision_processor.processar_documento(str(caminho))
-
-    audit_logger.registrar_execucao(
-        modalidade="visao",
-        arquivo_origem="dados/originais/entrada_pdf-imagem.pdf",
-        provedor="HuggingFace / VLM",
-        modelo=vision_processor.vision_model,
-        versao_prompt="Extração Documental Institucional",
-        parametros={},
-        resultado=resultado,
-        duracao_segundos=2.0,
-    )
-    return resultado
+    return vision_processor.processar_com_auditoria(audit_logger)
 
 
 @app.post("/api/gerar/imagem")
 def gerar_imagem():
     """Gera peça visual híbrida institucional com tarja de proveniência (RF10)."""
-    resultado = image_generator.gerar_comunicado_oficial()
-    caminho_relativo = resultado["caminho_imagem"]
-    logo_origem = image_generator.logo_path.as_posix() if hasattr(image_generator.logo_path, "as_posix") else str(image_generator.logo_path)
-
-    audit_logger.registrar_execucao(
-        modalidade="imagem",
-        arquivo_origem=logo_origem,
-        provedor="FLUX.1-schnell + Pillow",
-        modelo=image_generator.image_model,
-        versao_prompt="Prompt Estruturado Institucional GOV.MT",
-        parametros=resultado["metadados"]["prompt_estruturado"],
-        resultado=resultado["metadados"],
-        duracao_segundos=resultado["metadados"]["tempo_processamento_segundos"],
-    )
-
+    resultado = image_generator.gerar_comunicado_oficial(audit_logger=audit_logger)
+    if not resultado.get("sucesso"):
+        return JSONResponse(status_code=502, content=resultado)
+    caminho = resultado["caminho_imagem"]
     return {
         "sucesso": True,
-        "url_imagem": f"/arquivos/{caminho_relativo}",
-        "caminho_local": resultado["caminho_imagem"],
+        "url_imagem": f"/api/revisao/imagem/{resultado['id_execucao']}/arquivo",
+        "caminho_local": caminho,
         "metadados": resultado["metadados"],
+        "caminho_metadados": resultado["caminho_metadados"],
+        "id_execucao": resultado["id_execucao"],
     }
+
+
+class RequisicaoRevisaoImagem(BaseModel):
+    id_execucao: str
+    hash_imagem: str
+    decisao: str
+    justificativa: str
+    operador: Optional[str] = None  # Compatibilidade; nunca usado como identidade.
+
+
+@app.post("/api/revisao/imagem")
+def revisar_imagem(req: RequisicaoRevisaoImagem, principal=Depends(exigir_revisor_imagem)):
+    sujeito = identidade_revisor(principal)
+    resultado = image_generator.revisar_imagem(
+        req.id_execucao, req.hash_imagem, req.decisao, req.justificativa, sujeito, audit_logger,
+        identidade_autenticada=sujeito)
+    if not resultado["sucesso"]:
+        return JSONResponse(status_code=400, content=resultado)
+    return resultado
+
+
+@app.get("/api/revisao/imagem/{id_execucao}/arquivo")
+def baixar_imagem_revisao(id_execucao: str, principal=Depends(exigir_revisor_imagem)):
+    identidade_revisor(principal)
+    _, caminho = carregar_imagem(image_generator, audit_logger, id_execucao)
+    return Response(caminho.read_bytes(), media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/publicacao/imagem/{id_execucao}")
+def publicar_imagem(id_execucao: str):
+    dados, _ = imagem_publicavel(image_generator, audit_logger, id_execucao)
+    return Response(dados, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/logs")
@@ -470,8 +488,9 @@ def executar_pipeline_completo():
     # 5. Síntese de Voz para Acessibilidade (RF07)
     print("\n[RF07] Gerando áudio de acessibilidade com filtro de 'não localizado' (TTS)...")
     minuta_texto = res_texto["minuta_institucional"]
-    res_tts = audio_processor.sintetizar_minuta_audio(minuta_texto, "minuta_aprovada_acessivel.mp3")
-    print(f" -> Áudio de acessibilidade gerado: {res_tts['caminho_arquivo']}")
+    res_tts = audio_processor.sintetizar_minuta_audio(
+        minuta_texto, "minuta_aprovada_acessivel.wav", exec_id_texto, audit_logger)
+    print(f" -> Áudio: {res_tts.get('caminho_arquivo', res_tts.get('erro'))}")
 
     # 6. Visão Multimodal e OCR (RF08)
     print("\n[RF08] Processando documento digitalizado / Ficha de Matrícula...")
@@ -482,6 +501,9 @@ def executar_pipeline_completo():
     # 7. Peça Visual Oficial GOV.MT com Tarja de Proveniência (RF10)
     print("\n[RF10] Gerando comunicado visual híbrido GOV.MT (Pillow + Brasão + Tarja)...")
     res_img = gerar_imagem()
+    if isinstance(res_img, JSONResponse):
+        print(" -> Falha no RF10. Consulte o registro de auditoria; nenhuma imagem simulada foi produzida.")
+        return
     print(f" -> Imagem oficial gerada em: {res_img['caminho_local']}")
     print(f" -> Tarja de proveniência: '{res_img['metadados']['declaracao_proveniencia']}'")
 

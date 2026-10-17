@@ -106,31 +106,43 @@ def test_rf05_extracao_estruturada_e_nao_localizado():
 # ==============================================================================
 # RF06: Transcrição de Áudio (STT)
 # ==============================================================================
-def test_rf06_transcricao_audio():
+def test_rf06_transcricao_audio(monkeypatch):
+    monkeypatch.setenv("STT_PROVIDER", "huggingface")
     proc = AudioProcessor()
     caminho = "dados/originais/entrada_audio.mp3"
     assert os.path.exists(caminho), "Arquivo de áudio original deve existir."
 
+    monkeypatch.setenv("EXECUTION_MODE", "mock")
     resultado = proc.transcrever_audio(caminho)
-    assert resultado["sucesso"] is True
-    assert "transcricao_bruta" in resultado
-    assert "transcricao_revisada" in resultado
-    assert resultado["metadados"]["duracao_segundos"] > 0
-    assert resultado["comparacao_gabarito"]["todos_campos_criticos_conferidos"] is True
+    assert resultado["sucesso"] is False
+    assert resultado["codigo_erro"] == "stt_indisponivel"
+    assert "transcricao_bruta" not in resultado
 
 
 # ==============================================================================
 # RF07: Síntese de Voz e Acessibilidade (TTS)
 # ==============================================================================
-def test_rf07_tts_acessibilidade():
+def test_rf07_tts_acessibilidade(monkeypatch, tmp_path):
+    import wave
     proc = AudioProcessor()
+    proc.audios_dir = tmp_path / "audios"
+    logger = AuditLogger(str(tmp_path / "logs"))
+    monkeypatch.setenv("TTS_PROVIDER", "sapi5")
+    def sapi_simulado(texto, caminho):
+        with wave.open(caminho, "wb") as wav:
+            wav.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+            wav.writeframes(b"\x01\x00" * 8000)
+        return "Maria (mock)"
+    monkeypatch.setattr(proc, "_sintetizar_sapi5", sapi_simulado)
     texto_com_lacuna = "Documento apresentado: RG não localizado."
     texto_acessivel = proc.preparar_texto_para_acessibilidade(texto_com_lacuna)
 
     assert "Atenção: informação pendente de localização no sistema" in texto_acessivel
 
     # Teste de síntese com salvamento em disco
-    saida = proc.sintetizar_minuta_audio(texto_acessivel, "teste_acessibilidade.mp3")
+    identificador = logger.registrar_execucao("texto", "", "teste", "teste", "teste", {}, {}, 0)
+    assert logger.atualizar_decisao_humana(identificador, "APROVADO", "Teste automatizado", texto_final=texto_com_lacuna)
+    saida = proc.sintetizar_minuta_audio(texto_com_lacuna, "teste_acessibilidade.wav", identificador, logger)
     assert saida["sucesso"] is True
     assert os.path.exists(saida["caminho_arquivo"])
     assert saida["aviso_acessibilidade_aplicado"] is True
@@ -139,7 +151,16 @@ def test_rf07_tts_acessibilidade():
 # ==============================================================================
 # RF08: Visão Computacional e OCR
 # ==============================================================================
-def test_rf08_visao_ocr_e_gabarito():
+def test_rf08_visao_ocr_e_gabarito(monkeypatch, tmp_path):
+    import pymupdf
+    from src import vision
+    (tmp_path / "tessdata").mkdir()
+    (tmp_path / "tesseract.exe").touch()
+    (tmp_path / "tessdata" / "por.traineddata").touch()
+    monkeypatch.setattr(vision, "TESSERACT_DIR", tmp_path)
+    monkeypatch.setattr(pymupdf.Page, "get_textpage_ocr", lambda *args, **kwargs: object())
+    monkeypatch.setattr(pymupdf.Page, "get_text", lambda *args, **kwargs: "NOME: Pessoa Ficticia\nCPF: 000.000.000-00")
+    monkeypatch.setattr(VisionProcessor, "_ocr_alternativo", lambda *args: "NOME: Pessoa Ficticia\nCPF: 000.000.000-00")
     proc = VisionProcessor()
     caminho = "dados/originais/entrada_pdf-imagem.pdf"
     assert os.path.exists(caminho), "Arquivo de documento original deve existir."
@@ -156,8 +177,20 @@ def test_rf08_visao_ocr_e_gabarito():
 # ==============================================================================
 # RF09 & RF10: Minuta Institucional e Peça Visual Híbrida GOV.MT
 # ==============================================================================
-def test_rf10_geracao_peca_visual_hibrida():
+def test_rf10_geracao_peca_visual_hibrida(monkeypatch, tmp_path):
+    import sys
+    import types
+    from unittest.mock import Mock
+    from PIL import Image
+    monkeypatch.setenv("EXECUTION_MODE", "api")
+    monkeypatch.setenv("HF_TOKEN", "token-teste")
+    monkeypatch.setenv("IMAGE_PROVIDER", "fal-ai")
+    cliente = Mock()
+    cliente.text_to_image.return_value = Image.new("RGB", (64, 64), "white")
+    monkeypatch.setitem(sys.modules, "huggingface_hub", types.SimpleNamespace(InferenceClient=Mock(return_value=cliente)))
     gerador = ImageGenerator()
+    gerador.output_dir = tmp_path
+    gerador.config.setdefault("paths", {})["resultados_logs"] = str(tmp_path / "logs")
     res = gerador.gerar_comunicado_oficial(nome_arquivo="teste_peca_govmt.png")
 
     assert res["sucesso"] is True
@@ -200,6 +233,7 @@ def test_rf11_e_rf13_auditoria_e_decisao_humana():
         decisao="APROVADO",
         justificativa="Minuta conferida com o processo acadêmico.",
         operador="Servidor Chefe",
+        texto_final="Minuta fictícia conferida para teste.",
     )
     assert sucesso is True
 
