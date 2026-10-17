@@ -459,7 +459,10 @@ def rodar_experimento_prompts():
 
 @app.post("/api/processar/audio")
 def processar_audio():
-    return audio_processor.processar_com_auditoria(audit_logger)
+    resultado = audio_processor.processar_com_auditoria(audit_logger)
+    if resultado.get("codigo_erro") == "memoria_insuficiente":
+        return JSONResponse(status_code=503, content=resultado)
+    return resultado
 
 
 @app.post("/api/processar/visao")

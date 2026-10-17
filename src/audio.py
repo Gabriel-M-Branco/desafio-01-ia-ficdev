@@ -15,6 +15,7 @@ import uuid
 import base64
 import hashlib
 import subprocess
+import traceback
 
 from src import resolver_caminho, caminho_relativo
 from src.llm_client import LLMClient
@@ -134,7 +135,11 @@ class AudioProcessor:
                 metadados["idioma_detectado"] = idioma.strip()
         except Exception as exc:
             status = getattr(getattr(exc, "response", None), "status_code", None)
-            if provider == "local" and isinstance(exc, FileNotFoundError):
+            memoria = provider == "local" and (isinstance(exc, MemoryError) or
+                "mkl_malloc" in str(exc).lower() or "failed to allocate memory" in str(exc).lower())
+            if memoria:
+                codigo = "memoria_insuficiente"
+            elif provider == "local" and isinstance(exc, FileNotFoundError):
                 codigo = "modelo_local_indisponivel"
             elif status in (401, 403):
                 codigo = "autenticacao"
@@ -146,8 +151,21 @@ class AudioProcessor:
                 codigo = "dependencia_ausente"
             else:
                 codigo = "falha_provedor"
-            # Não propagar mensagens externas que possam conter credenciais.
-            return {"sucesso": False, "erro": "Não foi possível concluir o STT.", "codigo_erro": codigo}
+            falha = {"sucesso": False, "erro": "Não foi possível concluir o STT.", "codigo_erro": codigo}
+            if provider == "local":
+                # Preservar a causa local na auditoria, sem segredos nem variáveis locais.
+                detalhe = str(exc)
+                for nome, valor in os.environ.items():
+                    if len(valor) > 4 and any(k in nome.upper() for k in ("TOKEN", "KEY", "PASSWORD", "SECRET")):
+                        detalhe = detalhe.replace(valor, "[credencial omitida]")
+                detalhe = re.sub(r"Bearer\s+\S+|(?:sk-or-v1-|hf_|token[-_])[A-Za-z0-9_-]+", "[credencial omitida]", detalhe, flags=re.IGNORECASE)
+                frames = traceback.extract_tb(exc.__traceback__)
+                falha["diagnostico"] = {"tipo_excecao": type(exc).__name__, "mensagem": detalhe[:1000],
+                    "origem": [{"arquivo": Path(f.filename).name, "linha": f.lineno, "funcao": f.name} for f in frames]}
+                falha["erro"] = ("Memória insuficiente para carregar/executar faster-whisper small (CPU/int8). "
+                    "Feche aplicativos pesados e verifique a memória virtual/arquivo de paginação do Windows; "
+                    "tente novamente. Causa: " if memoria else "STT local falhou: ") + detalhe[:300]
+            return falha
         revisada = re.sub(r"\s+", " ", bruta).strip()
         return {
             "sucesso": True, "arquivo_audio": caminho_relativo(path), "metadados": metadados,

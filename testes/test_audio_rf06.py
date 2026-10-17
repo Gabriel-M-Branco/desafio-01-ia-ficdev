@@ -93,6 +93,21 @@ def test_resposta_malformada(audio):
     assert proc.transcrever_audio(str(path))["codigo_erro"] == "falha_provedor"
 
 
+def test_memoria_local_preserva_causa_sem_segredo(audio, monkeypatch):
+    proc, path, _, _ = audio
+    monkeypatch.setenv("STT_PROVIDER", "local")
+    monkeypatch.setenv("HF_TOKEN", "hf_segredo_ficticio")
+    def falhar(_):
+        raise RuntimeError("mkl_malloc: failed to allocate memory hf_segredo_ficticio")
+    monkeypatch.setattr(proc, "_transcrever_local", falhar)
+    r = proc.transcrever_audio(str(path))
+    assert not r["sucesso"] and r["codigo_erro"] == "memoria_insuficiente"
+    assert "mkl_malloc" in r["erro"] and "paginação" in r["erro"]
+    assert r["diagnostico"]["tipo_excecao"] == "RuntimeError"
+    assert r["diagnostico"]["origem"][-1]["funcao"] == "falhar"
+    assert "hf_segredo_ficticio" not in json.dumps(r)
+
+
 def test_dependencia_ausente(audio, monkeypatch):
     proc, path, _, _ = audio
     monkeypatch.setitem(sys.modules, "huggingface_hub", None)

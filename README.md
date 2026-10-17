@@ -3,6 +3,24 @@
 Protótipo para demonstração local, com provedores reais configuráveis e revisão humana obrigatória.
 
 ## Execução
+Instalação no Windows (Python 3.11+):
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+Copie o exemplo somente na primeira instalação; preserve um `.env` já configurado.
+Configure `OPENROUTER_API_KEY` e, para RF10, as três variáveis `CLOUDFLARE_*`.
+Nunca compartilhe/versione credenciais. O exemplo mantém texto OpenRouter/Gemini,
+STT local e TTS SAPI5; não habilita autenticação administrativa RF10.
+Instale Tesseract OCR com `por.traineddata` em `C:\Program Files\Tesseract-OCR`
+e habilite a voz Microsoft Maria (pt-BR) no Windows. O modelo
+`Systran/faster-whisper-small` deve estar previamente no cache Hugging Face:
+download manual, quando autorizado, com
+`.\.venv\Scripts\python.exe -c "from huggingface_hub import snapshot_download; snapshot_download('Systran/faster-whisper-small')"`.
+O processamento RF06 usa somente o cache e não baixa modelos automaticamente.
+Node.js é necessário apenas para os validadores frontend; Edge, para o teste de navegador.
+
 Dependências: requirements.txt. Usar Python com as dependências da .venv existente.
 Interface local: `.\.venv\Scripts\python.exe -m src.main --host 127.0.0.1 --port 8000`
 Abrir http://127.0.0.1:8000. O badge consulta os provedores configurados no backend.
@@ -17,6 +35,9 @@ Erros de API aparecem com status HTTP; falhas de geração nunca produzem respos
 
 ## Funcionalidades e limites reais
 - RF06: faster-whisper small/CPU/int8/pt ou HF; bruto/revisado, metadados, referência e auditoria. Sem fallback fictício.
+  Limitação atual: a última tentativa pela interface falhou ao carregar o modelo com
+  `mkl_malloc: failed to allocate memory`. Libere memória e confira a paginação do Windows
+  antes de repetir; o backend registra a causa e responde HTTP 503, sem simular transcrição.
 - RF07: SAPI5/Microsoft Maria no Windows; edge-tts opcional. Texto aprovado por hash, áudio verdadeiro e validação de saída.
 - RF08: PyMuPDF/Tesseract português, alternativas Pillow/PSM e regiões. Preserva versões, divergências e JSON; ausentes permanecem “não localizado”. PDF oficial de baixa qualidade exige revisão humana.
 - RF10: Cloudflare Workers AI/HF/endpoint compatível. Pillow somente compõe/corrige, sem substituir IA. Preservados bruto, prompt, hashes, fonte Unicode, brasão, tarja e auditoria.
