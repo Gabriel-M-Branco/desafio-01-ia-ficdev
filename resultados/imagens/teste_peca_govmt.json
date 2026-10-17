@@ -4,7 +4,7 @@
   "arquivo_imagem": "resultados/imagens/teste_peca_govmt.png",
   "formato": "PNG",
   "dimensoes": "1080x1350",
-  "data_geracao": "2026-10-16T17:27:42.751693",
+  "data_geracao": "2026-10-16T22:13:23.184782",
   "tempo_processamento_segundos": 0.04,
   "modelo_ia_utilizado": "black-forest-labs/FLUX.1-schnell",
   "template_institucional": "GOV.MT Oficial Padrão SECITECI",

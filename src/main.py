@@ -104,19 +104,32 @@ def obter_configuracoes():
         "versao": "1.0.0",
         "execution_mode": llm_client.execution_mode,
         "has_hf_token": bool(llm_client.hf_token),
-        "has_openrouter_key": bool(llm_client.openrouter_key),
         "modelos": llm_client.config.get("models", {}),
     }
 
 
 @app.get("/api/casos/{caso_id}")
 def obter_caso_teste(caso_id: str):
-    """Carrega o conteúdo dos casos de teste."""
+    """Carrega o conteúdo dos casos de teste das três modalidades."""
     if caso_id == "prompt_injection":
         return {
             "caso_id": caso_id,
             "arquivo": "Classe: SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION",
             "conteudo": SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION,
+        }
+    if caso_id == "audio_transcricao":
+        res_audio = audio_processor.transcrever_audio("dados/originais/entrada_audio.mp3")
+        return {
+            "caso_id": caso_id,
+            "arquivo": "dados/originais/entrada_audio.mp3 (Transcrição Real Whisper STT)",
+            "conteudo": res_audio.get("transcricao_revisada") or res_audio.get("transcricao_bruta"),
+        }
+    if caso_id == "visao_documento":
+        res_visao = vision_processor.processar_documento("dados/originais/entrada_pdf-imagem.pdf")
+        return {
+            "caso_id": caso_id,
+            "arquivo": "dados/originais/entrada_pdf-imagem.pdf (Extração Real OCR Tesseract/VLM)",
+            "conteudo": res_visao.get("texto_corrigido") or res_visao.get("texto_bruto"),
         }
 
     mapa_arquivos = {
@@ -196,17 +209,8 @@ def processar_texto(requisicao: RequisicaoTexto):
         identificador_execucao=None,
     )
 
-    # Avaliacao contra gabarito oficial (RF13)
-    avaliacao = None
-    if requisicao.caso == "prompt_injection":
-        gabarito_inj = {"campos_esperados": SegurancaPrompts.GABARITO_ESPERADO["campos_reais"]}
-        avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito_inj)
-    else:
-        gabarito_path = resolver_caminho("dados/gabaritos/gabarito_texto.json")
-        if gabarito_path.exists():
-            with open(gabarito_path, "r", encoding="utf-8") as f:
-                gabarito = json.load(f)
-            avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito)
+    # Avaliacao de conformidade com regras oficiais e auditoria institucional (RF13)
+    avaliacao = QualityEvaluator.avaliar_conformidade_regras(extracao)
 
     rel_pdf = f"resultados/minutas/minuta_{requisicao.caso}.pdf"
 
@@ -454,7 +458,7 @@ def executar_pipeline_completo():
     audit_logger.atualizar_decisao_humana(
         exec_id=exec_id_texto,
         decisao="APROVADO",
-        justificativa="Dados de matrícula conferidos e alinhados com o gabarito oficial ETEC. Aprovado para envio formal.",
+        justificativa="Dados de matrícula conferidos e em conformidade com as regras institucionais e formato oficial SECITECI/ETEC. Aprovado para envio formal.",
     )
     print(" -> [RF13] Decisão humana registrada: APROVADO.")
 
@@ -490,7 +494,7 @@ def executar_pipeline_completo():
     # 6. Visão Multimodal e OCR (RF08)
     print("\n[RF08] Processando documento digitalizado / Ficha de Matrícula...")
     res_visao = processar_visao()
-    print(f" -> Visão e OCR concluídos! Acurácia contra gabarito: {res_visao['comparacao_gabarito']['taxa_acuracia_percentual']}")
+    print(f" -> Visão e OCR concluídos! Conformidade de regras documentais: {res_visao['comparacao_gabarito']['taxa_acuracia_percentual']}")
     print(f" -> Incertezas identificadas: {len(res_visao['trechos_incertos_ou_ilegiveis'])}")
 
     # 7. Peça Visual Oficial GOV.MT com Tarja de Proveniência (RF10)

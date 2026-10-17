@@ -4,7 +4,7 @@
   "arquivo_imagem": "resultados/imagens/comunicado_institucional_govmt.png",
   "formato": "PNG",
   "dimensoes": "1080x1350",
-  "data_geracao": "2026-10-16T21:27:24.004713",
+  "data_geracao": "2026-10-16T22:08:46.563458",
   "tempo_processamento_segundos": 0.05,
   "modelo_ia_utilizado": "black-forest-labs/FLUX.1-schnell",
   "template_institucional": "GOV.MT Oficial Padrão SECITECI",

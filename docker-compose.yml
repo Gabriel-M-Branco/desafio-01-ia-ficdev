@@ -9,7 +9,6 @@ services:
       - "8000:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - EXECUTION_MODE=${EXECUTION_MODE:-auto}
       - HOST=0.0.0.0
       - PORT=8000
