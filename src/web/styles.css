@@ -1015,3 +1015,23 @@ body {
   vertical-align: middle;
   border-bottom: 1px solid var(--border-color);
 }
+
+/* Mantém a regra final da grade compatível com telas pequenas. */
+.system-modes { margin: 8px 24px; color: #475569; font-size: .85rem; overflow-wrap: anywhere; }
+.pane-grid > *, .multimodal-grid > *, .card { min-width: 0; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.badge-mode { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 1150px) {
+  #tab-atendimento .pane-grid, .pane-grid { grid-template-columns: minmax(0, 1fr); }
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .header-container { padding-left: 0; padding-right: 0; }
+  .brand-group { width: 100%; min-width: 0; gap: 10px; }
+  .brand-text { min-width: 0; overflow-wrap: anywhere; }
+  .card-header { flex-wrap: wrap; gap: 8px; }
+  .card-header > * { min-width: 0; }
+  .form-control { max-width: 100%; min-width: 0; }
+  .image-preview-wrapper, .multimodal-grid { grid-template-columns: minmax(0, 1fr); }
+  .main-content { padding-left: 10px; padding-right: 10px; }
+}

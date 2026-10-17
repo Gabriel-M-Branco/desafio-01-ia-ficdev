@@ -1,13 +1,19 @@
-# Central Inteligente de Atendimento — integração em validação
+# Central Inteligente de Atendimento — GOV.MT
 
-Cópia isolada: origin/main 90a9b69 + trabalho local de fix/multimodal-emilly.
-Nada aplicado à branch original. Sem .env, credenciais ou .git nesta cópia.
+Protótipo para demonstração local, com provedores reais configuráveis e revisão humana obrigatória.
 
 ## Execução
 Dependências: requirements.txt. Usar Python com as dependências da .venv existente.
-Interface: python -m src.main
+Interface local: `.\.venv\Scripts\python.exe -m src.main --host 127.0.0.1 --port 8000`
+Abrir http://127.0.0.1:8000. O badge consulta os provedores configurados no backend.
 Testes offline: python -B testes/executar_offline.py
 O executor usa arquivos temporários e bloqueia provedores externos; mocks são exclusivos dos testes.
+DOM offline: `node testes/validar_interface_offline.cjs` e `node testes/validar_fluxos_web.cjs`.
+Navegador real, sem APIs: `.\.venv\Scripts\python.exe -m testes.validar_navegador_local --executar`.
+Esse teste usa Edge, viewport móvel/desktop e arquivos/aprovações fictícios em pasta temporária; não inicia a aplicação de produção.
+Na interface: processar solicitação, conferir/editar minuta, informar justificativa e aprovar.
+Só então gerar TTS; qualquer edição posterior exige nova aprovação. Salvar correções não equivale a aprovar.
+Erros de API aparecem com status HTTP; falhas de geração nunca produzem respostas fictícias.
 
 ## Funcionalidades e limites reais
 - RF06: faster-whisper small/CPU/int8/pt ou HF; bruto/revisado, metadados, referência e auditoria. Sem fallback fictício.
@@ -27,9 +33,14 @@ Rejeição ou adulteração bloqueia acesso. /arquivos não entrega imagens RF10
 Pipeline não aprova/rejeita em nome do humano e não gera imagem implicitamente.
 
 ## Provedores e custos
-OpenRouter opcional: OPENROUTER_ENABLED=false; modelo configurável com sufixo :free. Disponibilidade não garantida.
+Texto RF02/RF09: `TEXT_PROVIDER=openrouter`, `OPENROUTER_MODEL=google/gemini-3.8-flash` e chave no `.env` local.
+Esse modelo consome saldo OpenRouter. `TEXT_FALLBACK_PROVIDER=none` desativa fallback.
+RF09 solicita JSON Schema estrito, valida as chaves e usa limite de saída de pelo menos 4096 tokens.
+Resposta inválida permite apenas uma correção de formato auditada, também sujeita a cobrança; nova falha mantém HTTP 502.
+Diagnósticos brutos de falhas ficam em `.llm-diagnosticos/`, fora do Git e do acesso HTTP; não compartilhar essa pasta.
+Hugging Face é opção configurável; `OPENROUTER_ENABLED` habilita apenas o fallback legado a partir dele.
 HF/Cloudflare podem ter quotas, créditos e cobrança; custo desconhecido permanece não informado.
-Nenhuma API real ou modelo executado/baixado na integração. Novos testes reais dependem de autorização separada.
+Testes automatizados usam transportes simulados; chamadas reais dependem de autorização e configuração local.
 Não copiar/versionar .env. .env.example contém somente configuração não secreta.
 
 ## Evidências e implantação
@@ -38,4 +49,6 @@ Artefatos locais originais preservados. Evidências remotas em evidencias_origin
 Documentação anterior em evidencias_documentacao_anterior como histórico; métricas antigas não comprovam esta integração.
 Novos processamentos textuais e experimentos usam nomes exclusivos.
 Docker/Linux necessita OCR, fontes e TTS compatível; SAPI5 depende de Windows. Docker não validado.
-Pendências: autenticação do grupo, revisão humana real do RF10, validação visual da interface e qualidade do PDF oficial.
+RF10 no navegador continua bloqueado por falta de autenticação real. O [executor Windows isolado](documentacao/teste_local_rf10.md)
+é exclusivo para testes e não concede acesso às rotas normais. Não há publicação automática.
+Pendências: autenticação do grupo, revisão das saídas reais e qualidade do PDF oficial.

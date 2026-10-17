@@ -16,6 +16,7 @@ from src.prompts import SegurancaPrompts
 
 @pytest.fixture
 def llm(monkeypatch):
+    monkeypatch.setenv("TEXT_PROVIDER", "huggingface")
     monkeypatch.setenv("EXECUTION_MODE", "api")
     monkeypatch.setenv("OPENROUTER_ENABLED", "false")
     cliente = LLMClient()
@@ -106,6 +107,69 @@ def test_openrouter_rejeita_modelo_sem_sufixo_free(llm, monkeypatch):
     monkeypatch.setattr("requests.post", post)
     assert cliente.generate("Teste").status == "fallback_model_not_free"
     post.assert_not_called()
+
+
+@pytest.mark.parametrize("modelo,provedor", [("openrouter/free", "OpenRouter_Free"),
+    ("google/gemini-3.8-flash", "OpenRouter")])
+def test_openrouter_principal_registra_modelo_real(llm, monkeypatch, modelo, provedor):
+    cliente, sdk = llm
+    cliente.text_provider = "openrouter"
+    cliente.openrouter_key = "or-chave-ficticia"
+    monkeypatch.setenv("OPENROUTER_MODEL", modelo)
+    monkeypatch.setenv("TEXT_FALLBACK_PROVIDER", "none")
+    post = Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {
+        "model": "equipe/selecionado:free", "choices": [{"message": {"content": "Texto real do transporte simulado"}}]}))
+    monkeypatch.setattr("requests.post", post)
+    resposta = cliente.generate("Entrada", timeout=13)
+    assert resposta.model == "equipe/selecionado:free" and resposta.status == "success"
+    assert resposta.provider == provedor
+    assert post.call_args.args[0] == "https://openrouter.ai/api/v1/chat/completions"
+    assert post.call_args.kwargs["json"]["model"] == modelo
+    assert post.call_args.kwargs["timeout"] == 13
+    sdk.chat_completion.assert_not_called()
+
+
+@pytest.mark.parametrize("codigo,status", [(401,"auth_error"),(429,"rate_limit_exceeded"),
+    (503,"service_unavailable")])
+def test_openrouter_sem_fallback_silencioso(llm, monkeypatch, codigo, status):
+    cliente, sdk = llm
+    cliente.text_provider = "openrouter"
+    cliente.openrouter_key = "or-chave-ficticia"
+    monkeypatch.setenv("OPENROUTER_MODEL", "openrouter/free")
+    monkeypatch.setenv("TEXT_FALLBACK_PROVIDER", "none")
+    monkeypatch.setattr("requests.post", Mock(return_value=SimpleNamespace(status_code=codigo)))
+    resposta = cliente.generate("Entrada")
+    assert resposta.status == status and not resposta.text
+    sdk.chat_completion.assert_not_called()
+
+
+def test_openrouter_fallback_hf_somente_explicito(llm, monkeypatch, capsys):
+    cliente, sdk = llm
+    cliente.text_provider = "openrouter"
+    cliente.openrouter_key = ""
+    monkeypatch.setenv("TEXT_FALLBACK_PROVIDER", "huggingface")
+    resposta = cliente.generate("Entrada")
+    assert resposta.provider == "HuggingFace_Serverless"
+    assert "fallback explicitamente habilitado" in capsys.readouterr().out
+    assert sdk.chat_completion.call_args.kwargs["model"] == cliente.hf_model
+
+
+@pytest.mark.parametrize("vazia", [True, False])
+def test_openrouter_timeout_ou_vazio_sem_resposta_ficticia(llm, monkeypatch, vazia):
+    cliente, sdk = llm
+    cliente.text_provider = "openrouter"
+    cliente.openrouter_key = "or-chave-ficticia"
+    monkeypatch.setenv("OPENROUTER_MODEL", "openrouter/free")
+    monkeypatch.setenv("TEXT_FALLBACK_PROVIDER", "none")
+    post = Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {"choices": []}))
+    if not vazia:
+        post.side_effect = TimeoutError("or-chave-ficticia")
+    monkeypatch.setattr("requests.post", post)
+    resposta = cliente.generate("Entrada")
+    assert resposta.status == ("empty_or_invalid_response" if vazia else "timeout")
+    assert not resposta.text and not resposta.is_mock
+    assert "or-chave-ficticia" not in json.dumps(resposta.to_dict())
+    sdk.chat_completion.assert_not_called()
 
 
 @pytest.mark.parametrize("texto", ["", "Solicito matrícula.", "Curso: Enfermagem\nNascimento: 01/01/2000"])
@@ -204,6 +268,98 @@ def test_json_invalido_nao_preenche_nome_data_ou_documento(web,monkeypatch):
     monkeypatch.setattr(main.llm_client,"generate",Mock(return_value=falso))
     resposta=pedir("POST","/api/processar/texto",json={"texto":"Teste","caso":"personalizado"})
     assert resposta.status_code==502
+    assert "JSON válido" in resposta.json()["detail"]
+
+
+def test_config_web_reflete_provedor_real_sem_segredos(web, monkeypatch):
+    main, pedir = web
+    monkeypatch.setattr(main.llm_client, "text_provider", "openrouter")
+    monkeypatch.setattr(main.llm_client, "primary_model", "google/gemini-3.8-flash")
+    monkeypatch.setattr(main.llm_client, "hf_token", "segredo-hf-nao-exibir")
+    monkeypatch.setattr(main.llm_client, "openrouter_key", "segredo-or-nao-exibir")
+    resposta = pedir("GET", "/api/config")
+    assert resposta.json()["texto"]["modelo"] == "google/gemini-3.8-flash"
+    assert resposta.json()["texto"]["provedor"] == "openrouter"
+    assert resposta.json()["rf10_administrativo_habilitado"] is False
+    assert "segredo-" not in resposta.text
+
+
+@pytest.mark.parametrize("url", ["/", "/static/app.js", "/app.js", "/static/styles.css", "/styles.css"])
+def test_interface_runtime_nao_reutiliza_cache_antigo(web, url):
+    _, pedir = web
+    resposta = pedir("GET", url)
+    assert resposta.status_code == 200
+    assert "no-store" in resposta.headers["cache-control"]
+
+
+def test_html_versiona_assets_pelo_conteudo_atual(web, monkeypatch, tmp_path):
+    import hashlib
+    main, pedir = web
+    pasta = tmp_path / "src/web"
+    pasta.mkdir(parents=True)
+    (pasta / "index.html").write_text('<script src="/static/app.js"></script><link href="/static/styles.css">', encoding="utf-8")
+    (pasta / "app.js").write_bytes(b"versao1")
+    (pasta / "styles.css").write_bytes(b"estilo")
+    monkeypatch.setattr(main, "BASE_DIR", tmp_path)
+    a = pedir("GET", "/").text
+    assert '/static/app.js?v=' + hashlib.sha256(b"versao1").hexdigest()[:16] in a
+    (pasta / "app.js").write_bytes(b"versao2")
+    b = pedir("GET", "/").text
+    assert a != b
+    assert '/static/app.js?v=' + hashlib.sha256(b"versao2").hexdigest()[:16] in b
+
+
+@pytest.mark.parametrize("nome", ["../fora.pdf", "C:\\fora.pdf", "outra/pasta.pdf", "arquivo.txt"])
+def test_exportacao_pdf_nao_aceita_caminho_externo(web, nome):
+    _, pedir = web
+    resposta = pedir("POST", "/api/minuta/gerar_pdf", json={"texto_minuta": "Texto fictício", "nome_arquivo": nome})
+    assert resposta.status_code == 422
+
+
+def test_exportacao_pdf_preserva_anteriores_sem_dados_fixos(web, monkeypatch):
+    main, pedir = web
+    gerar = Mock(side_effect=lambda **kw: kw["caminho_saida_pdf"].write_bytes(b"%PDF-teste"))
+    monkeypatch.setattr(main, "gerar_minuta_pdf", gerar)
+    corpo = {"texto_minuta": "Minuta fictícia", "nome_arquivo": "exportacao.pdf"}
+    a = pedir("POST", "/api/minuta/gerar_pdf", json=corpo)
+    b = pedir("POST", "/api/minuta/gerar_pdf", json=corpo)
+    assert a.status_code == b.status_code == 200
+    assert a.json()["url_pdf"] != b.json()["url_pdf"]
+    assert gerar.call_args.kwargs["dados_extracao"]["solicitante"] == "não localizado"
+
+
+def test_fluxo_web_texto_revisao_tts_e_edicao_por_hash(web, monkeypatch):
+    import wave
+    main, pedir = web
+    monkeypatch.setenv("TTS_PROVIDER", "sapi5")
+    payload = json.dumps({"extracao": {"protocolo": "2099-123456", "solicitante": "Pessoa Fictícia"},
+                          "minuta_institucional": "Minuta fictícia com informação não localizado."})
+    resposta_llm = LLMResponse(payload, "google/gemini-3.8-flash", "transporte-mock", .01, 1, 1, 2, None, "success")
+    monkeypatch.setattr(main.llm_client, "generate", Mock(return_value=resposta_llm))
+    resposta = pedir("POST", "/api/processar/texto", json={"texto": "Entrada fictícia", "caso": "personalizado"})
+    assert resposta.status_code == 200
+    dado = resposta.json(); identificador = dado["id_execucao"]; texto = dado["minuta_institucional"]
+    assert pedir("POST", "/api/sintetizar/audio", json={"texto": texto, "id_execucao": identificador}).status_code == 403
+    decisao = {"id_execucao": identificador, "decisao": "APROVADO", "justificativa": "Conferência fictícia de teste", "texto_final": texto}
+    assert pedir("POST", "/api/revisao/decisao", json=decisao).status_code == 200
+    def sintetizar(texto, caminho):
+        with wave.open(caminho, "wb") as arquivo:
+            arquivo.setnchannels(1); arquivo.setsampwidth(2); arquivo.setframerate(8000)
+            arquivo.writeframes(b"\x00\x00" * 800)
+        return "Voz mock de transporte"
+    monkeypatch.setattr(main.audio_processor, "_sintetizar_sapi5", sintetizar)
+    main.audio_processor.audios_dir = main.resolver_caminho("resultados/audios")
+    tts = pedir("POST", "/api/sintetizar/audio", json={"texto": texto, "id_execucao": identificador})
+    assert tts.status_code == 200 and tts.json()["url_audio"].endswith(".wav")
+    assert pedir("POST", "/api/sintetizar/audio", json={"texto": texto + " alterado", "id_execucao": identificador}).status_code == 403
+    registros = pedir("GET", "/api/logs").json()
+    atual = next(r for r in registros if r["id_execucao"] == identificador)
+    assert atual["decisao_humana_atual"]["status"] == "APROVADO"
+    assert atual["decisao_humana"]["status"] == "pendente_revisao"  # Evento histórico preservado.
+    for status in ["CORRIGIDO", "REJEITADO"]:
+        decisao["decisao"] = status
+        assert pedir("POST", "/api/revisao/decisao", json=decisao).status_code == 200
+        assert pedir("POST", "/api/sintetizar/audio", json={"texto": texto, "id_execucao": identificador}).status_code == 403
 
 
 def test_experimento_sem_modelo_nao_cria_classificacao_ficticia(web,monkeypatch):
@@ -213,6 +369,39 @@ def test_experimento_sem_modelo_nao_cria_classificacao_ficticia(web,monkeypatch)
     resposta=pedir("POST","/api/experimento/prompts")
     assert resposta.status_code==503
     assert "prompt_selecionado" not in resposta.json()
+    assert resposta.json()["codigo_erro"] == "timeout"
+    main.llm_client.generate.assert_called_once()
+
+
+@pytest.mark.parametrize("status", ["timeout", "rate_limit_exceeded", "auth_error",
+    "billing_error", "service_unavailable", "empty_or_invalid_response", "credentials_missing"])
+def test_pipeline_interrompe_em_erro_rf02(web, monkeypatch, capsys, status):
+    main, _ = web
+    resposta = LLMResponse("", "modelo", "none", 0.01, 0, 0, 0, None, status)
+    monkeypatch.setattr(main.llm_client, "generate", Mock(return_value=resposta))
+    proxima = Mock(side_effect=AssertionError("Não executar etapas seguintes"))
+    monkeypatch.setattr(main, "processar_texto", proxima)
+    main.executar_pipeline_completo()
+    proxima.assert_not_called()
+    main.llm_client.generate.assert_called_once()
+    saida = capsys.readouterr().out
+    assert status in saida and "pipeline interrompido" in saida
+    assert "Experimento concluído com sucesso" not in saida
+
+
+def test_rf02_progresso_abc_e_preservacao_dos_resultados(web, monkeypatch, capsys):
+    main, pedir = web
+    respostas = [LLMResponse(f"Resultado {tipo}", "modelo", "transporte-mock", 0.01,
+        1, 1, 2, None, "success") for tipo in "ABC"]
+    monkeypatch.setattr(main.llm_client, "generate", Mock(side_effect=respostas))
+    resposta = pedir("POST", "/api/experimento/prompts")
+    assert resposta.status_code == 200
+    saida = capsys.readouterr().out
+    for tipo in "ABC":
+        assert f"Prompt {tipo}: solicitando" in saida
+        assert f"Prompt {tipo}: concluído" in saida
+        assert resposta.json()["resultados"][f"prompt_{tipo.lower()}"]["texto"] == f"Resultado {tipo}"
+    assert main.llm_client.generate.call_count == 3
 
 
 def test_processamento_novo_nao_sobrescreve_evidencias(web,monkeypatch):
@@ -254,3 +443,46 @@ def test_json_invalido_e_auditado_sem_texto_ficticio(web,monkeypatch):
     assert resposta.status_code==502
     eventos=main.audit_logger.listar_execucoes()
     assert eventos[-1]["erros"]==["json_invalido"]
+    assert main.llm_client.generate.call_count == 2
+
+
+def test_correcao_formato_unica_auditada_sem_expor_resposta_bruta(web, monkeypatch):
+    main, pedir = web
+    ruim = LLMResponse('```json\n{"extracao":', "modelo", "mock", .1, 1, 1, 2, None, "success", finish_reason="length")
+    bom = LLMResponse(json.dumps({"extracao": {"protocolo": "não localizado"}, "minuta_institucional": "Minuta fictícia."}),
+                      "modelo", "mock", .2, 1, 1, 2, None, "success", finish_reason="stop")
+    gerar = Mock(side_effect=[ruim, bom])
+    monkeypatch.setattr(main.llm_client, "generate", gerar)
+    r = pedir("POST", "/api/processar/texto", json={"texto": "Entrada fictícia sem protocolo", "caso": "personalizado"})
+    assert r.status_code == 200 and r.json()["metricas"]["tentativas"] == 2
+    assert r.json()["extracao"]["protocolo"] == "não localizado"
+    assert abs(r.json()["metricas"]["duracao_segundos"] - .3) < .00001
+    assert gerar.call_count == 2
+    assert "CORREÇÃO EXCLUSIVA DE FORMATO" in gerar.call_args.kwargs["prompt"]
+    assert gerar.call_args.kwargs["response_format"]["type"] == "json_schema"
+    assert gerar.call_args.kwargs["max_tokens"] >= 4096
+    eventos = main.audit_logger.listar_execucoes()
+    falha = next(e for e in eventos if e["modalidade"] == "texto_formato")
+    assert falha["erros"] == ["saida_truncada"]
+    registro = json.loads((main.audit_logger.log_dir / (falha["id_execucao"] + ".json")).read_text(encoding="utf-8"))
+    diagnostico = registro["detalhes_completos"]
+    assert "resposta_bruta" not in diagnostico
+    assert pedir("GET", "/arquivos/" + diagnostico["arquivo_privado"]).status_code == 404
+    privado = json.loads(main.resolver_caminho(diagnostico["arquivo_privado"]).read_text(encoding="utf-8"))
+    assert privado["resposta_bruta"] == ruim.text
+
+
+def test_openrouter_envia_schema_e_preserva_motivo_termino(llm, monkeypatch):
+    from src.text_contract import FORMATO_MINUTA
+    cliente, _ = llm
+    cliente.text_provider = "openrouter"
+    cliente.openrouter_key = "or-chave-ficticia"
+    monkeypatch.setenv("OPENROUTER_MODEL", "google/gemini-3.8-flash")
+    post = Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {
+        "model": "google/gemini-3.8-flash", "id": "gen-exemplo", "choices": [{
+            "finish_reason": "stop", "message": {"content": '{"extracao":{},"minuta_institucional":"Texto"}'}}]}))
+    monkeypatch.setattr("requests.post", post)
+    r = cliente.generate("Entrada", response_format=FORMATO_MINUTA)
+    assert r.finish_reason == "stop" and r.provider_response_id == "gen-exemplo"
+    assert post.call_args.kwargs["json"]["response_format"] == FORMATO_MINUTA
+    assert post.call_args.kwargs["json"]["provider"]["require_parameters"] is True

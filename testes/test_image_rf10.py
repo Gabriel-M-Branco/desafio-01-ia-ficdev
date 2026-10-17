@@ -40,12 +40,18 @@ def test_prompt_enviado_identico_aos_campos_e_metadados(geracao):
     final = campos["prompt_completo_en"]
     assert final == ". ".join(v for k, v in campos.items() if k != "prompt_completo_en")
     assert cliente.text_to_image.call_args.args[0] == final
-    assert titulo in campos["contexto"]
-    assert "school enrollment" in campos["sujeito"]
+    assert titulo not in final
+    assert "technical school courtyard" in campos["sujeito"]
+    for proibicao in ("No words", "pseudo-writing", "signboards", "plaques", "banners",
+                      "school name signs", "coats of arms"):
+        assert proibicao in campos["restricoes"]
+    assert resultado["metadados"]["composicao"]["titulo"] == titulo
+    assert resultado["metadados"]["composicao"]["assunto"] == titulo
     assert "No medical coats, no stethoscopes, no clinical or hospital environment" in campos["restricoes"]
     conformidade = resultado["metadados"]["conformidade_seguranca"]
     assert conformidade["sem_pessoas_reais"] is None
     assert conformidade["sem_direitos_autorais_terceiros"] is None
+    assert conformidade["ilustracao_sem_texto_placas_logos"] is None
 
 
 def test_fonte_portugues_fallback_e_composicao(geracao, monkeypatch):
@@ -65,6 +71,7 @@ def test_fonte_portugues_fallback_e_composicao(geracao, monkeypatch):
     monkeypatch.setattr(ImageDraw.ImageDraw, "text", conferir)
     assert gerador.gerar_comunicado_oficial(titulo="MATRÍCULAS E EDUCAÇÃO")['sucesso']
     assert "MATRÍCULAS E EDUCAÇÃO" in textos
+    assert "ASSUNTO: MATRÍCULAS E EDUCAÇÃO" in textos
     assert gerador.tarja_texto in textos
 
 

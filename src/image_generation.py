@@ -86,13 +86,14 @@ class ImageGenerator:
         Elabora o prompt estruturado com sujeito, composição, estilo, iluminação, proporção e restrições (RF10).
         """
         campos = {
-            "contexto": f"Educational institutional notice about: {titulo}",
-            "sujeito": "A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk",
-            "composicao": "Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication",
+            # Não enviar o título literal: ele pertence somente à composição Pillow.
+            "contexto": "Illustration-only asset about technical education and student enrollment. All titles, subjects, institutional marks and captions will be added separately by software after generation",
+            "sujeito": "A diverse group of fictional young adult students walking together in a welcoming technical school courtyard, carrying plain backpacks and closed notebooks with solid unmarked covers",
+            "composicao": "Central students surrounded by simple geometric trees and plain campus architecture with unmarked facades. Open welcoming educational setting, abstract technology shapes, generous clean space, no reception counter or display surfaces",
             "estilo": "High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500)",
             "iluminacao": "Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere",
             "proporcao": "Square 1:1 composition",
-            "restricoes": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+            "restricoes": "No text, no letters, no typography, no logos, no watermarks. No words, numbers, pseudo-writing, glyphs, labels, signs, signboards, plaques, banners, posters, billboards, school name signs, emblems or coats of arms anywhere. No writing on buildings, clothing, backpacks or notebooks. Do not draw a blank sign or any lettering surface. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
         }
         # Uma única fonte: os campos salvos são exatamente os enviados ao modelo.
         return {**campos, "prompt_completo_en": ". ".join(campos.values())}
@@ -319,6 +320,10 @@ class ImageGenerator:
         # Moldura sutil ao redor da ilustração
         draw.rectangle([58, 263, 1022, 1127], outline="#008B47", width=3)
 
+        # Assunto deriva do texto fornecido, sem pedir à IA que desenhe palavras.
+        assunto = re.sub(r"^COMUNICADO OFICIAL:\s*", "", titulo, flags=re.IGNORECASE).strip()
+        self._texto(draw, (60, 1150), f"ASSUNTO: {assunto}", self.cor_azul, 22, 960)
+
         # 5. Tarja Inferior Obrigatória de Proveniência (RF10 - Edital / AGENTS.md)
         altura_tarja = 140
         draw.rectangle([0, altura_total - altura_tarja, largura_total, altura_total], fill="#0A2540")
@@ -368,6 +373,7 @@ class ImageGenerator:
             "custo_usd": None, "custo_status": "não informado pelo provedor",
             "template_institucional": "GOV.MT Oficial Padrão SECITECI",
             "conformidade_seguranca": {"sem_pessoas_reais": None, "sem_direitos_autorais_terceiros": None,
+                                      "ilustracao_sem_texto_placas_logos": None,
                                       "tarja_visivel_aplicada": False, "revisao_humana_obrigatoria": True},
         }
         caminho_json = self.output_dir / f"falha_rf10_{identificador}.json"
@@ -393,6 +399,10 @@ class ImageGenerator:
             peca = self.montar_template_institucional(arte, titulo)
             fonte_path = Path(self._fonte(22).path)
             metadados["composicao"] = {
+                "origem_textos": "Pillow / fonte TrueType Unicode; nunca renderizados pela IA",
+                "titulo": titulo,
+                "assunto": re.sub(r"^COMUNICADO OFICIAL:\s*", "", titulo, flags=re.IGNORECASE).strip(),
+                "aviso_conteudo_sintetico": self.tarja_texto,
                 "fonte": fonte_path.name,
                 "sha256_fonte": hashlib.sha256(fonte_path.read_bytes()).hexdigest(),
                 "brasao_origem": caminho_relativo(self.logo_path),

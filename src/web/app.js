@@ -5,6 +5,59 @@ document.addEventListener("DOMContentLoaded", () => {
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
   let ultimaExecucaoId = null;
   let ultimoUrlPdf = null;
+  let ultimaExtracao = {};
+  let textoAprovado = null;
+  let processando = false;
+  let decidindo = false;
+  let sintetizando = false;
+  let exportando = false;
+  let carregandoCaso = false;
+
+  function mensagemSegura(data, status) {
+    let detalhe = data?.detail ?? data?.erro;
+    if (Array.isArray(detalhe)) detalhe = detalhe.map(e => `${(e.loc || []).join(".")}: ${e.msg || "Valor inválido"}`).join("; ");
+    if (typeof detalhe !== "string") detalhe = "Não foi possível concluir a operação.";
+    if (status >= 500 && status !== 502 && status !== 503) detalhe = "Falha interna. Consulte a auditoria local.";
+    return detalhe.replace(/Bearer\s+\S+|(?:sk-or-v1-|hf_)[A-Za-z0-9_-]+/gi, "[credencial omitida]").slice(0, 400);
+  }
+
+  async function api(url, opcoes) {
+    let res;
+    try { res = await fetch(url, opcoes); }
+    catch (_) { throw new Error("Não foi possível conectar à API local. Verifique se o servidor está ativo."); }
+    let data;
+    try { data = await res.json(); }
+    catch (_) { throw new Error(`HTTP ${res.status || "?"}: a API não retornou JSON válido.`); }
+    if (!res.ok || data?.sucesso === false) {
+      throw new Error(`HTTP ${res.status || 200}: ${mensagemSegura(data, res.status)}`);
+    }
+    return { ...res, ok: true, json: async () => data };
+  }
+
+  function atualizarAcoes() {
+    const ocupado = processando || decidindo || sintetizando || exportando || carregandoCaso;
+    for (const id of ["btn-aprovar-minuta", "btn-corrigir-minuta", "btn-rejeitar-minuta", "btn-exportar-pdf"]) {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = ocupado || !ultimaExecucaoId;
+    }
+    const tts = document.getElementById("btn-gerar-tts");
+    if (tts) tts.disabled = ocupado || !ultimaExecucaoId || textoAprovado === null || textoAprovado !== document.getElementById("editor-minuta")?.value;
+    for (const id of ["caso-predefinido", "input-texto-solicitacao", "btn-limpar-texto", "btn-processar-solicitacao", "editor-minuta"]) {
+      const elemento = document.getElementById(id);
+      if (elemento) elemento.disabled = ocupado;
+    }
+  }
+  document.getElementById("editor-minuta")?.addEventListener("input", () => {
+    if (textoAprovado !== null && textoAprovado !== document.getElementById("editor-minuta").value) {
+      textoAprovado = null;
+      document.getElementById("badge-status-revisao").textContent = "Texto alterado: nova aprovação necessária";
+      document.getElementById("badge-status-revisao").className = "badge badge-warning";
+    }
+    document.getElementById("tts-audio-container").style.display = "none";
+    atualizarAcoes();
+  });
+  atualizarAcoes();
+
 
   // 1. Gerenciamento de Abas Principais
   const navTabs = document.querySelectorAll(".nav-tab");
@@ -43,14 +96,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // 3. Inicialização e Consulta de Configuração
   async function carregarConfiguracao() {
     try {
-      const res = await fetch("/api/config");
+      const res = await api("/api/config");
       const data = await res.json();
       const badgeMode = document.getElementById("badge-api-mode");
       if (badgeMode) {
-        badgeMode.textContent = data.has_hf_token ? "Modo: Hugging Face API" : "Modo: Local";
+        badgeMode.textContent = data.texto ? `Texto: ${data.texto.provedor} / ${data.texto.modelo}${data.texto.habilitado ? "" : " (desativado)"}` : "Configuração de texto indisponível";
+        const modos = document.getElementById("modos-multimodais");
+        if (modos) modos.textContent = `STT: ${data.stt?.provedor || "não informado"} / ${data.stt?.modelo || "não informado"} · TTS: ${data.tts?.provedor || "não informado"} · OCR local · RF10 administrativo bloqueado`;
+        const imagem = document.getElementById("btn-gerar-imagem-peca");
+        if (imagem) { imagem.disabled = data.rf10_administrativo_habilitado !== true; imagem.title = "Requer autenticação real da equipe; use o executor local controlado para testes."; }
       }
     } catch (e) {
-      console.warn("Erro ao buscar configurações iniciais:", e);
+      document.getElementById("badge-api-mode").textContent = "Configuração indisponível";
     }
   }
   carregarConfiguracao();
@@ -64,9 +121,10 @@ document.addEventListener("DOMContentLoaded", () => {
       inputTexto.value = "";
       return;
     }
+    carregandoCaso = true; atualizarAcoes();
     inputTexto.value = "Carregando conteúdo real da modalidade selecionada...";
     try {
-      const res = await fetch(`/api/casos/${valor}`);
+      const res = await api(`/api/casos/${valor}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro || data.detail || "Processamento indisponível");
       inputTexto.value = data.conteudo || "";
@@ -74,8 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Erro ao carregar caso:", e);
       inputTexto.value = "";
       alert("Falha ao carregar a modalidade: " + e.message);
-      inputTexto.value = "";
-      alert("Falha ao carregar conteúdo real do caso: " + e.message);
+    } finally {
+      carregandoCaso = false; atualizarAcoes();
     }
   }
 
@@ -97,11 +155,24 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    processando = true;
+    ultimaExecucaoId = null; ultimoUrlPdf = null; ultimaExtracao = {}; textoAprovado = null;
+    document.getElementById("editor-minuta").value = "";
+    document.getElementById("justificativa-revisao").value = "";
+    document.getElementById("json-extracao-view").textContent = "Aguardando processamento...";
+    document.getElementById("tabela-conferencia-body").innerHTML = "";
+    for (const id of ["metric-duracao", "metric-tokens", "metric-custo"]) document.getElementById(id).textContent = "—";
+    document.getElementById("tts-audio-container").style.display = "none";
+    document.getElementById("badge-status-revisao").textContent = "Processando; revisão indisponível";
+    document.getElementById("badge-status-revisao").className = "badge badge-warning";
+    document.getElementById("comparacao-gabarito-view").textContent = "";
+    document.getElementById("banner-conferencia-operador").style.display = "none";
+    atualizarAcoes();
     btnProcessar.disabled = true;
-    btnProcessar.textContent = "Analisando e Gerando...";
+    btnProcessar.textContent = "Analisando solicitação e gerando minuta...";
 
     try {
-      const res = await fetch("/api/processar/texto", {
+      const res = await api("/api/processar/texto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: texto, caso: selectCaso?.value || "texto_original" }),
@@ -109,14 +180,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
       btnProcessar.disabled = false;
-      btnProcessar.textContent = "Processar Solicitacao (RF03/RF05)";
+      btnProcessar.textContent = "Processar Solicitação (RF03/RF05)";
 
       if (!data.sucesso) {
-        alert("Erro no processamento: " + (data.erro || "Falha desconhecida"));
+        alert("Erro no processamento: " + (data.detail || data.erro || "Resposta incompleta da API"));
         return;
       }
 
+      if (!data.id_execucao || typeof data.minuta_institucional !== "string") throw new Error("Resposta incompleta da API: execução ou minuta ausente.");
       ultimaExecucaoId = data.id_execucao;
+      ultimaExtracao = data.extracao || {};
       ultimoUrlPdf = data.url_pdf || null;
 
       // Atualiza Minuta
@@ -128,13 +201,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (jsonView) jsonView.textContent = JSON.stringify(data.extracao, null, 2);
 
       // Atualiza Metricas
-      document.getElementById("metric-duracao").textContent = `${data.metricas.duracao_segundos}s`;
-      document.getElementById("metric-tokens").textContent = data.metricas.total_tokens || "-";
-      document.getElementById("metric-custo").textContent = typeof data.metricas.custo_usd === "number" ? `US$ ${data.metricas.custo_usd.toFixed(2)}` : "Não informado";
+      document.getElementById("metric-duracao").textContent = `${data.metricas?.duracao_segundos}s`;
+      document.getElementById("metric-tokens").textContent = data.metricas?.total_tokens || "-";
+      document.getElementById("metric-custo").textContent = typeof data.metricas?.custo_usd === "number" ? `US$ ${data.metricas?.custo_usd.toFixed(2)}` : "Não informado";
 
       const badgeStatus = document.getElementById("badge-status-revisao");
       if (badgeStatus) {
-        badgeStatus.textContent = "Pendente de Revisao Humana";
+        badgeStatus.textContent = "Pendente de Revisão Humana";
         badgeStatus.className = "badge badge-warning";
       }
 
@@ -146,14 +219,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (gabaritoBox && data.avaliacao_gabarito) {
         const aval = data.avaliacao_gabarito;
         gabaritoBox.innerHTML = `
-          <strong>Fidelidade à referência Institucional:</strong> ${aval.taxa_fidelidade_percentual ?? "não avaliada"}${aval.taxa_fidelidade_percentual == null ? "" : "%"} (${aval.total_acertos}/${aval.total_campos_analisados} campos corretos)<br>
+          <strong>Fidelidade à referência institucional:</strong> ${aval.taxa_fidelidade_percentual ?? "não avaliada"}${aval.taxa_fidelidade_percentual == null ? "" : "%"} (${aval.total_acertos}/${aval.total_campos_avaliaveis ?? aval.total_campos_analisados} campos avaliáveis)<br>
+          <strong>Completude dos dados disponíveis na fonte:</strong> ${aval.taxa_completude_percentual ?? "não avaliada"}${aval.taxa_completude_percentual == null ? "" : "%"}<br>
+          <small>Ausências na fonte: ${aval.total_ausentes_na_fonte ?? "não informado"}. Ausências coincidentes não contam como acertos nem divergências.</small><br>
           <strong>Status de Qualidade:</strong> <span class="badge ${aval.status_qualidade === 'Excelente' ? 'badge-ok' : 'badge-warning'}">${esc(aval.status_qualidade)}</span>
         `;
       }
     } catch (err) {
       btnProcessar.disabled = false;
-      btnProcessar.textContent = "Processar Solicitacao (RF03/RF05)";
-      alert("Erro na requisicao: " + err.message);
+      btnProcessar.textContent = "Processar Solicitação (RF03/RF05)";
+      document.getElementById("badge-status-revisao").textContent = "Processamento não concluído";
+      alert("Erro no processamento: " + err.message);
+    } finally {
+      processando = false;
+      atualizarAcoes();
     }
   });
 
@@ -171,17 +250,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const pendenciasEl = document.getElementById("audit-campos-pendencias");
     const tbody = document.getElementById("tabela-conferencia-body");
 
-    const erros = aval.erros_encontrados || [];
+    const erros = (aval.erros_encontrados || []).filter(c => c.status !== "PENDENCIA" && !c.eh_pendencia);
     const comparativo = aval.comparativo_campos || [];
     const pendencias = comparativo.filter((c) => c.eh_pendencia || c.status === "PENDENCIA");
 
     // 1. Atualiza Indicadores KPI
     if (taxaEl) taxaEl.textContent = `${aval.taxa_fidelidade_percentual ?? "não avaliada"}${aval.taxa_fidelidade_percentual == null ? "" : "%"}`;
     if (statusEl) {
-      statusEl.textContent = aval.status_qualidade;
+      statusEl.textContent = aval.status_qualidade || "Formato avaliado; fidelidade não avaliada";
       statusEl.className = `badge ${aval.status_qualidade === "Excelente" ? "badge-ok" : "badge-warning"}`;
     }
-    if (acertosEl) acertosEl.textContent = `${aval.total_acertos} / ${aval.total_campos_analisados}`;
+    if (acertosEl) acertosEl.textContent = `${aval.total_acertos ?? "—"} / ${aval.total_campos_avaliaveis ?? aval.total_campos_analisados ?? "—"}`;
     if (errosEl) errosEl.textContent = erros.length;
     if (subErrosEl) {
       subErrosEl.textContent = erros.length === 0 ? "Nenhuma divergência" : `${erros.length} campo(s) exigem atenção`;
@@ -220,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         banner.className = "conferencia-banner alerta";
         banner.innerHTML = `
           <div>
-            <strong>Conferência com pendências:</strong> ${aval.total_acertos}/${aval.total_campos_analisados} campos validados perante as regras oficiais. Identificadas ${pendencias.length} pendências documentais no pedido:
+            <strong>Conferência com pendências:</strong> ${aval.total_acertos}/${aval.total_campos_avaliaveis ?? aval.total_campos_analisados} campos avaliáveis conferidos. Há ${pendencias.length} dados pendentes; ausência na fonte não representa divergência:
             <div class="banner-badge-group">
               ${pendencias.map((p) => `<span class="badge badge-warning">${esc(p.rotulo || p.campo)}: Pendente</span>`).join("")}
             </div>
@@ -384,6 +463,10 @@ document.addEventListener("DOMContentLoaded", () => {
           if (editorMinuta && obtido && esperado) {
             if (editorMinuta.value.includes(obtido)) {
               editorMinuta.value = editorMinuta.value.replaceAll(obtido, esperado);
+              textoAprovado = null;
+              document.getElementById("badge-status-revisao").textContent = "Correção local: salvar e aprovar novamente";
+              document.getElementById("tts-audio-container").style.display = "none";
+              atualizarAcoes();
             }
           }
 
@@ -408,7 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
           // Preenche justificativa de revisão sugerindo a correção feita
           const justInput = document.getElementById("justificativa-revisao");
           if (justInput) {
-            justInput.value = `Correção aplicada no campo ${campo} para '${esperado}' após conferência humana na fonte; exige nova aprovação.`;
+            justInput.value = `Correção aplicada no campo ${esc(campo)} para '${esperado}' após conferência humana na fonte; exige nova aprovação.`;
           }
         });
       });
@@ -432,7 +515,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (tipo === "divergentes") {
           show = row.classList.contains("row-divergente");
         } else if (tipo === "pendencias") {
-          show = row.classList.contains("row-pendencia");
+          show = row.getAttribute("data-status") === "PENDENCIA";
         }
         row.style.display = show ? "" : "none";
         if (show) visiveis++;
@@ -444,7 +527,7 @@ document.addEventListener("DOMContentLoaded", () => {
           emptyRow.style.display = "";
           emptyRow.querySelector("td").textContent =
             tipo === "divergentes"
-              ? "Nenhuma divergência encontrada. Todos os campos estão validados perante os formatos oficiais."
+              ? "Nenhuma divergência neste filtro. Confira também pendências e campos não avaliados."
               : tipo === "pendencias"
               ? "Nenhuma pendência documental registrada."
               : "Nenhum campo para exibir.";
@@ -460,22 +543,24 @@ document.addEventListener("DOMContentLoaded", () => {
   btnExportarPdf?.addEventListener("click", async () => {
     const textoMinuta = document.getElementById("editor-minuta")?.value.trim();
     if (!textoMinuta) {
-      alert("Nenhuma minuta disponivel para exportacao em PDF.");
+      alert("Nenhuma minuta disponível para exportação em PDF.");
       return;
     }
 
+    if (!ultimaExecucaoId) { alert("Processe uma solicitação antes de exportar."); return; }
+    exportando = true; atualizarAcoes();
     btnExportarPdf.disabled = true;
     btnExportarPdf.textContent = "Gerando PDF Oficial Timbrado...";
 
     try {
-      const res = await fetch("/api/minuta/gerar_pdf", {
+      const res = await api("/api/minuta/gerar_pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           texto_minuta: textoMinuta,
-          protocolo: "2026-000142",
-          solicitante: "Marcos Vinicius de Almeida Santos",
-          categoria: "Matricula e Ingresso",
+          protocolo: ultimaExtracao.protocolo || "não localizado",
+          solicitante: ultimaExtracao.solicitante || "não localizado",
+          categoria: ultimaExtracao.categoria || "não localizado",
           nome_arquivo: `minuta_oficial_${new Date().getTime()}.pdf`,
           id_execucao: ultimaExecucaoId,
         }),
@@ -488,29 +573,33 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.sucesso && data.url_pdf) {
         window.open(data.url_pdf, "_blank");
       } else {
-        alert("Erro ao gerar PDF: " + (data.erro || "Falha desconhecida"));
+        alert("Erro ao gerar PDF: " + (data.detail || data.erro || "Resposta incompleta da API"));
       }
     } catch (e) {
       btnExportarPdf.disabled = false;
       btnExportarPdf.textContent = "Visualizar / Baixar Minuta em PDF Oficial";
       alert("Erro ao conectar com o gerador de PDF: " + e.message);
-    }
+    } finally { exportando = false; atualizarAcoes(); }
   });
 
-  // 6. Sintese de Voz TTS da Minuta Aprovada/Editada (RF07)
+  // 6. Síntese de Voz TTS da Minuta Aprovada/Editada (RF07)
   const btnTts = document.getElementById("btn-gerar-tts");
   btnTts?.addEventListener("click", async () => {
     const textoMinuta = document.getElementById("editor-minuta")?.value || "";
     if (!textoMinuta.trim()) {
-      alert("Nenhuma minuta disponivel para sintese de voz.");
+      alert("Nenhuma minuta disponível para síntese de voz.");
       return;
     }
 
+    if (!ultimaExecucaoId || textoAprovado !== textoMinuta) {
+      alert("Aprove o texto atual antes de gerar o áudio."); return;
+    }
+    sintetizando = true; atualizarAcoes();
     btnTts.disabled = true;
-    btnTts.textContent = "Sintetizando Audio Neural...";
+    btnTts.textContent = "Sintetizando áudio aprovado...";
 
     try {
-      const res = await fetch("/api/sintetizar/audio", {
+      const res = await api("/api/sintetizar/audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ texto: textoMinuta, id_execucao: ultimaExecucaoId }),
@@ -518,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
       btnTts.disabled = false;
-      btnTts.textContent = "Gerar Audio Acessivel (RF07)";
+      btnTts.textContent = "Gerar Áudio Acessivel (RF07)";
 
       if (data.sucesso) {
         const audioContainer = document.getElementById("tts-audio-container");
@@ -526,15 +615,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (audioContainer && audioPlayer) {
           audioContainer.style.display = "flex";
           audioPlayer.src = data.url_audio + "?t=" + new Date().getTime();
-          audioPlayer.play();
+          audioPlayer.play()?.catch(() => {});
         }
       } else {
-        alert("Erro na sintese: " + (data.detail || data.erro || "Falha na geracao de audio"));
+        alert("Erro na síntese: " + (data.detail || data.erro || "Falha na geração de áudio"));
       }
     } catch (e) {
       btnTts.disabled = false;
-      btnTts.textContent = "Gerar Audio Acessivel (RF07)";
+      btnTts.textContent = "Gerar Áudio Acessivel (RF07)";
       alert("Erro: " + e.message);
+    } finally {
+      sintetizando = false; atualizarAcoes();
     }
   });
 
@@ -552,13 +643,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const textoAtualizado = document.getElementById("editor-minuta")?.value;
-
+    const execucao = ultimaExecucaoId;
+    if (decidindo || processando || sintetizando) return;
+    decidindo = true; atualizarAcoes();
     try {
-      const res = await fetch("/api/revisao/decisao", {
+      const res = await api("/api/revisao/decisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id_execucao: ultimaExecucaoId,
+          id_execucao: execucao,
           decisao: decisao,
           justificativa: justificativa,
           texto_final: textoAtualizado,
@@ -567,6 +660,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
       if (data.sucesso) {
+        textoAprovado = decisao === "APROVADO" ? textoAtualizado : null;
+        document.getElementById("tts-audio-container").style.display = "none";
         const badgeStatus = document.getElementById("badge-status-revisao");
         if (badgeStatus) {
           badgeStatus.textContent = `Status: ${decisao}`;
@@ -576,6 +671,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) {
       alert("Falha ao registrar decisão: " + e.message);
+    } finally {
+      decidindo = false; atualizarAcoes();
     }
   }
 
@@ -590,7 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnExp.textContent = "Executando experimento controlado...";
 
     try {
-      const res = await fetch("/api/experimento/prompts", { method: "POST" });
+      const res = await api("/api/experimento/prompts", { method: "POST" });
       const data = await res.json();
       btnExp.disabled = false;
       btnExp.textContent = "Executar Experimento de Prompts";
@@ -611,14 +708,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 9. Multimodal: Audio STT (RF06)
+  // 9. Multimodal: Áudio STT (RF06)
   document.getElementById("btn-processar-audio")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-processar-audio");
+    document.getElementById("resultado-audio-stt").textContent = "Transcrição em andamento; aguarde.";
     btn.disabled = true;
-    btn.textContent = "Transcrevendo audio...";
+    btn.textContent = "Transcrevendo áudio local...";
 
     try {
-      const res = await fetch("/api/processar/audio", { method: "POST" });
+      const res = await api("/api/processar/audio", { method: "POST" });
       const data = await res.json();
       btn.disabled = false;
       btn.textContent = "Transcrever Áudio e Validar Entidades";
@@ -627,32 +725,34 @@ document.addEventListener("DOMContentLoaded", () => {
       if (out && data.sucesso) {
         out.innerHTML = `
           <div class="alert alert-notice">
-            <strong>Duracao:</strong> ${data.metadados.duracao_segundos}s | <strong>Modelo:</strong> ${data.metadados.modelo_stt}
+            <strong>Duração:</strong> ${data.metadados.duracao_segundos}s | <strong>Modelo:</strong> ${esc(data.metadados.modelo_stt)}
           </div>
-          <strong>Transcricao Bruta:</strong>
+          <strong>Transcrição Bruta:</strong>
           <pre class="code-font" style="background:#f1f5f9; padding:8px; border-radius:4px; max-height:100px; overflow-y:auto;">${esc(data.transcricao_bruta)}</pre>
-          <strong style="margin-top:8px; display:block;">Transcricao Revisada:</strong>
+          <strong style="margin-top:8px; display:block;">Transcrição Revisada:</strong>
           <pre class="code-font" style="background:#e8f5e9; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto;">${esc(data.transcricao_revisada)}</pre>
           <div style="margin-top:8px;">
-            <strong>Acuracia de Entidades Criticas:</strong> <span class="badge badge-ok">${data.comparacao_gabarito.acuracia_entidades}</span>
+            <strong>Acurácia de Entidades Críticas:</strong> <span class="badge badge-warning">${esc(data.comparacao_gabarito.acuracia_entidades)}</span> — revisão humana obrigatória
           </div>
         `;
       }
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Transcrever Áudio e Validar Entidades";
-      alert("Erro ao processar audio: " + e.message);
+      document.getElementById("resultado-audio-stt").textContent = e.message;
+      alert("Erro ao processar áudio: " + e.message);
     }
   });
 
-  // 10. Multimodal: Visao / OCR (RF08)
+  // 10. Multimodal: Visão / OCR (RF08)
   document.getElementById("btn-processar-visao")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-processar-visao");
+    document.getElementById("resultado-visao-ocr").textContent = "OCR em andamento; aguarde. O PDF oficial pode exigir correção humana.";
     btn.disabled = true;
-    btn.textContent = "Analisando Ficha de Matricula...";
+    btn.textContent = "Analisando Ficha de Matrícula...";
 
     try {
-      const res = await fetch("/api/processar/visao", { method: "POST" });
+      const res = await api("/api/processar/visao", { method: "POST" });
       const data = await res.json();
       btn.disabled = false;
       btn.textContent = "Executar Leitura Visual e OCR";
@@ -661,34 +761,35 @@ document.addEventListener("DOMContentLoaded", () => {
       if (out && data.sucesso) {
         out.innerHTML = `
           <div class="alert alert-notice">
-            <strong>Arquivo:</strong> ${esc(data.arquivo_analisado)} | <strong>Conformidade Documental:</strong> ${esc(data.comparacao_gabarito.taxa_acuracia_percentual)}
+            <strong>Arquivo:</strong> ${esc(data.arquivo_analisado)} | <strong>Campos conferidos com a referência:</strong> ${esc(data.comparacao_gabarito.taxa_acuracia_percentual)}
           </div>
-          <strong>Texto Corrigido Estruturado:</strong>
+          <strong>Texto extraído com normalização conservadora (revisão humana obrigatória):</strong>
           <pre class="code-font" style="background:#f8fafc; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto;">${esc(data.texto_corrigido)}</pre>
           <strong style="margin-top:8px; display:block;">Trechos Incertos / Manuscritos:</strong>
           <ul style="font-size:0.82rem; padding-left:18px; margin-top:4px;">
-            ${data.trechos_incertos_ou_ilegiveis.map(t => `<li>${t}</li>`).join('')}
+            ${(data.trechos_incertos_ou_ilegiveis || []).map(t => `<li>${esc(t)}</li>`).join('')}
           </ul>
           <div style="margin-top:10px; font-size:0.8rem; background:#eff6ff; padding:8px; border-radius:4px;">
-            <strong>Soberania e Privacidade:</strong> ${data.justificativa_soberania_privacidade}
+            <strong>Soberania e Privacidade:</strong> ${esc(data.justificativa_soberania_privacidade || "Processamento local; revisão humana obrigatória.")}
           </div>
         `;
       }
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Executar Leitura Visual e OCR";
+      document.getElementById("resultado-visao-ocr").textContent = e.message;
       alert("Erro ao processar documento: " + e.message);
     }
   });
 
-  // 11. Peca Visual Oficial GOV.MT (RF10)
+  // 11. Peça Visual Oficial GOV.MT (RF10)
   document.getElementById("btn-gerar-imagem-peca")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-gerar-imagem-peca");
     btn.disabled = true;
-    btn.textContent = "Compondo Peca Oficial GOV.MT...";
+    btn.textContent = "Compondo Peça Oficial GOV.MT...";
 
     try {
-      const res = await fetch("/api/gerar/imagem", { method: "POST" });
+      const res = await api("/api/gerar/imagem", { method: "POST" });
       const data = await res.json();
       btn.disabled = false;
       btn.textContent = "Gerar Comunicado Visual Oficial";
@@ -710,23 +811,22 @@ document.addEventListener("DOMContentLoaded", () => {
             <p><strong>Tarja de Proveniência:</strong> <span class="badge badge-warning">${esc(data.metadados.declaracao_proveniencia)}</span></p>
             <p style="margin-top:8px;"><strong>Prompt Estruturado:</strong><br><small>${esc(data.metadados.prompt_estruturado.sujeito)}</small></p>
             <label><input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual.</label>
-            <p><label>Identificação declarada (não autentica): <input id="responsavel-imagem" type="text"></label></p>
+            <p>A identidade do revisor deve vir da autenticação real da equipe.</p>
             <p><label>Justificativa: <input id="justificativa-imagem" type="text"></label></p>
             <button type="button" id="aprovar-imagem">Aprovar imagem</button>
             <button type="button" id="rejeitar-imagem">Rejeitar imagem</button>
           `;
           const revisarImagem = async (decisao) => {
-            const operador = document.getElementById("responsavel-imagem").value.trim();
             const justificativa = document.getElementById("justificativa-imagem").value.trim();
-            if (!operador || !justificativa || (decisao === "APROVADO" && !document.getElementById("conferencia-imagem").checked)) {
-              alert("Informe responsável, justificativa e confirme a conferência visual antes da aprovação.");
+            if (!justificativa || (decisao === "APROVADO" && !document.getElementById("conferencia-imagem").checked)) {
+              alert("Informe a justificativa e confirme a conferência visual antes da aprovação.");
               return;
             }
             try {
-              const resposta = await fetch("/api/revisao/imagem", {
+              const resposta = await api("/api/revisao/imagem", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id_execucao: data.id_execucao, hash_imagem: data.metadados.sha256_imagem,
-                  decisao, justificativa, operador }),
+                  decisao, justificativa }),
               });
               const revisao = await resposta.json();
               if (!revisao.sucesso) throw new Error(revisao.erro || "Falha ao registrar revisão.");
@@ -743,6 +843,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.disabled = false;
       btn.textContent = "Gerar Comunicado Visual Oficial";
       alert("Erro ao gerar peça visual: " + e.message);
+      btn.disabled = true;
     }
   });
 
@@ -750,13 +851,13 @@ document.addEventListener("DOMContentLoaded", () => {
   async function carregarAuditoriaELgpd() {
     try {
       // LGPD
-      const resLgpd = await fetch("/api/lgpd/relatorio");
+      const resLgpd = await api("/api/lgpd/relatorio");
       const dataLgpd = await resLgpd.json();
       const lgpdBox = document.getElementById("lgpd-report-container");
       if (lgpdBox && dataLgpd) {
         let htmlMatriz = `
-          <h4>${dataLgpd.titulo}</h4>
-          <p style="font-size:0.85rem; color:#64748b; margin-bottom:12px;">${dataLgpd.declaracao_dados_ficticios}</p>
+          <h4>${esc(dataLgpd.titulo)}</h4>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:12px;">${esc(dataLgpd.declaracao_dados_ficticios)}</p>
           <div class="table-responsive">
             <table class="table-gov">
               <thead>
@@ -772,9 +873,9 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const [campo, item] of Object.entries(dataLgpd.matriz_de_dados)) {
           htmlMatriz += `
             <tr>
-              <td><strong>${campo}</strong></td>
-              <td>${item.natureza}</td>
-              <td>${item.finalidade}<br><small style="color:#d97706;">Risco: ${item.risco}</small></td>
+              <td><strong>${esc(campo)}</strong></td>
+              <td>${esc(item.natureza)}</td>
+              <td>${esc(item.finalidade)}<br><small style="color:#d97706;">Risco: ${esc(item.risco)}</small></td>
               <td>${item.minimizar_no_prompt ? '<span class="badge badge-ok">Minimizado</span>' : '<span class="badge badge-info">Essencial</span>'}</td>
             </tr>
           `;
@@ -784,25 +885,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Logs de Auditoria
-      const resLogs = await fetch("/api/logs");
+      const resLogs = await api("/api/logs");
       const logs = await resLogs.json();
       const logsBox = document.getElementById("audit-logs-container");
       if (logsBox) {
         if (!logs.length) {
           logsBox.innerHTML = "<p>Nenhum log registrado até o momento.</p>";
         } else {
-          logsBox.innerHTML = logs.reverse().map(l => `
+          logsBox.innerHTML = logs.reverse().map(registro => { const l = {...registro, decisao_humana: registro.decisao_humana_atual || registro.decisao_humana}; return `
             <div class="log-item ${l.decisao_humana?.status === 'APROVADO' ? 'aprovado' : l.decisao_humana?.status === 'REJEITADO' ? 'rejeitado' : ''}">
-              <strong>${l.id_execucao}</strong> [${l.modalidade.toUpperCase()}] • ${new Date(l.timestamp).toLocaleTimeString()}<br>
-              <span>Modelo: ${l.modelo} (${l.duracao_segundos}s)</span><br>
-              <strong>Decisão Humana:</strong> <span class="badge ${l.decisao_humana?.status === 'APROVADO' ? 'badge-ok' : l.decisao_humana?.status === 'REJEITADO' ? 'badge-danger' : 'badge-warning'}">${l.decisao_humana?.status || 'Pendente'}</span>
-              <p style="font-size:0.75rem; color:#64748b; margin-top:4px;">Justificativa: ${l.decisao_humana?.justificativa || 'Nenhuma'}</p>
+              <strong>${esc(l.id_execucao)}</strong> [${esc(l.modalidade.toUpperCase())}] • ${new Date(l.timestamp).toLocaleTimeString()}<br>
+              <span>Modelo: ${esc(l.modelo)} (${l.duracao_segundos}s)</span><br>
+              <strong>Decisão Humana:</strong> <span class="badge ${l.decisao_humana?.status === 'APROVADO' ? 'badge-ok' : l.decisao_humana?.status === 'REJEITADO' ? 'badge-danger' : 'badge-warning'}">${esc(l.decisao_humana?.status || 'Pendente')}</span>
+              <p style="font-size:0.75rem; color:#64748b; margin-top:4px;">Justificativa: ${esc(l.decisao_humana?.justificativa || 'Nenhuma')}</p>
             </div>
-          `).join('');
+          `; }).join('');
         }
       }
     } catch (e) {
-      console.warn("Erro ao buscar logs/lgpd:", e);
+      alert("Falha ao carregar auditoria/LGPD: " + e.message);
     }
   }
 

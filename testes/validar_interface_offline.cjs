@@ -38,7 +38,7 @@ const contexto = {
     getElementById:el
   },
   window:{prompt:()=>null,open(){}},
-  fetch:async(url)=>({ok:true,json:async()=> url==="/api/config" ? {has_hf_token:false} :
+  fetch:async(url)=>({ok:true,status:200,json:async()=> url==="/api/config" ? {texto:{provedor:"openrouter",modelo:"google/gemini-3.8-flash",habilitado:true},stt:{provedor:"local",modelo:"small"},tts:{provedor:"sapi5"},rf10_administrativo_habilitado:false} :
     url.startsWith("/api/casos/") ? {conteudo:"Solicitação fictícia"} : estado})
 };
 vm.runInNewContext(fs.readFileSync(require("node:path").join(__dirname,"../src/web/app.js"),"utf8"),contexto);
@@ -47,9 +47,24 @@ vm.runInNewContext(fs.readFileSync(require("node:path").join(__dirname,"../src/w
   el("input-texto-solicitacao").value="Solicitação fictícia";
   await el("btn-processar-solicitacao").listeners.click();
   assert.equal(el("metric-custo").textContent,"Não informado");
-  assert.equal(el("badge-status-revisao").textContent,"Pendente de Revisao Humana");
+  assert.equal(el("badge-status-revisao").textContent,"Pendente de Revisão Humana");
   assert.ok(!el("tabela-conferencia-body").innerHTML.includes("<img src=x"));
   assert.ok(el("tabela-conferencia-body").innerHTML.includes("&lt;img"));
   assert.equal(alertas.length,0);
+  estado.avaliacao_gabarito = {
+    total_acertos: 14, total_campos_analisados: 18, total_campos_avaliaveis: 14,
+    total_ausentes_na_fonte: 4, taxa_fidelidade_percentual: 100,
+    taxa_completude_percentual: 100, status_qualidade: "Dados conferidos; pendências na fonte",
+    comparativo_campos: ["nome_pai", "telefone", "orgao_expedidor", "uf"].map(campo => ({
+      campo, esperado: "não localizado", obtido: "NÃO LOCALIZADO", status: "PENDENCIA", eh_pendencia: true})),
+  };
+  // Mesmo respostas antigas que incluam pendências nos erros não viram badge vermelho.
+  estado.avaliacao_gabarito.erros_encontrados = estado.avaliacao_gabarito.comparativo_campos;
+  await el("btn-processar-solicitacao").listeners.click();
+  assert.equal(el("audit-campos-erros").textContent, 0);
+  assert.equal(el("audit-campos-pendencias").textContent, 4);
+  assert.equal(el("badge-divergencias-count").style.display, "none");
+  assert.ok(!el("tabela-conferencia-body").innerHTML.includes("diag-divergente"));
+  assert.equal(el("audit-campos-acertos").textContent, "14 / 14");
   console.log("Interface offline: custo desconhecido, revisão pendente e escape de dados OK.");
 })().catch(e=>{console.error(e);process.exitCode=1;});

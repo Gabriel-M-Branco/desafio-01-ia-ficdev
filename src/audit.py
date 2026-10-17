@@ -375,31 +375,58 @@ class QualityEvaluator:
             "status_qualidade": "Formato conforme; fidelidade não avaliada" if not erros else "Requer revisão",
             "tipo_avaliacao": "formato"}
 
+    @staticmethod
+    def _normalizar_valor_comparacao(valor):
+        texto = "" if valor is None else str(valor)
+        texto = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", texto).casefold())
+        texto = "".join(c for c in texto if not unicodedata.combining(c)
+                        and unicodedata.category(c) != "Cf")
+        texto = " ".join(texto.split())
+        # Equivalências apenas do marcador de ausência, não de valores reais.
+        if not texto or re.fullmatch(r"nao[\s_\-\u2010-\u2015]*localizad[oa]\s*[.!;:]?", texto):
+            return "nao localizado"
+        return texto
+
     @classmethod
     def avaliar_extracao(cls, extracao, gabarito):
-        """Fidelidade campo a campo: ausentes e divergentes não são acertos."""
+        """Ausência na fonte é pendência; não vira acerto nem divergência falsa."""
         esperados = gabarito.get("campos_esperados", {})
-        def normalizar(valor):
-            texto = unicodedata.normalize("NFKD", str(valor).strip().casefold())
-            return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
         comparativo = []
         for campo, esperado in esperados.items():
             obtido = extracao.get(campo, "não localizado")
-            ausente = normalizar(obtido) in {"", "nao localizado"}
-            correto = not ausente and normalizar(obtido) == normalizar(esperado)
+            referencia = cls._normalizar_valor_comparacao(esperado)
+            extraido = cls._normalizar_valor_comparacao(obtido)
+            ausente_fonte = referencia == "nao localizado"
+            ausente_extraido = extraido == "nao localizado"
+            ambos_ausentes = ausente_fonte and ausente_extraido
+            correto = not ausente_fonte and not ausente_extraido and referencia == extraido
+            pendente = ausente_extraido
+            status = "PENDENCIA" if pendente else "CORRETO" if correto else "DIVERGENTE"
             comparativo.append({"campo": campo, "rotulo": cls.ROTULOS_CAMPOS.get(campo, campo),
-                "esperado": esperado, "obtido": obtido, "eh_pendencia": ausente,
-                "status": "CORRETO" if correto else "PENDENCIA" if ausente else "DIVERGENTE",
-                "gravidade": "Nenhuma" if correto else "Alta",
-                "acao_recomendada": "Conferir na fonte e registrar revisão humana."})
+                "esperado": esperado, "obtido": obtido, "eh_pendencia": pendente,
+                "ausente_na_fonte": ausente_fonte,
+                "avaliavel_fidelidade": not ambos_ausentes,
+                "status": status,
+                "gravidade": "Nenhuma" if correto else "Informativa" if ambos_ausentes else "Alta",
+                "acao_recomendada": "Dado ausente na fonte; aguardar informação e revisão humana." if ambos_ausentes
+                    else "Conferir na fonte e registrar revisão humana."})
         acertos = sum(d["status"] == "CORRETO" for d in comparativo)
-        total = len(comparativo)
-        taxa = round(acertos/max(1,total)*100,1)
-        return {"total_campos_analisados": total, "total_acertos": acertos,
-            "total_pendencias": sum(d["eh_pendencia"] for d in comparativo),
-            "taxa_fidelidade_percentual": taxa,
-            "taxa_completude_percentual": round(sum(not d["eh_pendencia"] for d in comparativo)/max(1,total)*100,1),
-            "comparativo_campos": comparativo,
-            "erros_encontrados": [d for d in comparativo if d["status"] != "CORRETO"],
-            "status_qualidade": "Conferido com referência" if total and acertos == total else "Requer revisão",
+        avaliaveis = sum(d["avaliavel_fidelidade"] for d in comparativo)
+        disponiveis = [d for d in comparativo if not d["ausente_na_fonte"]]
+        extraidos_disponiveis = sum(not d["eh_pendencia"] for d in disponiveis)
+        pendencias = sum(d["eh_pendencia"] for d in comparativo)
+        erros = [d for d in comparativo if d["status"] == "DIVERGENTE"]
+        omissoes = [d for d in disponiveis if d["eh_pendencia"]]
+        return {"total_campos_analisados": len(comparativo), "total_acertos": acertos,
+            "total_campos_avaliaveis": avaliaveis,
+            "total_campos_disponiveis_fonte": len(disponiveis),
+            "total_ausentes_na_fonte": sum(d["ausente_na_fonte"] for d in comparativo),
+            "total_pendencias": pendencias, "total_omissoes_extracao": len(omissoes),
+            "taxa_fidelidade_percentual": round(acertos/avaliaveis*100, 1) if avaliaveis else None,
+            "taxa_completude_percentual": round(extraidos_disponiveis/len(disponiveis)*100, 1) if disponiveis else None,
+            "criterio_metricas": "Fidelidade exclui apenas ausências coincidentes; completude considera dados disponíveis na fonte. Ausências não contam como acertos.",
+            "comparativo_campos": comparativo, "erros_encontrados": erros,
+            "omissoes_extracao": omissoes,
+            "status_qualidade": "Requer revisão" if erros or omissoes else "Dados conferidos; pendências na fonte" if pendencias
+                else "Conferido com referência" if avaliaveis else "Sem dados avaliáveis",
             "tipo_avaliacao": "fidelidade", "conformidade_formato": cls.avaliar_conformidade_regras(extracao)}
