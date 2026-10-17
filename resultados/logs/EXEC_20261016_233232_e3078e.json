@@ -1,0 +1,89 @@
+{
+  "id_execucao": "EXEC_20261016_233232_e3078e",
+  "timestamp": "2026-10-16T23:32:32.691759",
+  "modalidade": "imagem",
+  "arquivo_origem": "dados/originais/brasao.png",
+  "provedor": "cloudflare",
+  "modelo": "@cf/black-forest-labs/flux-1-schnell",
+  "versao_prompt": "Prompt Estruturado Institucional GOV.MT",
+  "parametros": {
+    "geracao": {
+      "steps": 4
+    },
+    "prompt": {
+      "contexto": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA",
+      "sujeito": "A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk",
+      "composicao": "Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication",
+      "estilo": "High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500)",
+      "iluminacao": "Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere",
+      "proporcao": "Square 1:1 composition",
+      "restricoes": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+      "prompt_completo_en": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA. A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk. Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication. High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500). Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere. Square 1:1 composition. No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only"
+    }
+  },
+  "duracao_segundos": 4.3221501000007265,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "pendente_revisao",
+    "operador": "aguardando_validacao",
+    "justificativa": "Aguardando deliberação de servidor responsável no painel web."
+  },
+  "detalhes_completos": {
+    "identificador": "a3d5df722c5d4f538e4c03051d6bba72",
+    "titulo": "COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA",
+    "sucesso": true,
+    "data_geracao": "2026-10-16T23:32:28.368439-04:00",
+    "modelo_ia_utilizado": "@cf/black-forest-labs/flux-1-schnell",
+    "provedor_solicitado": "cloudflare",
+    "provedor_efetivo": "cloudflare",
+    "ia_gerada": true,
+    "estado_imagem": "pendente_revisao",
+    "endpoint": null,
+    "parametros_geracao": {
+      "steps": 4
+    },
+    "timeout_seconds": 60,
+    "prompt_estruturado": {
+      "contexto": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA",
+      "sujeito": "A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk",
+      "composicao": "Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication",
+      "estilo": "High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500)",
+      "iluminacao": "Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere",
+      "proporcao": "Square 1:1 composition",
+      "restricoes": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+      "prompt_completo_en": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA. A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk. Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication. High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500). Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere. Square 1:1 composition. No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only"
+    },
+    "restricoes_aplicadas": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+    "declaracao_proveniencia": "CONTEÚDO SINTÉTICO GERADO POR IA - Consulte o status de revisão",
+    "status_revisao": "pendente_revisao",
+    "custo_usd": null,
+    "custo_status": "não informado pelo provedor",
+    "template_institucional": "GOV.MT Oficial Padrão SECITECI",
+    "conformidade_seguranca": {
+      "sem_pessoas_reais": null,
+      "sem_direitos_autorais_terceiros": null,
+      "tarja_visivel_aplicada": true,
+      "revisao_humana_obrigatoria": true
+    },
+    "arquivo_arte_ia": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775_arte_ia.png",
+    "dimensoes_arte": "1024x1024",
+    "sha256_arte_ia": "560f6627e519bd1ec4fbce7fe4a2005278b6a78e7d6654e08f69b2459c19a70a",
+    "composicao": {
+      "fonte": "arial.ttf",
+      "sha256_fonte": "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c",
+      "brasao_origem": "dados/originais/brasao.png",
+      "sha256_brasao": "ccb82e8c921b2999b4c52b0466b09f6dbdeff24f7425c23d7b9371d3a13ed50a",
+      "adequacao_visual": "pendente_revisao_humana"
+    },
+    "arquivo_imagem": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775.png",
+    "formato": "PNG",
+    "dimensoes": "1080x1350",
+    "sha256_imagem": "4becee12f48c427e079cde01aac4b02c7c0dc683a724d12400bf90a7ba68c187",
+    "tempo_processamento_segundos": 4.3221501000007265,
+    "arquivo_metadados": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775.json"
+  }
+}

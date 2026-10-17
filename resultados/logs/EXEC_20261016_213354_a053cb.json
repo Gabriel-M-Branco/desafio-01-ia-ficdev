@@ -1,0 +1,26 @@
+{
+  "id_execucao": "EXEC_20261016_213354_a053cb",
+  "timestamp": "2026-10-16T21:33:54.403830",
+  "modalidade": "texto",
+  "arquivo_origem": ".",
+  "provedor": "revisao_manual",
+  "modelo": "N/A",
+  "versao_prompt": "N/A",
+  "parametros": {},
+  "duracao_segundos": 0,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "APROVADO",
+    "operador": "Teste RF07 - Emilly",
+    "justificativa": "Texto revisado e aprovado para validação do RF07.",
+    "data_decisao": "2026-10-16T21:33:54.425761",
+    "id_aprovacao": "09ee8354e0404502a03445d2fac62c8c",
+    "hash_texto_aprovado": "3e78e35295de71dfad6ea130a98cc0f078daa6feb0d45d2118b469166a9334a3"
+  },
+  "detalhes_completos": {},
+  "texto_final": "Esta é uma resposta institucional de teste. Sua solicitação foi recebida e será analisada pela equipe responsável."
+}

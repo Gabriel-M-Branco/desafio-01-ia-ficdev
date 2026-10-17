@@ -1,0 +1,82 @@
+{
+  "identificador": "1dc8380077e940b1ac813487fcaf7ca5",
+  "titulo": "COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA",
+  "sucesso": true,
+  "data_geracao": "2026-10-16T23:32:28.368439-04:00",
+  "modelo_ia_utilizado": "@cf/black-forest-labs/flux-1-schnell",
+  "provedor_solicitado": "cloudflare",
+  "provedor_efetivo": "cloudflare",
+  "ia_gerada": true,
+  "estado_imagem": "pendente_revisao",
+  "endpoint": null,
+  "parametros_geracao": {
+    "steps": 4
+  },
+  "timeout_seconds": 60,
+  "prompt_estruturado": {
+    "contexto": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA",
+    "sujeito": "A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk",
+    "composicao": "Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication",
+    "estilo": "High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500)",
+    "iluminacao": "Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere",
+    "proporcao": "Square 1:1 composition",
+    "restricoes": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+    "prompt_completo_en": "Educational institutional notice about: COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO EM ESCOLA TÉCNICA. A diverse group of young adult students arriving at a welcoming technical school campus, carrying backpacks, notebooks and educational materials at a school enrollment reception desk. Friendly school reception, modern classrooms and subtle technology and education elements, clean institutional composition, clear central subjects, suitable for an official enrollment communication. High-quality modern flat vector illustration for an official Brazilian public technical school enrollment announcement, harmonious palette of royal blue (#004A8F), emerald green (#008B47) and golden yellow (#F7B500). Crisp vector shapes, balanced composition, soft lighting, professional and welcoming atmosphere. Square 1:1 composition. No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only"
+  },
+  "restricoes_aplicadas": "No text, no letters, no typography, no logos, no watermarks. No medical coats, no stethoscopes, no clinical or hospital environment. Fictional people only",
+  "declaracao_proveniencia": "CONTEÚDO SINTÉTICO GERADO POR IA - Consulte o status de revisão",
+  "status_revisao": "pendente_revisao",
+  "custo_usd": null,
+  "custo_status": "não informado pelo provedor",
+  "template_institucional": "GOV.MT Oficial Padrão SECITECI",
+  "conformidade_seguranca": {
+    "sem_pessoas_reais": null,
+    "sem_direitos_autorais_terceiros": null,
+    "tarja_visivel_aplicada": true,
+    "revisao_humana_obrigatoria": true
+  },
+  "arquivo_arte_ia": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775_arte_ia.png",
+  "dimensoes_arte": "1024x1024",
+  "sha256_arte_ia": "560f6627e519bd1ec4fbce7fe4a2005278b6a78e7d6654e08f69b2459c19a70a",
+  "composicao": {
+    "fonte": "arial.ttf",
+    "sha256_fonte": "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c",
+    "brasao_origem": "dados/originais/brasao.png",
+    "sha256_brasao": "ccb82e8c921b2999b4c52b0466b09f6dbdeff24f7425c23d7b9371d3a13ed50a",
+    "adequacao_visual": "pendente_revisao_humana"
+  },
+  "arquivo_imagem": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775_placa_corrigida_1dc83800.png",
+  "formato": "PNG",
+  "dimensoes": "1080x1350",
+  "sha256_imagem": "4d88258451f0ebbf9e7d50f5406ca4c60342cbe70857a6f6c2f072a6c2186887",
+  "tempo_processamento_segundos": 4.3221501000007265,
+  "arquivo_metadados": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775_placa_corrigida_1dc83800.json",
+  "operacao": "correcao_deterministica_placa_pillow",
+  "data_correcao": "2026-10-16T23:36:55.635227-04:00",
+  "id_execucao_origem": "EXEC_20261016_233232_e3078e",
+  "identificador_origem": "a3d5df722c5d4f538e4c03051d6bba72",
+  "arquivo_metadados_origem": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775.json",
+  "sha256_metadados_origem": "c506ef6ef5c9068c025e74236ff2768255afa5640f81da7b9432176b9d2b68e9",
+  "arquivo_composicao_origem": "resultados/imagens/validacao_cloudflare_rf10_educacional_d08ea1c2bd2c444f9f8bd0d048f9d775.png",
+  "sha256_composicao_origem": "4becee12f48c427e079cde01aac4b02c7c0dc683a724d12400bf90a7ba68c187",
+  "correcao_editorial": {
+    "regiao_pixels": [
+      152,
+      374,
+      940,
+      478
+    ],
+    "referencia": "composicao 1080x1350; limites finais exclusivos",
+    "preenchimento_rgb": [
+      31,
+      81,
+      140
+    ],
+    "texto": "MATRÍCULAS E INGRESSO",
+    "fonte": "arial.ttf",
+    "sha256_fonte": "baa251526d6862712a58e613ef451d8a2b60482142ec6aab1d47fb8e23e21a7c",
+    "pixels_externos_preservados": true,
+    "inferencia_executada": false
+  },
+  "id_execucao": "EXEC_20261016_233655_c456f5"
+}

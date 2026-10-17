@@ -1,0 +1,534 @@
+{
+  "id_execucao": "EXEC_20261016_212019_8c2d5b",
+  "timestamp": "2026-10-16T21:20:19.154696",
+  "modalidade": "visao",
+  "arquivo_origem": "dados/processados/validacao_rf08/formulario_sintetico_rasterizado.pdf",
+  "provedor": "Tesseract local / PyMuPDF",
+  "modelo": "Tesseract OCR / PyMuPDF (por)",
+  "versao_prompt": "N/A (OCR local)",
+  "parametros": {
+    "dpi": 300,
+    "idioma": "por",
+    "psm_alternativo": 11,
+    "preprocessamento": [
+      "escala_cinza",
+      "autocontraste"
+    ],
+    "regioes": {
+      "dpi": 400,
+      "psm": [
+        6,
+        7
+      ],
+      "perfil_sha256": "a4b3bc0518df73244856ab27e010b561680b5f60ee8e730be4df83b3b567505f"
+    }
+  },
+  "duracao_segundos": 3.004505399999289,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "pendente_revisao",
+    "operador": "aguardando_validacao",
+    "justificativa": "Aguardando deliberação de servidor responsável no painel web."
+  },
+  "detalhes_completos": {
+    "arquivo_analisado": "formulario_sintetico_rasterizado.pdf",
+    "modelo_utilizado": "Tesseract OCR / PyMuPDF (por)",
+    "provedor": "Tesseract local / PyMuPDF",
+    "exige_confirmacao_humana": true,
+    "sucesso": true,
+    "texto_bruto": "TESTE SINTETICO - SEM VALIDADE\nCODIGO: 55555555\nNOME: Pessoa Alfa Teste\nDATA DE NASCIMENTO: 12/12/2012\nCPF: 000.000.000-00\nRG: 0000000-0\nORGAO EXPEDIDOR: Orgao Ficticio\nNATURALIDADE: Cidade Teste\nUF: MT\nNOME DA MAE: Pessoa Beta Teste\nNOME DO PAI: Pessoa Gama Teste\nCURSO: Curso de Teste\nCARGA HORARIA: 800 horas\nEIXO TECNOLOGICO: Tecnologia\nTURMA: ALFA\nMUNICIPIO: Cidade Teste\nTURNO: Noturno\nINICIO DO CURSO: 12/12/2032\nTERMINO DO CURSO: 12/12/2033\nTELEFONE CELULAR: 99999999999\nTELEFONE RESIDENCIAL: 8888888888\nE-MAIL: testeQexample.com\nDATA MATRICULA: 12/12/2031\nASSINATURA DO ALUNO OU RESPONSAVEL: Registro ficticio\n",
+    "texto_corrigido": "TESTE SINTETICO - SEM VALIDADE\nCODIGO: 55555555\nNOME: Pessoa Alfa Teste\nDATA DE NASCIMENTO: 12/12/2012\nCPF: 000.000.000-00\nRG: 0000000-0\nORGAO EXPEDIDOR: Orgao Ficticio\nNATURALIDADE: Cidade Teste\nUF: MT\nNOME DA MAE: Pessoa Beta Teste\nNOME DO PAI: Pessoa Gama Teste\nCURSO: Curso de Teste\nCARGA HORARIA: 800 horas\nEIXO TECNOLOGICO: Tecnologia\nTURMA: ALFA\nMUNICIPIO: Cidade Teste\nTURNO: Noturno\nINICIO DO CURSO: 12/12/2032\nTERMINO DO CURSO: 12/12/2033\nTELEFONE CELULAR: 99999999999\nTELEFONE RESIDENCIAL: 8888888888\nE-MAIL: testeQexample.com\nDATA MATRICULA: 12/12/2031\nASSINATURA DO ALUNO OU RESPONSAVEL: Registro ficticio",
+    "campos_extraidos": {
+      "codigo": "55555555",
+      "nome": "Pessoa Alfa Teste",
+      "data_nascimento": "12/12/2012",
+      "cpf": "000.000.000-00",
+      "rg": "0000000-0",
+      "orgao_expedidor": "Orgao Ficticio",
+      "naturalidade": "Cidade Teste",
+      "uf": "MT",
+      "nome_mae": "Pessoa Beta Teste",
+      "nome_pai": "Pessoa Gama Teste",
+      "curso": "Curso de Teste",
+      "ch": "800 horas",
+      "eixo_tecnologico": "Tecnologia",
+      "turma": "ALFA",
+      "municipio": "Cidade Teste",
+      "turno": "Noturno",
+      "inicio_curso": "12/12/2032",
+      "termino_curso": "12/12/2033",
+      "tel_celular": "99999999999",
+      "tel_residencial": "8888888888",
+      "email": "testeQexample.com",
+      "data_matricula": "12/12/2031",
+      "assinatura_aluno": "Registro ficticio",
+      "assinatura_secretaria": "não localizado"
+    },
+    "paginas_processadas": 1,
+    "origem_campos": "parser_texto_principal",
+    "perfil_regional": "não aplicado",
+    "erros_regioes": [],
+    "versoes_ocr": {
+      "pymupdf": {
+        "erros": [],
+        "texto_bruto": "TESTE SINTETICO - SEM VALIDADE\nCODIGO: 55555555\nNOME: Pessoa Alfa Teste\nDATA DE NASCIMENTO: 12/12/2012\nCPF: 000.000.000-00\nRG: 0000000-0\nORGAO EXPEDIDOR: Orgao Ficticio\nNATURALIDADE: Cidade Teste\nUF: MT\nNOME DA MAE: Pessoa Beta Teste\nNOME DO PAI: Pessoa Gama Teste\nCURSO: Curso de Teste\nCARGA HORARIA: 800 horas\nEIXO TECNOLOGICO: Tecnologia\nTURMA: ALFA\nMUNICIPIO: Cidade Teste\nTURNO: Noturno\nINICIO DO CURSO: 12/12/2032\nTERMINO DO CURSO: 12/12/2033\nTELEFONE CELULAR: 99999999999\nTELEFONE RESIDENCIAL: 8888888888\nE-MAIL: testeQexample.com\nDATA MATRICULA: 12/12/2031\nASSINATURA DO ALUNO OU RESPONSAVEL: Registro ficticio\n",
+        "campos_extraidos": {
+          "codigo": "55555555",
+          "nome": "Pessoa Alfa Teste",
+          "data_nascimento": "12/12/2012",
+          "cpf": "000.000.000-00",
+          "rg": "0000000-0",
+          "orgao_expedidor": "Orgao Ficticio",
+          "naturalidade": "Cidade Teste",
+          "uf": "MT",
+          "nome_mae": "Pessoa Beta Teste",
+          "nome_pai": "Pessoa Gama Teste",
+          "curso": "Curso de Teste",
+          "ch": "800 horas",
+          "eixo_tecnologico": "Tecnologia",
+          "turma": "ALFA",
+          "municipio": "Cidade Teste",
+          "turno": "Noturno",
+          "inicio_curso": "12/12/2032",
+          "termino_curso": "12/12/2033",
+          "tel_celular": "99999999999",
+          "tel_residencial": "8888888888",
+          "email": "testeQexample.com",
+          "data_matricula": "12/12/2031",
+          "assinatura_aluno": "Registro ficticio",
+          "assinatura_secretaria": "não localizado"
+        },
+        "comparacao_gabarito": {
+          "total_campos": 23,
+          "campos_conferidos": 22,
+          "taxa_acuracia_percentual": "95.7%",
+          "detalhes": {
+            "codigo": {
+              "esperado": "55555555",
+              "extraido": "55555555",
+              "conferido_com_sucesso": true
+            },
+            "nome": {
+              "esperado": "Pessoa Alfa Teste",
+              "extraido": "Pessoa Alfa Teste",
+              "conferido_com_sucesso": true
+            },
+            "data_nascimento": {
+              "esperado": "12/12/2012",
+              "extraido": "12/12/2012",
+              "conferido_com_sucesso": true
+            },
+            "cpf": {
+              "esperado": "000.000.000-00",
+              "extraido": "000.000.000-00",
+              "conferido_com_sucesso": true
+            },
+            "rg": {
+              "esperado": "0000000-0",
+              "extraido": "0000000-0",
+              "conferido_com_sucesso": true
+            },
+            "orgao_expedidor": {
+              "esperado": "Orgao Ficticio",
+              "extraido": "Orgao Ficticio",
+              "conferido_com_sucesso": true
+            },
+            "naturalidade": {
+              "esperado": "Cidade Teste",
+              "extraido": "Cidade Teste",
+              "conferido_com_sucesso": true
+            },
+            "uf": {
+              "esperado": "MT",
+              "extraido": "MT",
+              "conferido_com_sucesso": true
+            },
+            "nome_mae": {
+              "esperado": "Pessoa Beta Teste",
+              "extraido": "Pessoa Beta Teste",
+              "conferido_com_sucesso": true
+            },
+            "nome_pai": {
+              "esperado": "Pessoa Gama Teste",
+              "extraido": "Pessoa Gama Teste",
+              "conferido_com_sucesso": true
+            },
+            "curso": {
+              "esperado": "Curso de Teste",
+              "extraido": "Curso de Teste",
+              "conferido_com_sucesso": true
+            },
+            "ch": {
+              "esperado": "800 horas",
+              "extraido": "800 horas",
+              "conferido_com_sucesso": true
+            },
+            "eixo_tecnologico": {
+              "esperado": "Tecnologia",
+              "extraido": "Tecnologia",
+              "conferido_com_sucesso": true
+            },
+            "turma": {
+              "esperado": "ALFA",
+              "extraido": "ALFA",
+              "conferido_com_sucesso": true
+            },
+            "municipio": {
+              "esperado": "Cidade Teste",
+              "extraido": "Cidade Teste",
+              "conferido_com_sucesso": true
+            },
+            "turno": {
+              "esperado": "Noturno",
+              "extraido": "Noturno",
+              "conferido_com_sucesso": true
+            },
+            "inicio_curso": {
+              "esperado": "12/12/2032",
+              "extraido": "12/12/2032",
+              "conferido_com_sucesso": true
+            },
+            "termino_curso": {
+              "esperado": "12/12/2033",
+              "extraido": "12/12/2033",
+              "conferido_com_sucesso": true
+            },
+            "tel_celular": {
+              "esperado": "99999999999",
+              "extraido": "99999999999",
+              "conferido_com_sucesso": true
+            },
+            "tel_residencial": {
+              "esperado": "8888888888",
+              "extraido": "8888888888",
+              "conferido_com_sucesso": true
+            },
+            "email": {
+              "esperado": "teste@example.com",
+              "extraido": "testeQexample.com",
+              "conferido_com_sucesso": false
+            },
+            "data_matricula": {
+              "esperado": "12/12/2031",
+              "extraido": "12/12/2031",
+              "conferido_com_sucesso": true
+            },
+            "assinatura_aluno": {
+              "esperado": "Registro ficticio",
+              "extraido": "Registro ficticio",
+              "conferido_com_sucesso": true
+            }
+          }
+        }
+      },
+      "psm11": {
+        "erros": [],
+        "texto_bruto": "TESTE SINTETICO - SEM VALIDADE\r\n\r\nCODIGO: 55555555\r\n\r\nNOME: Pessoa Alfa Teste\r\n\r\nDATA DE NASCIMENTO: 12/12/2012\r\n\r\nCPF: 000.000.000-00\r\n\r\nRG: 0000000-0\r\n\r\nORGAO EXPEDIDOR: Orgao Ficticio\r\n\r\nNATURALIDADE: Cidade Teste\r\n\r\nUF: MT\r\n\r\nNOME DA MAE: Pessoa Beta Teste\r\n\r\nNOME DO PAI: Pessoa Gama Teste\r\n\r\nCURSO: Curso de Teste\r\n\r\nCARGA HORARIA: 800 horas\r\n\r\nEIXO TECNOLOGICO: Tecnologia\r\n\r\nTURMA: ALFA\r\n\r\nMUNICIPIO: Cidade Teste\r\n\r\nTURNO: Noturno\r\n\r\nINICIO DO CURSO: 12/12/2032\r\n\r\nTERMINO DO CURSO: 12/12/2033\r\n\r\nTELEFONE CELULAR: 99999999999\r\n\r\nTELEFONE RESIDENCIAL: 8888888888\r\n\r\nE-MAIL: testeQexample.com\r\n\r\nDATA MATRICULA: 12/12/2031\r\n\r\nASSINATURA DO ALUNO OU RESPONSAVEL: Registro ficticio\r\n",
+        "campos_extraidos": {
+          "codigo": "55555555",
+          "nome": "Pessoa Alfa Teste",
+          "data_nascimento": "12/12/2012",
+          "cpf": "000.000.000-00",
+          "rg": "0000000-0",
+          "orgao_expedidor": "Orgao Ficticio",
+          "naturalidade": "Cidade Teste",
+          "uf": "MT",
+          "nome_mae": "Pessoa Beta Teste",
+          "nome_pai": "Pessoa Gama Teste",
+          "curso": "Curso de Teste",
+          "ch": "800 horas",
+          "eixo_tecnologico": "Tecnologia",
+          "turma": "ALFA",
+          "municipio": "Cidade Teste",
+          "turno": "Noturno",
+          "inicio_curso": "12/12/2032",
+          "termino_curso": "12/12/2033",
+          "tel_celular": "99999999999",
+          "tel_residencial": "8888888888",
+          "email": "testeQexample.com",
+          "data_matricula": "12/12/2031",
+          "assinatura_aluno": "Registro ficticio",
+          "assinatura_secretaria": "não localizado"
+        },
+        "comparacao_gabarito": {
+          "total_campos": 23,
+          "campos_conferidos": 22,
+          "taxa_acuracia_percentual": "95.7%",
+          "detalhes": {
+            "codigo": {
+              "esperado": "55555555",
+              "extraido": "55555555",
+              "conferido_com_sucesso": true
+            },
+            "nome": {
+              "esperado": "Pessoa Alfa Teste",
+              "extraido": "Pessoa Alfa Teste",
+              "conferido_com_sucesso": true
+            },
+            "data_nascimento": {
+              "esperado": "12/12/2012",
+              "extraido": "12/12/2012",
+              "conferido_com_sucesso": true
+            },
+            "cpf": {
+              "esperado": "000.000.000-00",
+              "extraido": "000.000.000-00",
+              "conferido_com_sucesso": true
+            },
+            "rg": {
+              "esperado": "0000000-0",
+              "extraido": "0000000-0",
+              "conferido_com_sucesso": true
+            },
+            "orgao_expedidor": {
+              "esperado": "Orgao Ficticio",
+              "extraido": "Orgao Ficticio",
+              "conferido_com_sucesso": true
+            },
+            "naturalidade": {
+              "esperado": "Cidade Teste",
+              "extraido": "Cidade Teste",
+              "conferido_com_sucesso": true
+            },
+            "uf": {
+              "esperado": "MT",
+              "extraido": "MT",
+              "conferido_com_sucesso": true
+            },
+            "nome_mae": {
+              "esperado": "Pessoa Beta Teste",
+              "extraido": "Pessoa Beta Teste",
+              "conferido_com_sucesso": true
+            },
+            "nome_pai": {
+              "esperado": "Pessoa Gama Teste",
+              "extraido": "Pessoa Gama Teste",
+              "conferido_com_sucesso": true
+            },
+            "curso": {
+              "esperado": "Curso de Teste",
+              "extraido": "Curso de Teste",
+              "conferido_com_sucesso": true
+            },
+            "ch": {
+              "esperado": "800 horas",
+              "extraido": "800 horas",
+              "conferido_com_sucesso": true
+            },
+            "eixo_tecnologico": {
+              "esperado": "Tecnologia",
+              "extraido": "Tecnologia",
+              "conferido_com_sucesso": true
+            },
+            "turma": {
+              "esperado": "ALFA",
+              "extraido": "ALFA",
+              "conferido_com_sucesso": true
+            },
+            "municipio": {
+              "esperado": "Cidade Teste",
+              "extraido": "Cidade Teste",
+              "conferido_com_sucesso": true
+            },
+            "turno": {
+              "esperado": "Noturno",
+              "extraido": "Noturno",
+              "conferido_com_sucesso": true
+            },
+            "inicio_curso": {
+              "esperado": "12/12/2032",
+              "extraido": "12/12/2032",
+              "conferido_com_sucesso": true
+            },
+            "termino_curso": {
+              "esperado": "12/12/2033",
+              "extraido": "12/12/2033",
+              "conferido_com_sucesso": true
+            },
+            "tel_celular": {
+              "esperado": "99999999999",
+              "extraido": "99999999999",
+              "conferido_com_sucesso": true
+            },
+            "tel_residencial": {
+              "esperado": "8888888888",
+              "extraido": "8888888888",
+              "conferido_com_sucesso": true
+            },
+            "email": {
+              "esperado": "teste@example.com",
+              "extraido": "testeQexample.com",
+              "conferido_com_sucesso": false
+            },
+            "data_matricula": {
+              "esperado": "12/12/2031",
+              "extraido": "12/12/2031",
+              "conferido_com_sucesso": true
+            },
+            "assinatura_aluno": {
+              "esperado": "Registro ficticio",
+              "extraido": "Registro ficticio",
+              "conferido_com_sucesso": true
+            }
+          }
+        }
+      }
+    },
+    "divergencias_entre_estrategias": [],
+    "estrategias_por_pagina": [
+      "pymupdf"
+    ],
+    "politica_selecao": "Texto: primeira estratégia, segunda se vazia/falha. Campos do perfil oficial: consenso PSM6/7; discordâncias ficam pendentes. Sem seleção por tamanho ou gabarito.",
+    "parametros_ocr": {
+      "dpi": 300,
+      "idioma": "por",
+      "psm_alternativo": 11,
+      "preprocessamento": [
+        "escala_cinza",
+        "autocontraste"
+      ],
+      "regioes": {
+        "dpi": 400,
+        "psm": [
+          6,
+          7
+        ],
+        "perfil_sha256": "a4b3bc0518df73244856ab27e010b561680b5f60ee8e730be4df83b3b567505f"
+      }
+    },
+    "sha256_original": "638d42a2fea67e0dea9cdfbb4e8deb3d86476e99e9d9287b0fe382d914f5570f",
+    "trechos_incertos_ou_ilegiveis": [
+      "Todos os campos críticos exigem conferência humana; OCR não valida assinaturas ou manuscritos.",
+      "Campo 'assinatura_secretaria': ausente, ilegível ou ambíguo."
+    ],
+    "comparacao_gabarito": {
+      "total_campos": 23,
+      "campos_conferidos": 22,
+      "taxa_acuracia_percentual": "95.7%",
+      "detalhes": {
+        "codigo": {
+          "esperado": "55555555",
+          "extraido": "55555555",
+          "conferido_com_sucesso": true
+        },
+        "nome": {
+          "esperado": "Pessoa Alfa Teste",
+          "extraido": "Pessoa Alfa Teste",
+          "conferido_com_sucesso": true
+        },
+        "data_nascimento": {
+          "esperado": "12/12/2012",
+          "extraido": "12/12/2012",
+          "conferido_com_sucesso": true
+        },
+        "cpf": {
+          "esperado": "000.000.000-00",
+          "extraido": "000.000.000-00",
+          "conferido_com_sucesso": true
+        },
+        "rg": {
+          "esperado": "0000000-0",
+          "extraido": "0000000-0",
+          "conferido_com_sucesso": true
+        },
+        "orgao_expedidor": {
+          "esperado": "Orgao Ficticio",
+          "extraido": "Orgao Ficticio",
+          "conferido_com_sucesso": true
+        },
+        "naturalidade": {
+          "esperado": "Cidade Teste",
+          "extraido": "Cidade Teste",
+          "conferido_com_sucesso": true
+        },
+        "uf": {
+          "esperado": "MT",
+          "extraido": "MT",
+          "conferido_com_sucesso": true
+        },
+        "nome_mae": {
+          "esperado": "Pessoa Beta Teste",
+          "extraido": "Pessoa Beta Teste",
+          "conferido_com_sucesso": true
+        },
+        "nome_pai": {
+          "esperado": "Pessoa Gama Teste",
+          "extraido": "Pessoa Gama Teste",
+          "conferido_com_sucesso": true
+        },
+        "curso": {
+          "esperado": "Curso de Teste",
+          "extraido": "Curso de Teste",
+          "conferido_com_sucesso": true
+        },
+        "ch": {
+          "esperado": "800 horas",
+          "extraido": "800 horas",
+          "conferido_com_sucesso": true
+        },
+        "eixo_tecnologico": {
+          "esperado": "Tecnologia",
+          "extraido": "Tecnologia",
+          "conferido_com_sucesso": true
+        },
+        "turma": {
+          "esperado": "ALFA",
+          "extraido": "ALFA",
+          "conferido_com_sucesso": true
+        },
+        "municipio": {
+          "esperado": "Cidade Teste",
+          "extraido": "Cidade Teste",
+          "conferido_com_sucesso": true
+        },
+        "turno": {
+          "esperado": "Noturno",
+          "extraido": "Noturno",
+          "conferido_com_sucesso": true
+        },
+        "inicio_curso": {
+          "esperado": "12/12/2032",
+          "extraido": "12/12/2032",
+          "conferido_com_sucesso": true
+        },
+        "termino_curso": {
+          "esperado": "12/12/2033",
+          "extraido": "12/12/2033",
+          "conferido_com_sucesso": true
+        },
+        "tel_celular": {
+          "esperado": "99999999999",
+          "extraido": "99999999999",
+          "conferido_com_sucesso": true
+        },
+        "tel_residencial": {
+          "esperado": "8888888888",
+          "extraido": "8888888888",
+          "conferido_com_sucesso": true
+        },
+        "email": {
+          "esperado": "teste@example.com",
+          "extraido": "testeQexample.com",
+          "conferido_com_sucesso": false
+        },
+        "data_matricula": {
+          "esperado": "12/12/2031",
+          "extraido": "12/12/2031",
+          "conferido_com_sucesso": true
+        },
+        "assinatura_aluno": {
+          "esperado": "Registro ficticio",
+          "extraido": "Registro ficticio",
+          "conferido_com_sucesso": true
+        }
+      }
+    },
+    "justificativa_soberania_privacidade": "OCR local evita envio do documento a terceiros e favorece soberania e privacidade.",
+    "tempo_processamento_segundos": 3.004505399999289,
+    "arquivo_extracao": "dados/processados/validacao_rf08/ocr_c9808b13bab043a5ac5ba50325c6ea33.json"
+  }
+}

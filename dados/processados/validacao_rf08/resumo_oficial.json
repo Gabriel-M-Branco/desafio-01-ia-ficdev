@@ -1,0 +1,41 @@
+{
+  "cenario": "oficial",
+  "acertos": 0,
+  "total": 23,
+  "reconhecidos": [],
+  "nao_reconhecidos_ou_divergentes": [
+    "codigo",
+    "nome",
+    "data_nascimento",
+    "cpf",
+    "rg",
+    "orgao_expedidor",
+    "naturalidade",
+    "uf",
+    "nome_mae",
+    "nome_pai",
+    "curso",
+    "ch",
+    "eixo_tecnologico",
+    "turma",
+    "municipio",
+    "turno",
+    "inicio_curso",
+    "termino_curso",
+    "tel_celular",
+    "tel_residencial",
+    "email",
+    "data_matricula",
+    "assinatura_aluno"
+  ],
+  "tempo_segundos": 23.13,
+  "revisao_humana_obrigatoria": true,
+  "arquivo_extracao": "dados/processados/validacao_rf08/ocr_8befc8a470b14a99a9d6e2afbbd3b91e.json",
+  "id_execucao": "EXEC_20261016_212042_92fddc",
+  "erros": {
+    "pymupdf": [],
+    "psm11": [],
+    "regioes_psm6": [],
+    "regioes_psm7": []
+  }
+}

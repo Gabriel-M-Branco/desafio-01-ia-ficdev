@@ -1,0 +1,1723 @@
+{
+  "arquivo_analisado": "entrada_pdf-imagem.pdf",
+  "modelo_utilizado": "Tesseract OCR / PyMuPDF (por)",
+  "provedor": "Tesseract local / PyMuPDF",
+  "exige_confirmacao_humana": true,
+  "sucesso": true,
+  "texto_bruto": "is.)\nGOVERNO\nDM MATO GROSSO\nk ES\nSECRETARIA DEESTADO\nDE CHÍNCIA, TECNOLOGIAEINOVAÇÃO\n- SECITÉCI/MT\nESCOLA TÉCNICAESTADUAL\nDE CUIABÁ\nEICHA\nDE MATRÍCULA\n[consso:\n25944 -DootEz\nNOME:\nVIVTREOOS VUNTOUOS DE AIMEIDA SANTOS\n—\nPere RA ESTA ST\nE\n175\nNOSSA\naC [Vc or cr\nao RES SEREmtE ALA ano oE\nCTETCNWITGS\nEMENFELTTEGEWm J=N73orHoras\n:\neee TP\nx PCCTbI“I»—Mmtt\nCÕCÕ mn\n[|NOTVENO\n|\nesto\n[STS TS ZI\neee\nA\n|\nnua: |YTKCOOS\nHOGEIDA, TESTE &\nCIRBWMIPLO tem\n|\nam manena:\n[IF] LOLTOLOS\nEEE EIA ANNAN\n|\n- nos 02 (dois) primeiros dias de suis conpecutivos;\n= 03 (três) dias de aula,consecutivosou não, nó períódo\ndos 10 (des)primeiros\ndias de aula,\nUnLHiAAS E\no SCE Eae\nASSINATURA DO ALUNO\nOU RESPONSÁVEL\nASSINATURA\nDA SECRETARIA ESCOLAR\n",
+  "texto_corrigido": "is.)\nGOVERNO\nDM MATO GROSSO\nk ES\nSECRETARIA DEESTADO\nDE CHÍNCIA, TECNOLOGIAEINOVAÇÃO\n- SECITÉCI/MT\nESCOLA TÉCNICAESTADUAL\nDE CUIABÁ\nEICHA\nDE MATRÍCULA\n[consso:\n25944 -DootEz\nNOME:\nVIVTREOOS VUNTOUOS DE AIMEIDA SANTOS\n—\nPere RA ESTA ST\nE\n175\nNOSSA\naC [Vc or cr\nao RES SEREmtE ALA ano oE\nCTETCNWITGS\nEMENFELTTEGEWm J=N73orHoras\n:\neee TP\nx PCCTbI“I»—Mmtt\nCÕCÕ mn\n[|NOTVENO\n|\nesto\n[STS TS ZI\neee\nA\n|\nnua: |YTKCOOS\nHOGEIDA, TESTE &\nCIRBWMIPLO tem\n|\nam manena:\n[IF] LOLTOLOS\nEEE EIA ANNAN\n|\n- nos 02 (dois) primeiros dias de suis conpecutivos;\n= 03 (três) dias de aula,consecutivosou não, nó períódo\ndos 10 (des)primeiros\ndias de aula,\nUnLHiAAS E\no SCE Eae\nASSINATURA DO ALUNO\nOU RESPONSÁVEL\nASSINATURA\nDA SECRETARIA ESCOLAR",
+  "campos_extraidos": {
+    "codigo": "2504 - Qpool Fz",
+    "nome": "não localizado",
+    "data_nascimento": "TITOS e so",
+    "cpf": "não localizado",
+    "rg": "não localizado",
+    "orgao_expedidor": "não localizado",
+    "naturalidade": "não localizado",
+    "uf": "FFF",
+    "nome_mae": "Luh Helerãh DE MEMEIA SANTOS. —",
+    "nome_pai": "[P PS EE A aA E A A ES c a TE",
+    "curso": "1E CINVLAS EM ENFCEINNFECW)",
+    "ch": "TZdo HORAS",
+    "eixo_tecnologico": "RUBE — 2N o A c A",
+    "turma": "não localizado",
+    "municipio": "| EE 25 PE",
+    "turno": "não localizado",
+    "inicio_curso": "ST ES ZI ——",
+    "termino_curso": "não localizado",
+    "tel_celular": "| EEERETTAEAEE TEA",
+    "tel_residencial": "1T ET STSA o NNE",
+    "email": "não localizado",
+    "data_matricula": "não localizado",
+    "assinatura_aluno": "não localizado",
+    "assinatura_secretaria": "não localizado"
+  },
+  "paginas_processadas": 1,
+  "origem_campos": "consenso_regional_psm6_psm7_pendente_revisao",
+  "perfil_regional": "oficial_sha256",
+  "erros_regioes": [],
+  "versoes_ocr": {
+    "pymupdf": {
+      "erros": [],
+      "texto_bruto": "is.)\nGOVERNO\nDM MATO GROSSO\nk ES\nSECRETARIA DEESTADO\nDE CHÍNCIA, TECNOLOGIAEINOVAÇÃO\n- SECITÉCI/MT\nESCOLA TÉCNICAESTADUAL\nDE CUIABÁ\nEICHA\nDE MATRÍCULA\n[consso:\n25944 -DootEz\nNOME:\nVIVTREOOS VUNTOUOS DE AIMEIDA SANTOS\n—\nPere RA ESTA ST\nE\n175\nNOSSA\naC [Vc or cr\nao RES SEREmtE ALA ano oE\nCTETCNWITGS\nEMENFELTTEGEWm J=N73orHoras\n:\neee TP\nx PCCTbI“I»—Mmtt\nCÕCÕ mn\n[|NOTVENO\n|\nesto\n[STS TS ZI\neee\nA\n|\nnua: |YTKCOOS\nHOGEIDA, TESTE &\nCIRBWMIPLO tem\n|\nam manena:\n[IF] LOLTOLOS\nEEE EIA ANNAN\n|\n- nos 02 (dois) primeiros dias de suis conpecutivos;\n= 03 (três) dias de aula,consecutivosou não, nó períódo\ndos 10 (des)primeiros\ndias de aula,\nUnLHiAAS E\no SCE Eae\nASSINATURA DO ALUNO\nOU RESPONSÁVEL\nASSINATURA\nDA SECRETARIA ESCOLAR\n",
+      "campos_extraidos": {
+        "codigo": "não localizado",
+        "nome": "VIVTREOOS VUNTOUOS DE AIMEIDA SANTOS — Pere RA ESTA ST",
+        "data_nascimento": "não localizado",
+        "cpf": "não localizado",
+        "rg": "não localizado",
+        "orgao_expedidor": "não localizado",
+        "naturalidade": "não localizado",
+        "uf": "não localizado",
+        "nome_mae": "não localizado",
+        "nome_pai": "não localizado",
+        "curso": "não localizado",
+        "ch": "não localizado",
+        "eixo_tecnologico": "não localizado",
+        "turma": "não localizado",
+        "municipio": "não localizado",
+        "turno": "não localizado",
+        "inicio_curso": "não localizado",
+        "termino_curso": "não localizado",
+        "tel_celular": "não localizado",
+        "tel_residencial": "não localizado",
+        "email": "não localizado",
+        "data_matricula": "não localizado",
+        "assinatura_aluno": "OU RESPONSÁVEL",
+        "assinatura_secretaria": "não localizado"
+      },
+      "comparacao_gabarito": {
+        "total_campos": 23,
+        "campos_conferidos": 0,
+        "taxa_acuracia_percentual": "0.0%",
+        "detalhes": {
+          "codigo": {
+            "esperado": "2026-000142",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome": {
+            "esperado": "MARCOS VINICIUS DE ALMEIDA SANTOS",
+            "extraido": "VIVTREOOS VUNTOUOS DE AIMEIDA SANTOS — Pere RA ESTA ST",
+            "conferido_com_sucesso": false
+          },
+          "data_nascimento": {
+            "esperado": "12/08/2008",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "cpf": {
+            "esperado": "123.456.789-00",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "rg": {
+            "esperado": "1234567-8",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "orgao_expedidor": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "naturalidade": {
+            "esperado": "CUIABA",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "uf": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome_mae": {
+            "esperado": "LUCIA HELENA DE ALMEIDA SANTOS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome_pai": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "curso": {
+            "esperado": "TECNICO EM ENFERMAGEM",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "ch": {
+            "esperado": "1200 HORAS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "eixo_tecnologico": {
+            "esperado": "SAUDE",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "turma": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "municipio": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "turno": {
+            "esperado": "NOTURNO",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "inicio_curso": {
+            "esperado": "01/02/2027",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "termino_curso": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_celular": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_residencial": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "email": {
+            "esperado": "MARCOS.ALMEIDA.TESTE@EXAMPLO.COM",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_matricula": {
+            "esperado": "14/10/2026",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "assinatura_aluno": {
+            "esperado": "Assinado (MARCOS)",
+            "extraido": "OU RESPONSÁVEL",
+            "conferido_com_sucesso": false
+          }
+        }
+      }
+    },
+    "psm11": {
+      "erros": [],
+      "texto_bruto": "GONTRNO DM MATO GROSSO\r\n\r\nSECRETARIA DE ETTADO DE CHMCIA, TECNOLOGIA E INOVAÇÃO - * SECITÉCI MT\r\n\r\nESTADUAL DE CUÍA\r\n\r\nÀ\r\n\r\nEFICHA DE MATRÍCULA\r\n\r\nT4 -gQoolE?\r\n\r\nNOME\r\n\r\nVWIREIS5S VINTOUUS\r\n\r\nÀ\r\n\r\nSA TOS\r\n\r\nDATA DE NASCIMENTO:\r\n\r\nt27\r\n\r\nLn\r\n\r\n——\r\n\r\n—)\r\n\r\n—\r\n\r\nOAGÃO EXPEOIDOR: |\r\n\r\n1&\r\n\r\n|\r\n\r\nNMONE DA MÃ£ :\r\n\r\nYAA Helen\r\n\r\nE\r\n\r\nEIO\r\n\r\nARNTO\r\n\r\nNOMIE DO PA\r\n\r\nV1 tS FM ENE\r\n\r\nJ [) EJO\r\n\r\nLODAS\r\n\r\nES TECNOLÔÓGICO:\r\n\r\n= f\r\n\r\nh\r\n\r\nINÍCIO DO CURSO:\r\n\r\nTrurno: MWÚ\r\n\r\n=E\r\n\r\n[TinnMNO DO CuRSO:\r\n\r\nTEL CELULAR:\r\n\r\nTELEFOGNE RESIONÇIAL:\r\n\r\n.-.\r\n\r\n&\r\n\r\nErtou clerte que minha matricula será automaticamente cancelada se faltar, sem Justificathva comprovada\r\n\r\nnos 02 (dois) primeiros dias de sul consecuthvos;\r\n\r\n03 (três) dias de aula, consecutivos eou não, nó pérlódo dos 10 (des) primaeiros dias de auvia\r\n\r\niAA D Exm ——\r\n\r\nASTINATURA DO ALUNO OU RESPONSÁVEI\r\n\r\nASSINATURA DA SECRETARIA ESCOLAR\r\n",
+      "campos_extraidos": {
+        "codigo": "não localizado",
+        "nome": "não localizado",
+        "data_nascimento": "t27",
+        "cpf": "não localizado",
+        "rg": "não localizado",
+        "orgao_expedidor": "não localizado",
+        "naturalidade": "não localizado",
+        "uf": "não localizado",
+        "nome_mae": "não localizado",
+        "nome_pai": "não localizado",
+        "curso": "TEL CELULAR: TELEFOGNE RESIONÇIAL: .-.",
+        "ch": "não localizado",
+        "eixo_tecnologico": "não localizado",
+        "turma": "não localizado",
+        "municipio": "não localizado",
+        "turno": "não localizado",
+        "inicio_curso": "Trurno: MWÚ",
+        "termino_curso": "não localizado",
+        "tel_celular": "não localizado",
+        "tel_residencial": "não localizado",
+        "email": "não localizado",
+        "data_matricula": "não localizado",
+        "assinatura_aluno": "não localizado",
+        "assinatura_secretaria": "não localizado"
+      },
+      "comparacao_gabarito": {
+        "total_campos": 23,
+        "campos_conferidos": 0,
+        "taxa_acuracia_percentual": "0.0%",
+        "detalhes": {
+          "codigo": {
+            "esperado": "2026-000142",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome": {
+            "esperado": "MARCOS VINICIUS DE ALMEIDA SANTOS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_nascimento": {
+            "esperado": "12/08/2008",
+            "extraido": "t27",
+            "conferido_com_sucesso": false
+          },
+          "cpf": {
+            "esperado": "123.456.789-00",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "rg": {
+            "esperado": "1234567-8",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "orgao_expedidor": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "naturalidade": {
+            "esperado": "CUIABA",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "uf": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome_mae": {
+            "esperado": "LUCIA HELENA DE ALMEIDA SANTOS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "nome_pai": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "curso": {
+            "esperado": "TECNICO EM ENFERMAGEM",
+            "extraido": "TEL CELULAR: TELEFOGNE RESIONÇIAL: .-.",
+            "conferido_com_sucesso": false
+          },
+          "ch": {
+            "esperado": "1200 HORAS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "eixo_tecnologico": {
+            "esperado": "SAUDE",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "turma": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "municipio": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "turno": {
+            "esperado": "NOTURNO",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "inicio_curso": {
+            "esperado": "01/02/2027",
+            "extraido": "Trurno: MWÚ",
+            "conferido_com_sucesso": false
+          },
+          "termino_curso": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_celular": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_residencial": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "email": {
+            "esperado": "MARCOS.ALMEIDA.TESTE@EXAMPLO.COM",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_matricula": {
+            "esperado": "14/10/2026",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "assinatura_aluno": {
+            "esperado": "Assinado (MARCOS)",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          }
+        }
+      }
+    },
+    "regioes_psm6": {
+      "campos_extraidos": {
+        "codigo": "2504 - Qpool Fz",
+        "nome": "não localizado",
+        "data_nascimento": "TITOS e so",
+        "cpf": "não localizado",
+        "rg": "não localizado",
+        "orgao_expedidor": "EFRSsSSIrITz eAA",
+        "naturalidade": "[) IÍD—EÍr'r'r :",
+        "uf": "FFF",
+        "nome_mae": "Luh Helerãh DE MEMEIA SANTOS. —",
+        "nome_pai": "[P PS EE A aA E A A ES c a TE",
+        "curso": "1E CINVLAS EM ENFCEINNFECW)",
+        "ch": "TZdo HORAS",
+        "eixo_tecnologico": "RUBE — 2N o A c A",
+        "turma": "não localizado",
+        "municipio": "| EE 25 PE",
+        "turno": "POIIENOO",
+        "inicio_curso": "ST ES ZI ——",
+        "termino_curso": "não localizado",
+        "tel_celular": "| EEERETTAEAEE TEA",
+        "tel_residencial": "1T ET STSA o NNE",
+        "email": "não localizado",
+        "data_matricula": "não localizado",
+        "assinatura_aluno": "não localizado"
+      },
+      "regioes": {
+        "codigo": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            246,
+            396,
+            260
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "6ea5f4a324d11155f1d63716db9ca04bec4dc3098d3b315cde3563a599804e57",
+          "texto_bruto": "2504 - Qpool Fz\r\n"
+        },
+        "nome": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            258,
+            511,
+            273
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a2e051948d43a6584e17e41765a4b1c263bfa9a5f96550880b5fac9260a94099",
+          "texto_bruto": ""
+        },
+        "data_nascimento": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            271,
+            225,
+            284
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "1a903148465263adecd3528a1eab4ea14d002148fe2892463c5e237760df2466",
+          "texto_bruto": "TITOS e so\r\n"
+        },
+        "cpf": {
+          "pagina": 1,
+          "bbox_pontos": [
+            267,
+            270,
+            444,
+            284
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "0b8725f9cd89be9182137eb4b0ddb2222fdbcf676f2b9e3b79ab14fdb4abd189",
+          "texto_bruto": ""
+        },
+        "rg": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            283,
+            225,
+            296
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a6546bff1b75ab43d9b888adc29a537c5187a066bf8eb24009a08d9353bd63e2",
+          "texto_bruto": ""
+        },
+        "orgao_expedidor": {
+          "pagina": 1,
+          "bbox_pontos": [
+            324,
+            283,
+            511,
+            296
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a62df619a53f88c4f4926f8772eaf4dc77ed3970d10b1edec16d05aac9bfe6ca",
+          "texto_bruto": "EFRSsSSIrITz eAA\r\n"
+        },
+        "naturalidade": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            295,
+            300,
+            307
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "c5379a0d209e9fd555757f2421e4122bcc2230bd0feb5a5bd584bfb05ceefe48",
+          "texto_bruto": "[) IÍD—EÍr'r'r :\r\n"
+        },
+        "uf": {
+          "pagina": 1,
+          "bbox_pontos": [
+            379,
+            294,
+            437,
+            307
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "1ee57184f8ab3d2039de556f561fba03581746240d917e25f27240a8bfb653bb",
+          "texto_bruto": "FFF\r\n"
+        },
+        "nome_mae": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            306,
+            511,
+            320
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "d3919411b5ef7102fdfafd012a56c64612e598f9fcbe80bf39c3489df1ac94df",
+          "texto_bruto": "Luh Helerãh DE MEMEIA SANTOS. —\r\n"
+        },
+        "nome_pai": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            319,
+            511,
+            332
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "23ebe236060aa9a90701c5e1084856e98323fc055a0ad19f40568a2ac7fa583c",
+          "texto_bruto": "[P PS EE A aA E A A ES c a TE\r\n"
+        },
+        "curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            336,
+            430,
+            350
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "3fd357b10e9b8b0eaa55d1ed372a30a8f9ee206fee2986d449442a4d1c508c69",
+          "texto_bruto": "1E CINVLAS EM ENFCEINNFECW)\r\n"
+        },
+        "ch": {
+          "pagina": 1,
+          "bbox_pontos": [
+            462,
+            335,
+            585,
+            349
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "305f810ad304f735bdfd2de46c1f9829e2b97caeeb33cba1aadd256d1eef7285",
+          "texto_bruto": "TZdo HORAS\r\n"
+        },
+        "eixo_tecnologico": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            348,
+            430,
+            360
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "3cc66584231cf550ff3fa53ae46d4a05bcdded4f3af3e2caf9f186c7a9f2a27a",
+          "texto_bruto": "RUBE — 2N o A c A\r\n"
+        },
+        "turma": {
+          "pagina": 1,
+          "bbox_pontos": [
+            503,
+            347,
+            585,
+            359
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "f134f41fa09a5029c1c2ce2c45b420fbb8dc7af8eebe5ad70c7af85fba94e8cc",
+          "texto_bruto": "= =\r\n—— ——\r\n"
+        },
+        "municipio": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            359,
+            320,
+            370
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a98c2b97cab3892dbf70368d351e6c2f74a9cbea23b9ed615d93e6b0f46e0a07",
+          "texto_bruto": "| EE 25 PE\r\n"
+        },
+        "turno": {
+          "pagina": 1,
+          "bbox_pontos": [
+            383,
+            358,
+            585,
+            370
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "5286195dd1a7fcde6efc6c9c1a35b690736e074d99bffa524acb769c9e603548",
+          "texto_bruto": "POIIENOO\r\n"
+        },
+        "inicio_curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            368,
+            318,
+            382
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "42fd07cc600fba7f69363218717a5e0b7aec58c30f5ea3ef48120ccd027b7feb",
+          "texto_bruto": "ST ES ZI ——\r\n"
+        },
+        "termino_curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            442,
+            367,
+            585,
+            381
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "8cd4c250373c964375c4f552f5b3b0089c1f9ab56dbf03c3d0bf47d4ca5fb5cb",
+          "texto_bruto": "=\r\n"
+        },
+        "tel_celular": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            387,
+            295,
+            398
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "4f4a7fb477eb1d773e83512a891c6cbb7d1e97d0847d8f589d4aec62368e59c6",
+          "texto_bruto": "| EEERETTAEAEE TEA\r\n"
+        },
+        "tel_residencial": {
+          "pagina": 1,
+          "bbox_pontos": [
+            363,
+            385,
+            585,
+            397
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "2379dc409329efa51137b600cbc75ccf6b6754a15fece4b0397e29cb732eaf29",
+          "texto_bruto": "1T ET STSA o NNE\r\n"
+        },
+        "email": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            393,
+            585,
+            408
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "9c91b28a077a7c389a0849ff314659da2942f96c4134021b5b1db0de1137b05c",
+          "texto_bruto": ""
+        },
+        "data_matricula": {
+          "pagina": 1,
+          "bbox_pontos": [
+            118,
+            414,
+            585,
+            427
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "0169bdf76d907cbb801e9d2531e2e0c7ccb96cea7c88f96c6ce9dff0770fc2e2",
+          "texto_bruto": ""
+        },
+        "assinatura_aluno": {
+          "pagina": 1,
+          "bbox_pontos": [
+            100,
+            467,
+            330,
+            484
+          ],
+          "dpi": 400,
+          "psm": 6,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "c4478fbfd07ac435160484544cb3297227d04c955f0d957b1a0b279f57c3858f",
+          "texto_bruto": ""
+        }
+      },
+      "erros": [],
+      "texto_bruto": "2504 - Qpool Fz\r\n\n\nTITOS e so\r\n\n\n\nEFRSsSSIrITz eAA\r\n\n[) IÍD—EÍr'r'r :\r\n\nFFF\r\n\nLuh Helerãh DE MEMEIA SANTOS. —\r\n\n[P PS EE A aA E A A ES c a TE\r\n\n1E CINVLAS EM ENFCEINNFECW)\r\n\nTZdo HORAS\r\n\nRUBE — 2N o A c A\r\n\n= =\r\n—— ——\r\n\n| EE 25 PE\r\n\nPOIIENOO\r\n\nST ES ZI ——\r\n\n=\r\n\n| EEERETTAEAEE TEA\r\n\n1T ET STSA o NNE\r\n\n\n\n",
+      "comparacao_gabarito": {
+        "total_campos": 23,
+        "campos_conferidos": 0,
+        "taxa_acuracia_percentual": "0.0%",
+        "detalhes": {
+          "codigo": {
+            "esperado": "2026-000142",
+            "extraido": "2504 - Qpool Fz",
+            "conferido_com_sucesso": false
+          },
+          "nome": {
+            "esperado": "MARCOS VINICIUS DE ALMEIDA SANTOS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_nascimento": {
+            "esperado": "12/08/2008",
+            "extraido": "TITOS e so",
+            "conferido_com_sucesso": false
+          },
+          "cpf": {
+            "esperado": "123.456.789-00",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "rg": {
+            "esperado": "1234567-8",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "orgao_expedidor": {
+            "esperado": "não localizado",
+            "extraido": "EFRSsSSIrITz eAA",
+            "conferido_com_sucesso": false
+          },
+          "naturalidade": {
+            "esperado": "CUIABA",
+            "extraido": "[) IÍD—EÍr'r'r :",
+            "conferido_com_sucesso": false
+          },
+          "uf": {
+            "esperado": "não localizado",
+            "extraido": "FFF",
+            "conferido_com_sucesso": false
+          },
+          "nome_mae": {
+            "esperado": "LUCIA HELENA DE ALMEIDA SANTOS",
+            "extraido": "Luh Helerãh DE MEMEIA SANTOS. —",
+            "conferido_com_sucesso": false
+          },
+          "nome_pai": {
+            "esperado": "não localizado",
+            "extraido": "[P PS EE A aA E A A ES c a TE",
+            "conferido_com_sucesso": false
+          },
+          "curso": {
+            "esperado": "TECNICO EM ENFERMAGEM",
+            "extraido": "1E CINVLAS EM ENFCEINNFECW)",
+            "conferido_com_sucesso": false
+          },
+          "ch": {
+            "esperado": "1200 HORAS",
+            "extraido": "TZdo HORAS",
+            "conferido_com_sucesso": false
+          },
+          "eixo_tecnologico": {
+            "esperado": "SAUDE",
+            "extraido": "RUBE — 2N o A c A",
+            "conferido_com_sucesso": false
+          },
+          "turma": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "municipio": {
+            "esperado": "não localizado",
+            "extraido": "| EE 25 PE",
+            "conferido_com_sucesso": false
+          },
+          "turno": {
+            "esperado": "NOTURNO",
+            "extraido": "POIIENOO",
+            "conferido_com_sucesso": false
+          },
+          "inicio_curso": {
+            "esperado": "01/02/2027",
+            "extraido": "ST ES ZI ——",
+            "conferido_com_sucesso": false
+          },
+          "termino_curso": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_celular": {
+            "esperado": "não localizado",
+            "extraido": "| EEERETTAEAEE TEA",
+            "conferido_com_sucesso": false
+          },
+          "tel_residencial": {
+            "esperado": "não localizado",
+            "extraido": "1T ET STSA o NNE",
+            "conferido_com_sucesso": false
+          },
+          "email": {
+            "esperado": "MARCOS.ALMEIDA.TESTE@EXAMPLO.COM",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_matricula": {
+            "esperado": "14/10/2026",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "assinatura_aluno": {
+            "esperado": "Assinado (MARCOS)",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          }
+        }
+      }
+    },
+    "regioes_psm7": {
+      "campos_extraidos": {
+        "codigo": "2504 - Qpool Fz",
+        "nome": "não localizado",
+        "data_nascimento": "TITOS e so",
+        "cpf": "não localizado",
+        "rg": "não localizado",
+        "orgao_expedidor": "não localizado",
+        "naturalidade": "CuUTRAGA RNE",
+        "uf": "FFF",
+        "nome_mae": "Luh Helerãh DE MEMEIA SANTOS. —",
+        "nome_pai": "[P PS EE A aA E A A ES c a TE",
+        "curso": "1E CINVLAS EM ENFCEINNFECW)",
+        "ch": "TZdo HORAS",
+        "eixo_tecnologico": "RUBE — 2N o A c A",
+        "turma": "não localizado",
+        "municipio": "| EE 25 PE",
+        "turno": "K TCTAILLIVE )",
+        "inicio_curso": "ST ES ZI ——",
+        "termino_curso": "não localizado",
+        "tel_celular": "| EEERETTAEAEE TEA",
+        "tel_residencial": "1T ET STSA o NNE",
+        "email": "não localizado",
+        "data_matricula": "não localizado",
+        "assinatura_aluno": "não localizado"
+      },
+      "regioes": {
+        "codigo": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            246,
+            396,
+            260
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "6ea5f4a324d11155f1d63716db9ca04bec4dc3098d3b315cde3563a599804e57",
+          "texto_bruto": "2504 - Qpool Fz\r\n"
+        },
+        "nome": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            258,
+            511,
+            273
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a2e051948d43a6584e17e41765a4b1c263bfa9a5f96550880b5fac9260a94099",
+          "texto_bruto": ""
+        },
+        "data_nascimento": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            271,
+            225,
+            284
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "1a903148465263adecd3528a1eab4ea14d002148fe2892463c5e237760df2466",
+          "texto_bruto": "TITOS e so\r\n"
+        },
+        "cpf": {
+          "pagina": 1,
+          "bbox_pontos": [
+            267,
+            270,
+            444,
+            284
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "0b8725f9cd89be9182137eb4b0ddb2222fdbcf676f2b9e3b79ab14fdb4abd189",
+          "texto_bruto": ""
+        },
+        "rg": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            283,
+            225,
+            296
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a6546bff1b75ab43d9b888adc29a537c5187a066bf8eb24009a08d9353bd63e2",
+          "texto_bruto": ""
+        },
+        "orgao_expedidor": {
+          "pagina": 1,
+          "bbox_pontos": [
+            324,
+            283,
+            511,
+            296
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a62df619a53f88c4f4926f8772eaf4dc77ed3970d10b1edec16d05aac9bfe6ca",
+          "texto_bruto": "-\r\n"
+        },
+        "naturalidade": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            295,
+            300,
+            307
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "c5379a0d209e9fd555757f2421e4122bcc2230bd0feb5a5bd584bfb05ceefe48",
+          "texto_bruto": "CuUTRAGA RNE\r\n"
+        },
+        "uf": {
+          "pagina": 1,
+          "bbox_pontos": [
+            379,
+            294,
+            437,
+            307
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "1ee57184f8ab3d2039de556f561fba03581746240d917e25f27240a8bfb653bb",
+          "texto_bruto": "FFF\r\n"
+        },
+        "nome_mae": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            306,
+            511,
+            320
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "d3919411b5ef7102fdfafd012a56c64612e598f9fcbe80bf39c3489df1ac94df",
+          "texto_bruto": "Luh Helerãh DE MEMEIA SANTOS. —\r\n"
+        },
+        "nome_pai": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            319,
+            511,
+            332
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "23ebe236060aa9a90701c5e1084856e98323fc055a0ad19f40568a2ac7fa583c",
+          "texto_bruto": "[P PS EE A aA E A A ES c a TE\r\n"
+        },
+        "curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            336,
+            430,
+            350
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "3fd357b10e9b8b0eaa55d1ed372a30a8f9ee206fee2986d449442a4d1c508c69",
+          "texto_bruto": "1E CINVLAS EM ENFCEINNFECW)\r\n"
+        },
+        "ch": {
+          "pagina": 1,
+          "bbox_pontos": [
+            462,
+            335,
+            585,
+            349
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "305f810ad304f735bdfd2de46c1f9829e2b97caeeb33cba1aadd256d1eef7285",
+          "texto_bruto": "TZdo HORAS\r\n"
+        },
+        "eixo_tecnologico": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            348,
+            430,
+            360
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "3cc66584231cf550ff3fa53ae46d4a05bcdded4f3af3e2caf9f186c7a9f2a27a",
+          "texto_bruto": "RUBE — 2N o A c A\r\n"
+        },
+        "turma": {
+          "pagina": 1,
+          "bbox_pontos": [
+            503,
+            347,
+            585,
+            359
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "f134f41fa09a5029c1c2ce2c45b420fbb8dc7af8eebe5ad70c7af85fba94e8cc",
+          "texto_bruto": "= =\r\n"
+        },
+        "municipio": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            359,
+            320,
+            370
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "a98c2b97cab3892dbf70368d351e6c2f74a9cbea23b9ed615d93e6b0f46e0a07",
+          "texto_bruto": "| EE 25 PE\r\n"
+        },
+        "turno": {
+          "pagina": 1,
+          "bbox_pontos": [
+            383,
+            358,
+            585,
+            370
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "5286195dd1a7fcde6efc6c9c1a35b690736e074d99bffa524acb769c9e603548",
+          "texto_bruto": "K TCTAILLIVE )\r\n"
+        },
+        "inicio_curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            368,
+            318,
+            382
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "42fd07cc600fba7f69363218717a5e0b7aec58c30f5ea3ef48120ccd027b7feb",
+          "texto_bruto": "ST ES ZI ——\r\n"
+        },
+        "termino_curso": {
+          "pagina": 1,
+          "bbox_pontos": [
+            442,
+            367,
+            585,
+            381
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "8cd4c250373c964375c4f552f5b3b0089c1f9ab56dbf03c3d0bf47d4ca5fb5cb",
+          "texto_bruto": "=\r\n"
+        },
+        "tel_celular": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            387,
+            295,
+            398
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "4f4a7fb477eb1d773e83512a891c6cbb7d1e97d0847d8f589d4aec62368e59c6",
+          "texto_bruto": "| EEERETTAEAEE TEA\r\n"
+        },
+        "tel_residencial": {
+          "pagina": 1,
+          "bbox_pontos": [
+            363,
+            385,
+            585,
+            397
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "2379dc409329efa51137b600cbc75ccf6b6754a15fece4b0397e29cb732eaf29",
+          "texto_bruto": "1T ET STSA o NNE\r\n"
+        },
+        "email": {
+          "pagina": 1,
+          "bbox_pontos": [
+            135,
+            393,
+            585,
+            408
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "9c91b28a077a7c389a0849ff314659da2942f96c4134021b5b1db0de1137b05c",
+          "texto_bruto": ""
+        },
+        "data_matricula": {
+          "pagina": 1,
+          "bbox_pontos": [
+            118,
+            414,
+            585,
+            427
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "0169bdf76d907cbb801e9d2531e2e0c7ccb96cea7c88f96c6ce9dff0770fc2e2",
+          "texto_bruto": ""
+        },
+        "assinatura_aluno": {
+          "pagina": 1,
+          "bbox_pontos": [
+            100,
+            467,
+            330,
+            484
+          ],
+          "dpi": 400,
+          "psm": 7,
+          "idioma": "por",
+          "preprocessamento": [
+            "escala_cinza",
+            "autocontraste",
+            "borda_branca_16px"
+          ],
+          "sha256_recorte": "c4478fbfd07ac435160484544cb3297227d04c955f0d957b1a0b279f57c3858f",
+          "texto_bruto": ""
+        }
+      },
+      "erros": [],
+      "texto_bruto": "2504 - Qpool Fz\r\n\n\nTITOS e so\r\n\n\n\n-\r\n\nCuUTRAGA RNE\r\n\nFFF\r\n\nLuh Helerãh DE MEMEIA SANTOS. —\r\n\n[P PS EE A aA E A A ES c a TE\r\n\n1E CINVLAS EM ENFCEINNFECW)\r\n\nTZdo HORAS\r\n\nRUBE — 2N o A c A\r\n\n= =\r\n\n| EE 25 PE\r\n\nK TCTAILLIVE )\r\n\nST ES ZI ——\r\n\n=\r\n\n| EEERETTAEAEE TEA\r\n\n1T ET STSA o NNE\r\n\n\n\n",
+      "comparacao_gabarito": {
+        "total_campos": 23,
+        "campos_conferidos": 0,
+        "taxa_acuracia_percentual": "0.0%",
+        "detalhes": {
+          "codigo": {
+            "esperado": "2026-000142",
+            "extraido": "2504 - Qpool Fz",
+            "conferido_com_sucesso": false
+          },
+          "nome": {
+            "esperado": "MARCOS VINICIUS DE ALMEIDA SANTOS",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_nascimento": {
+            "esperado": "12/08/2008",
+            "extraido": "TITOS e so",
+            "conferido_com_sucesso": false
+          },
+          "cpf": {
+            "esperado": "123.456.789-00",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "rg": {
+            "esperado": "1234567-8",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "orgao_expedidor": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "naturalidade": {
+            "esperado": "CUIABA",
+            "extraido": "CuUTRAGA RNE",
+            "conferido_com_sucesso": false
+          },
+          "uf": {
+            "esperado": "não localizado",
+            "extraido": "FFF",
+            "conferido_com_sucesso": false
+          },
+          "nome_mae": {
+            "esperado": "LUCIA HELENA DE ALMEIDA SANTOS",
+            "extraido": "Luh Helerãh DE MEMEIA SANTOS. —",
+            "conferido_com_sucesso": false
+          },
+          "nome_pai": {
+            "esperado": "não localizado",
+            "extraido": "[P PS EE A aA E A A ES c a TE",
+            "conferido_com_sucesso": false
+          },
+          "curso": {
+            "esperado": "TECNICO EM ENFERMAGEM",
+            "extraido": "1E CINVLAS EM ENFCEINNFECW)",
+            "conferido_com_sucesso": false
+          },
+          "ch": {
+            "esperado": "1200 HORAS",
+            "extraido": "TZdo HORAS",
+            "conferido_com_sucesso": false
+          },
+          "eixo_tecnologico": {
+            "esperado": "SAUDE",
+            "extraido": "RUBE — 2N o A c A",
+            "conferido_com_sucesso": false
+          },
+          "turma": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "municipio": {
+            "esperado": "não localizado",
+            "extraido": "| EE 25 PE",
+            "conferido_com_sucesso": false
+          },
+          "turno": {
+            "esperado": "NOTURNO",
+            "extraido": "K TCTAILLIVE )",
+            "conferido_com_sucesso": false
+          },
+          "inicio_curso": {
+            "esperado": "01/02/2027",
+            "extraido": "ST ES ZI ——",
+            "conferido_com_sucesso": false
+          },
+          "termino_curso": {
+            "esperado": "não localizado",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "tel_celular": {
+            "esperado": "não localizado",
+            "extraido": "| EEERETTAEAEE TEA",
+            "conferido_com_sucesso": false
+          },
+          "tel_residencial": {
+            "esperado": "não localizado",
+            "extraido": "1T ET STSA o NNE",
+            "conferido_com_sucesso": false
+          },
+          "email": {
+            "esperado": "MARCOS.ALMEIDA.TESTE@EXAMPLO.COM",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "data_matricula": {
+            "esperado": "14/10/2026",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          },
+          "assinatura_aluno": {
+            "esperado": "Assinado (MARCOS)",
+            "extraido": "não localizado",
+            "conferido_com_sucesso": false
+          }
+        }
+      }
+    }
+  },
+  "divergencias_entre_estrategias": [
+    "codigo",
+    "nome",
+    "data_nascimento",
+    "orgao_expedidor",
+    "naturalidade",
+    "uf",
+    "nome_mae",
+    "nome_pai",
+    "curso",
+    "ch",
+    "eixo_tecnologico",
+    "municipio",
+    "turno",
+    "inicio_curso",
+    "tel_celular",
+    "tel_residencial",
+    "assinatura_aluno"
+  ],
+  "estrategias_por_pagina": [
+    "pymupdf"
+  ],
+  "politica_selecao": "Texto: primeira estratégia, segunda se vazia/falha. Campos do perfil oficial: consenso PSM6/7; discordâncias ficam pendentes. Sem seleção por tamanho ou gabarito.",
+  "parametros_ocr": {
+    "dpi": 300,
+    "idioma": "por",
+    "psm_alternativo": 11,
+    "preprocessamento": [
+      "escala_cinza",
+      "autocontraste"
+    ],
+    "regioes": {
+      "dpi": 400,
+      "psm": [
+        6,
+        7
+      ],
+      "perfil_sha256": "a4b3bc0518df73244856ab27e010b561680b5f60ee8e730be4df83b3b567505f"
+    }
+  },
+  "sha256_original": "a4b3bc0518df73244856ab27e010b561680b5f60ee8e730be4df83b3b567505f",
+  "trechos_incertos_ou_ilegiveis": [
+    "Todos os campos críticos exigem conferência humana; OCR não valida assinaturas ou manuscritos.",
+    "Campo 'nome': ausente, ilegível ou ambíguo.",
+    "Campo 'cpf': ausente, ilegível ou ambíguo.",
+    "Campo 'rg': ausente, ilegível ou ambíguo.",
+    "Campo 'orgao_expedidor': ausente, ilegível ou ambíguo.",
+    "Campo 'naturalidade': ausente, ilegível ou ambíguo.",
+    "Campo 'turma': ausente, ilegível ou ambíguo.",
+    "Campo 'turno': ausente, ilegível ou ambíguo.",
+    "Campo 'termino_curso': ausente, ilegível ou ambíguo.",
+    "Campo 'email': ausente, ilegível ou ambíguo.",
+    "Campo 'data_matricula': ausente, ilegível ou ambíguo.",
+    "Campo 'assinatura_aluno': ausente, ilegível ou ambíguo.",
+    "Campo 'assinatura_secretaria': ausente, ilegível ou ambíguo.",
+    "Campo 'codigo': divergência entre estratégias; confirmar no original.",
+    "Campo 'nome': divergência entre estratégias; confirmar no original.",
+    "Campo 'data_nascimento': divergência entre estratégias; confirmar no original.",
+    "Campo 'orgao_expedidor': divergência entre estratégias; confirmar no original.",
+    "Campo 'naturalidade': divergência entre estratégias; confirmar no original.",
+    "Campo 'uf': divergência entre estratégias; confirmar no original.",
+    "Campo 'nome_mae': divergência entre estratégias; confirmar no original.",
+    "Campo 'nome_pai': divergência entre estratégias; confirmar no original.",
+    "Campo 'curso': divergência entre estratégias; confirmar no original.",
+    "Campo 'ch': divergência entre estratégias; confirmar no original.",
+    "Campo 'eixo_tecnologico': divergência entre estratégias; confirmar no original.",
+    "Campo 'municipio': divergência entre estratégias; confirmar no original.",
+    "Campo 'turno': divergência entre estratégias; confirmar no original.",
+    "Campo 'inicio_curso': divergência entre estratégias; confirmar no original.",
+    "Campo 'tel_celular': divergência entre estratégias; confirmar no original.",
+    "Campo 'tel_residencial': divergência entre estratégias; confirmar no original.",
+    "Campo 'assinatura_aluno': divergência entre estratégias; confirmar no original."
+  ],
+  "comparacao_gabarito": {
+    "total_campos": 23,
+    "campos_conferidos": 0,
+    "taxa_acuracia_percentual": "0.0%",
+    "detalhes": {
+      "codigo": {
+        "esperado": "2026-000142",
+        "extraido": "2504 - Qpool Fz",
+        "conferido_com_sucesso": false
+      },
+      "nome": {
+        "esperado": "MARCOS VINICIUS DE ALMEIDA SANTOS",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "data_nascimento": {
+        "esperado": "12/08/2008",
+        "extraido": "TITOS e so",
+        "conferido_com_sucesso": false
+      },
+      "cpf": {
+        "esperado": "123.456.789-00",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "rg": {
+        "esperado": "1234567-8",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "orgao_expedidor": {
+        "esperado": "não localizado",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "naturalidade": {
+        "esperado": "CUIABA",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "uf": {
+        "esperado": "não localizado",
+        "extraido": "FFF",
+        "conferido_com_sucesso": false
+      },
+      "nome_mae": {
+        "esperado": "LUCIA HELENA DE ALMEIDA SANTOS",
+        "extraido": "Luh Helerãh DE MEMEIA SANTOS. —",
+        "conferido_com_sucesso": false
+      },
+      "nome_pai": {
+        "esperado": "não localizado",
+        "extraido": "[P PS EE A aA E A A ES c a TE",
+        "conferido_com_sucesso": false
+      },
+      "curso": {
+        "esperado": "TECNICO EM ENFERMAGEM",
+        "extraido": "1E CINVLAS EM ENFCEINNFECW)",
+        "conferido_com_sucesso": false
+      },
+      "ch": {
+        "esperado": "1200 HORAS",
+        "extraido": "TZdo HORAS",
+        "conferido_com_sucesso": false
+      },
+      "eixo_tecnologico": {
+        "esperado": "SAUDE",
+        "extraido": "RUBE — 2N o A c A",
+        "conferido_com_sucesso": false
+      },
+      "turma": {
+        "esperado": "não localizado",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "municipio": {
+        "esperado": "não localizado",
+        "extraido": "| EE 25 PE",
+        "conferido_com_sucesso": false
+      },
+      "turno": {
+        "esperado": "NOTURNO",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "inicio_curso": {
+        "esperado": "01/02/2027",
+        "extraido": "ST ES ZI ——",
+        "conferido_com_sucesso": false
+      },
+      "termino_curso": {
+        "esperado": "não localizado",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "tel_celular": {
+        "esperado": "não localizado",
+        "extraido": "| EEERETTAEAEE TEA",
+        "conferido_com_sucesso": false
+      },
+      "tel_residencial": {
+        "esperado": "não localizado",
+        "extraido": "1T ET STSA o NNE",
+        "conferido_com_sucesso": false
+      },
+      "email": {
+        "esperado": "MARCOS.ALMEIDA.TESTE@EXAMPLO.COM",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "data_matricula": {
+        "esperado": "14/10/2026",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      },
+      "assinatura_aluno": {
+        "esperado": "Assinado (MARCOS)",
+        "extraido": "não localizado",
+        "conferido_com_sucesso": false
+      }
+    }
+  },
+  "justificativa_soberania_privacidade": "OCR local evita envio do documento a terceiros e favorece soberania e privacidade.",
+  "tempo_processamento_segundos": 21.853686899999957,
+  "arquivo_extracao": "dados/processados/validacao_rf08/ocr_343049677a8b4473a3e1237bd85fbe12.json"
+}

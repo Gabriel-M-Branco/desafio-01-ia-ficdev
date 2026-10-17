@@ -1,0 +1,27 @@
+{
+  "campos_esperados": {
+    "codigo": "55555555",
+    "nome": "Pessoa Alfa Teste",
+    "data_nascimento": "12/12/2012",
+    "cpf": "000.000.000-00",
+    "rg": "0000000-0",
+    "orgao_expedidor": "Orgao Ficticio",
+    "naturalidade": "Cidade Teste",
+    "uf": "MT",
+    "nome_mae": "Pessoa Beta Teste",
+    "nome_pai": "Pessoa Gama Teste",
+    "curso": "Curso de Teste",
+    "ch": "800 horas",
+    "eixo_tecnologico": "Tecnologia",
+    "turma": "ALFA",
+    "municipio": "Cidade Teste",
+    "turno": "Noturno",
+    "inicio_curso": "12/12/2032",
+    "termino_curso": "12/12/2033",
+    "tel_celular": "99999999999",
+    "tel_residencial": "8888888888",
+    "email": "teste@example.com",
+    "data_matricula": "12/12/2031",
+    "assinatura_aluno": "Registro ficticio"
+  }
+}

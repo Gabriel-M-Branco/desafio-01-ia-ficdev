@@ -1,0 +1,31 @@
+{
+  "id_execucao": "EXEC_20261016_212934_caec9f",
+  "timestamp": "2026-10-16T21:29:34.856321",
+  "modalidade": "texto",
+  "arquivo_origem": "dados/originais/entrada_texto.txt",
+  "provedor": "Teste",
+  "modelo": "Qwen/Qwen2.5-72B-Instruct",
+  "versao_prompt": "PRODUCAO",
+  "parametros": {
+    "temp": 0.1,
+    "chave_falsa_secreta": "[REDACTED]"
+  },
+  "duracao_segundos": 0.5,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "APROVADO",
+    "operador": "Servidor Chefe",
+    "justificativa": "Minuta conferida com o processo acadêmico.",
+    "data_decisao": "2026-10-16T21:29:34.865384",
+    "id_aprovacao": "a7fdcfccc3f04c628ea20bc51104b408",
+    "hash_texto_aprovado": "306eb4653ebb07ce55e52605f37afa2739fc2a3c7f52a79b7bb98960dad699cc"
+  },
+  "detalhes_completos": {
+    "teste": "ok"
+  },
+  "texto_final": "Minuta fictícia conferida para teste."
+}
