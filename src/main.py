@@ -200,7 +200,20 @@ def processar_texto(requisicao: RequisicaoTexto):
             if m:
                 texto_limpo = m.group(1).strip()
 
-        parsed = json.loads(texto_limpo)
+        try:
+            parsed = json.loads(texto_limpo, strict=False)
+        except Exception:
+            # Fallback de resiliência caso haja aspas ou quebras de linha não escapadas na minuta
+            m_ext = re.search(r'"extracao"\s*:\s*(\{[\s\S]*?\})\s*,\s*"minuta_institucional"', texto_limpo)
+            m_min = re.search(r'"minuta_institucional"\s*:\s*"([\s\S]*?)(?:"\s*\}|"\s*$|$)', texto_limpo)
+            if m_ext and m_min:
+                parsed = {
+                    "extracao": json.loads(m_ext.group(1), strict=False),
+                    "minuta_institucional": m_min.group(1).replace('\\"', '"').replace("\\n", "\n"),
+                }
+            else:
+                parsed = json.loads(texto_limpo)
+
         extracao = parsed.get("extracao", {})
         minuta = parsed.get("minuta_institucional", "")
     except Exception as exc:
