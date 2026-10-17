@@ -279,12 +279,12 @@ class QualityEvaluator:
             "esperado": "Nome Completo (Mínimo 2 palavras)",
         },
         "cpf": {
-            "padrao": r"^\d{3}\.\d{3}\.\d{3}-\d{2}$",
-            "esperado": "000.000.000-00",
+            "padrao": r"^(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})$",
+            "esperado": "000.000.000-00 ou 11 dígitos",
         },
         "rg": {
-            "padrao": r"^[0-9A-Za-z.\-]{5,15}$",
-            "esperado": "0000000-0 (RG oficial)",
+            "padrao": r"^[0-9A-Za-z.\-\s/]{5,20}$",
+            "esperado": "0000000-0 ou dígitos oficiais",
         },
         "orgao_expedidor": {
             "esperado": "Sigla oficial ou 'não localizado'",

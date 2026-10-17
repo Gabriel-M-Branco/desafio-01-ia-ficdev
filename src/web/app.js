@@ -5,6 +5,82 @@ document.addEventListener("DOMContentLoaded", () => {
     ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
   let ultimaExecucaoId = null;
   let ultimoUrlPdf = null;
+  let dadosExtracaoAtual = null;
+  let ultimaAvaliacaoAtual = null;
+
+  // Gerador de Variantes de Formato para Escolha do Servidor
+  function gerarVariantesFormato(campo, valor) {
+    if (!valor || String(valor).toLowerCase().trim() === "não localizado") return [];
+    const limpo = String(valor).trim();
+
+    if (campo === "cpf") {
+      const digitos = limpo.replace(/\D/g, "");
+      if (digitos.length === 11) {
+        const comMascara = digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+        const lgpd = `***.${digitos.slice(3, 6)}.***-**`;
+        return [
+          { rotulo: "Oficial (000.000.000-00)", valor: comMascara },
+          { rotulo: "Apenas Números (11 dígitos)", valor: digitos },
+          { rotulo: "Pseudonimizado (LGPD)", valor: lgpd }
+        ];
+      }
+    } else if (campo === "rg") {
+      const digitos = limpo.replace(/\D/g, "");
+      if (digitos.length >= 6) {
+        const comTraco = digitos.slice(0, -1) + "-" + digitos.slice(-1);
+        const comOrgao = comTraco + " SSP/MT";
+        return [
+          { rotulo: "Com Dígito (-X)", valor: comTraco },
+          { rotulo: "Apenas Números", valor: digitos },
+          { rotulo: "Com Órgão Expedidor", valor: comOrgao }
+        ];
+      }
+    } else if (campo === "data" || campo === "data_nascimento" || campo === "inicio_curso") {
+      const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+      if (limpo.includes("/")) {
+        const p = limpo.split("/");
+        if (p.length === 3) {
+          const dia = parseInt(p[0], 10);
+          const m = parseInt(p[1], 10) - 1;
+          const ano = p[2];
+          if (m >= 0 && m < 12) {
+            return [
+              { rotulo: "Padrão Numérico (DD/MM/AAAA)", valor: `${String(dia).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}/${ano}` },
+              { rotulo: "Por Extenso", valor: `${dia} de ${meses[m]} de ${ano}` }
+            ];
+          }
+        }
+      } else if (limpo.toLowerCase().includes("de")) {
+        const match = limpo.match(/(\d{1,2})\s+de\s+([A-Za-zçÇ]+)\s+de\s+(\d{4})/i);
+        if (match) {
+          const dia = parseInt(match[1], 10);
+          const mesNome = match[2].toLowerCase();
+          const ano = match[3];
+          const m = meses.indexOf(mesNome);
+          if (m >= 0) {
+            return [
+              { rotulo: "Padrão Numérico (DD/MM/AAAA)", valor: `${String(dia).padStart(2, "0")}/${String(m + 1).padStart(2, "0")}/${ano}` },
+              { rotulo: "Por Extenso", valor: `${dia} de ${meses[m]} de ${ano}` }
+            ];
+          }
+        }
+      }
+    } else if (campo === "telefone") {
+      const digitos = limpo.replace(/\D/g, "");
+      if (digitos.length === 11) {
+        return [
+          { rotulo: "Com DDD e Máscara", valor: digitos.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3") },
+          { rotulo: "Apenas Números", valor: digitos }
+        ];
+      } else if (digitos.length === 10) {
+        return [
+          { rotulo: "Com DDD e Máscara", valor: digitos.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3") },
+          { rotulo: "Apenas Números", valor: digitos }
+        ];
+      }
+    }
+    return [];
+  }
 
   // 1. Gerenciamento de Abas Principais
   const navTabs = document.querySelectorAll(".nav-tab");
@@ -142,8 +218,11 @@ document.addEventListener("DOMContentLoaded", () => {
         badgeStatus.className = "badge badge-warning";
       }
 
+      dadosExtracaoAtual = data.extracao;
+      ultimaAvaliacaoAtual = data.avaliacao_gabarito || data.conformidade_formato;
+
       // 5. Renderiza o Painel de Conferência Visual de Dados e Auditoria (RF13)
-      renderizarPainelConferencia(data.avaliacao_gabarito || data.conformidade_formato, data.extracao);
+      renderizarPainelConferencia(ultimaAvaliacaoAtual, dadosExtracaoAtual);
 
       // Exibe avaliacao resumida na aba de métricas
       const gabaritoBox = document.getElementById("comparacao-gabarito-view");
@@ -164,6 +243,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Função Especializada para o Painel de Conferência de Dados (RF13)
   function renderizarPainelConferencia(aval, extracao) {
     if (!aval) return;
+    ultimaAvaliacaoAtual = aval;
+    if (extracao) dadosExtracaoAtual = extracao;
 
     const banner = document.getElementById("banner-conferencia-operador");
     const badgeCount = document.getElementById("badge-divergencias-count");
@@ -313,12 +394,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const FORMATOS_MAP = {
             protocolo: "Ano-Sequencial (ex: 2026-000142)",
-            data: "Padrão DD/MM/AAAA",
+            data: "Padrão DD/MM/AAAA ou por extenso",
             solicitante: "Nome Completo (Mínimo 2 palavras)",
-            cpf: "Padrão Nacional (000.000.000-00)",
-            rg: "Numérico com dígito (0000000-0)",
+            cpf: "000.000.000-00 ou 11 dígitos numéricos",
+            rg: "0000000-0 ou dígitos oficiais",
             orgao_expedidor: "Sigla Oficial (ex: SSP, DETRAN)",
-            data_nascimento: "Padrão DD/MM/AAAA",
+            data_nascimento: "Padrão DD/MM/AAAA ou por extenso",
             naturalidade: "Município / Cidade",
             uf: "Sigla da UF (2 letras)",
             nome_mae: "Nome Completo da Mãe",
@@ -327,7 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
             eixo_tecnologico: "Eixo Institucional Oficial",
             carga_horaria: "Carga Horária (ex: 1200 horas)",
             turno: "Matutino / Vespertino / Noturno",
-            inicio_curso: "Padrão DD/MM/AAAA",
+            inicio_curso: "Padrão DD/MM/AAAA ou por extenso",
             email: "Endereço válido (nome@dominio.ext)",
             telefone: "DDD + Número de Contato",
             assunto: "Tema principal da manifestação",
@@ -335,10 +416,33 @@ document.addEventListener("DOMContentLoaded", () => {
             categoria: "Categoria de atendimento oficial",
           };
 
-          const formatoTexto = FORMATOS_MAP[item.campo] ? `<span class="formato-hint">Formato: ${FORMATOS_MAP[item.campo]}</span>` : "";
+          const formatoTexto = FORMATOS_MAP[item.campo] ? `<span class="formato-hint">Opções: ${FORMATOS_MAP[item.campo]}</span>` : "";
+
+          // Variantes de Formato para Escolha do Servidor
+          const variantes = gerarVariantesFormato(item.campo, item.obtido);
+          let formatChipsHtml = "";
+          if (variantes.length > 0) {
+            formatChipsHtml = `
+              <div class="format-chips-wrapper">
+                <span class="format-chips-title">Formato da Minuta / JSON:</span>
+                <div class="format-chips-list">
+                  ${variantes.map(v => {
+                    const isAtivo = String(v.valor).trim() === String(item.obtido).trim();
+                    return `<button type="button" class="btn-format-chip ${isAtivo ? 'active' : ''}" 
+                                   data-campo="${esc(item.campo)}" 
+                                   data-antigo="${esc(item.obtido)}" 
+                                   data-novo="${esc(v.valor)}"
+                                   title="Clique para aplicar '${esc(v.valor)}' na Minuta e no JSON">
+                              ${esc(v.rotulo)}: <code>${esc(v.valor)}</code>
+                            </button>`;
+                  }).join("")}
+                </div>
+              </div>
+            `;
+          }
 
           if (isDivergente) {
-            extraidoHtml = `<span class="val-extraido-erro" id="val-extraido-${idx}">${esc(item.obtido || "Vazio")}</span>`;
+            extraidoHtml = `<span class="val-extraido-erro" id="val-extraido-${idx}">${esc(item.obtido || "Vazio")}</span>${formatChipsHtml}`;
             statusBadge = `<span class="diag-tag diag-divergente">▲ Divergente</span>`;
             acaoHtml = `<button type="button" class="btn-corrigir-inline" data-idx="${idx}" data-campo="${esc(item.campo)}" data-esperado="${esc(item.esperado)}" data-obtido="${esc(item.obtido)}">Aplicar Correção</button>`;
           } else if (isPendencia) {
@@ -346,11 +450,11 @@ document.addEventListener("DOMContentLoaded", () => {
             statusBadge = `<span class="diag-tag diag-pendente">○ Pendência</span>`;
             acaoHtml = `<span style="color:#64748B; font-size:0.75rem;">Documento Exigido</span>`;
           } else if (isConforme) {
-            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
+            extraidoHtml = `<strong>${esc(item.obtido)}</strong>${formatChipsHtml}`;
             statusBadge = `<span class="diag-tag diag-correto">● Conforme</span>`;
             acaoHtml = `<span style="color:#15803D; font-weight:600; font-size:0.75rem;">Conferido</span>`;
           } else {
-            extraidoHtml = `<strong>${esc(item.obtido)}</strong>`;
+            extraidoHtml = `<strong>${esc(item.obtido)}</strong>${formatChipsHtml}`;
             statusBadge = '<span class="diag-tag diag-pendente">Não conferido com referência</span>';
             acaoHtml = '<span>Revisar na fonte</span>';
           }
@@ -375,7 +479,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       tbody.innerHTML = linhasHtml + `<tr id="tr-empty-filter" style="display:none;"><td colspan="5" style="text-align:center; padding: 24px; color: #16A34A; font-weight: 600;"></td></tr>`;
 
-      // Vincula cliques no botão "Aplicar Correção"
+      // Vincula cliques no botão "Aplicar Correção" manual
       tbody.querySelectorAll(".btn-corrigir-inline").forEach((btn) => {
         btn.addEventListener("click", () => {
           const campo = btn.getAttribute("data-campo");
@@ -417,8 +521,82 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
       });
+
+      // Vincula cliques nos Chips de Formato (Escolha do Servidor)
+      tbody.querySelectorAll(".btn-format-chip").forEach((btnChip) => {
+        btnChip.addEventListener("click", () => {
+          const campo = btnChip.getAttribute("data-campo");
+          const antigo = btnChip.getAttribute("data-antigo");
+          const novo = btnChip.getAttribute("data-novo");
+          if (!campo || !novo || antigo === novo) return;
+
+          // Atualiza dados na memória
+          if (extracao) extracao[campo] = novo;
+          if (dadosExtracaoAtual) dadosExtracaoAtual[campo] = novo;
+
+          // Atualiza no texto da minuta oficial em tempo real
+          const editorMinuta = document.getElementById("editor-minuta");
+          if (editorMinuta && antigo && novo) {
+            if (editorMinuta.value.includes(antigo)) {
+              editorMinuta.value = editorMinuta.value.replaceAll(antigo, novo);
+            }
+          }
+
+          // Atualiza visualizador JSON
+          const jsonView = document.getElementById("json-extracao-view");
+          if (jsonView && extracao) {
+            jsonView.textContent = JSON.stringify(extracao, null, 2);
+          }
+
+          // Re-renderiza o painel para atualizar botões ativos
+          renderizarPainelConferencia(aval, extracao);
+        });
+      });
     }
   }
+
+  // Ações de Padronização Global de Formatos (Servidor Público)
+  document.getElementById("btn-aplicar-mascaras-todas")?.addEventListener("click", () => {
+    if (!dadosExtracaoAtual) return;
+    const editorMinuta = document.getElementById("editor-minuta");
+    for (const campo of Object.keys(dadosExtracaoAtual)) {
+      const valAtual = dadosExtracaoAtual[campo];
+      const vars = gerarVariantesFormato(campo, valAtual);
+      if (vars.length > 0) {
+        const comMascara = vars[0].valor;
+        if (comMascara && comMascara !== valAtual) {
+          if (editorMinuta && editorMinuta.value.includes(valAtual)) {
+            editorMinuta.value = editorMinuta.value.replaceAll(valAtual, comMascara);
+          }
+          dadosExtracaoAtual[campo] = comMascara;
+        }
+      }
+    }
+    const jsonView = document.getElementById("json-extracao-view");
+    if (jsonView) jsonView.textContent = JSON.stringify(dadosExtracaoAtual, null, 2);
+    if (ultimaAvaliacaoAtual) renderizarPainelConferencia(ultimaAvaliacaoAtual, dadosExtracaoAtual);
+  });
+
+  document.getElementById("btn-aplicar-digitos-todas")?.addEventListener("click", () => {
+    if (!dadosExtracaoAtual) return;
+    const editorMinuta = document.getElementById("editor-minuta");
+    for (const campo of Object.keys(dadosExtracaoAtual)) {
+      const valAtual = dadosExtracaoAtual[campo];
+      const vars = gerarVariantesFormato(campo, valAtual);
+      if (vars.length > 1) {
+        const apenasDigitos = vars.find(v => v.rotulo.toLowerCase().includes("números") || v.rotulo.toLowerCase().includes("dígitos"))?.valor;
+        if (apenasDigitos && apenasDigitos !== valAtual) {
+          if (editorMinuta && editorMinuta.value.includes(valAtual)) {
+            editorMinuta.value = editorMinuta.value.replaceAll(valAtual, apenasDigitos);
+          }
+          dadosExtracaoAtual[campo] = apenasDigitos;
+        }
+      }
+    }
+    const jsonView = document.getElementById("json-extracao-view");
+    if (jsonView) jsonView.textContent = JSON.stringify(dadosExtracaoAtual, null, 2);
+    if (ultimaAvaliacaoAtual) renderizarPainelConferencia(ultimaAvaliacaoAtual, dadosExtracaoAtual);
+  });
 
   // Filtros da Tabela de Conferência
   const filterBtns = document.querySelectorAll(".conferencia-filters .btn-filter");

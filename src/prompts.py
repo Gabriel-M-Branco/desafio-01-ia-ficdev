@@ -52,13 +52,14 @@ Responda exclusivamente com um objeto JSON na seguinte estrutura:
     "pedido": "string detalhando o que foi pedido",
     "categoria": "Matrícula e Ingresso | Documentação e Certidões | Assistência Estudantil | Cursos e Horários | Outros / Informações Gerais"
   }},
-  "minuta_institucional": "Texto completo da minuta com cabeçalho GOV.MT, vocativo, teor da resposta, pendências e encerramento."
+  "minuta_institucional": "Texto oficial e completo da minuta padrão GOV.MT, estruturado com cabeçalho (SECITECI/MT - Escola Técnica Estadual de Cuiabá), vocativo, resposta clara ao pedido de matrícula e uma seção detalhada 'DOCUMENTOS E CAMPOS PENDENTES' relacionando todos os campos não localizados e a lista oficial de documentos exigidos para a efetivação (Certidão, RG/CPF, Comprovante de Residência, Histórico Escolar, Fotos 3x4), com regras de frequência e encerramento formal."
 }}
 
 # CRITÉRIOS DE SUCESSO
 - Alucinação Zero: proibido inventar leis, números, prazos ou dados.
 - Caso qualquer dado não conste no texto, utilize estritamente 'não localizado'.
 - Tom formal, respeitoso e acolhedor compatível com a administração pública de Mato Grosso.
+- Respondendo expressamente à pergunta do cidadão sobre documentos faltantes.
 
 # CONTEÚDO FORNECIDO:
 {conteudo}
@@ -92,7 +93,8 @@ REGRAS DE CONFORMIDADE E PRECISÃO:
 1. DELIMITAÇÃO ESTREITA: Extraia apenas informações textualmente comprováveis no documento.
 2. REGRA DO "NÃO LOCALIZADO": Se um campo obrigatório estiver ausente, omisso ou ilegível, o preenchimento OBRIGATÓRIO do valor deve ser exatamente a expressão: "não localizado".
 3. VEDAÇÃO ABSOLUTA DE ALUCINAÇÃO: Não invente decretos, portarias, números de protocolo fictícios ou datas inexistentes.
-4. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
+4. RESPOSTA DIRETA AO CIDADÃO SOBRE PENDÊNCIAS: Quando o cidadão questionar sobre quais documentos precisa apresentar, a minuta DEVE listar expressamente os documentos e dados pendentes necessários para efetivar a matrícula.
+5. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
 
 ESTRUTURA DE DADOS EXIGIDA:
 {{
@@ -120,7 +122,7 @@ ESTRUTURA DE DADOS EXIGIDA:
     "nivel_confianca": "alta | media | baixa",
     "necessidade_revisao": true
   }},
-  "minuta_institucional": "Texto institucional padrão GOV.MT referenciando dados confirmados e alertando formalmente sobre campos não localizados."
+  "minuta_institucional": "Texto formal e completo de resposta oficial da Secretaria de Registro Escolar da Escola Técnica Estadual de Cuiabá / SECITECI-MT ao cidadão requerente. Deve conter: 1) Cabeçalho GOV.MT / SECITECI; 2) Vocativo respeitoso ao solicitante; 3) Acolhimento do pedido com confirmação dos dados recebidos; 4) Resposta explícita ao pedido de informações com a SEÇÃO 'DOCUMENTOS E DADOS PENDENTES' contendo a relação clara dos campos ausentes ('não localizado') e dos documentos regulamentares exigidos para a matrícula (Certidão de Nascimento/Casamento, Documento de Identidade/CPF, Comprovante de Residência, Histórico Escolar e Fotos 3x4); 5) Ciência expressa sobre a frequência obrigatória nos 10 primeiros dias letivos; 6) Canais de atendimento e assinatura institucional."
 }}
 
 DADOS DE ENTRADA DO USUÁRIO (NÃO CONFIÁVEL):
