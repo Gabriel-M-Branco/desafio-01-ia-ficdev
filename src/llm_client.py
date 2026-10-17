@@ -1,6 +1,6 @@
 """
 Cliente de Comunicação com Modelos de IA (RF04)
-Suporte para Hugging Face Serverless Inference, OpenRouter e Modo Mock Offline Seguro.
+Hugging Face e OpenRouter opcional; falhas explícitas e extração heurística rastreável.
 """
 
 import os
@@ -23,7 +23,7 @@ class LLMResponse:
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-    cost_usd: float
+    cost_usd: Optional[float]
     status: str
     error_message: Optional[str] = None
     is_mock: bool = False
@@ -38,7 +38,7 @@ from src import resolver_caminho
 class LLMClient:
     """
     Cliente para orquestração de LLMs com tratamento rigoroso de exceções,
-    métricas de desempenho, cálculo de tokens e custo zero/gratuito.
+    métricas de desempenho e custo não presumido.
     """
 
     def __init__(self, config_path: str = "config.json"):
@@ -83,231 +83,212 @@ class LLMClient:
             clean = clean.replace(self.openrouter_key, "[REDACTED_OPENROUTER_KEY]")
         return clean
 
-    def generate(
-        self,
-        prompt: str,
-        system_instruction: Optional[str] = None,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        timeout: Optional[int] = None,
-    ) -> LLMResponse:
-        """
-        Executa a geração de texto respeitando a cadeia de fallback:
-        1. Hugging Face (se HF_TOKEN presente e EXECUTION_MODE != 'mock')
-        2. OpenRouter (se OPENROUTER_API_KEY presente e falhar o HF)
-        3. Mock Seguro Offline (garante funcionamento local mesmo sem credenciais)
-        """
-        start_time = time.time()
-        target_model = model or self.primary_model
-        temp = temperature if temperature is not None else self.default_temp
-        m_tokens = max_tokens if max_tokens is not None else self.default_max_tokens
-        t_out = timeout if timeout is not None else self.default_timeout
-
-        # Forçar mock se especificado em ambiente
-        if self.execution_mode == "mock":
-            duration = round(time.time() - start_time, 3)
-            return self._generate_mock(prompt, system_instruction, target_model, duration)
-
-        # 1. Tentativa via Hugging Face Inference API
+    def generate(self, prompt, system_instruction=None, model=None, temperature=None,
+                 max_tokens=None, timeout=None) -> LLMResponse:
+        """Somente provedores reais. Indisponibilidade nunca vira resposta fictícia."""
+        inicio = time.perf_counter()
+        modelo = model or self.primary_model
+        temp = self.default_temp if temperature is None else temperature
+        limite = self.default_max_tokens if max_tokens is None else max_tokens
+        espera = self.default_timeout if timeout is None else timeout
+        mensagens = ([{"role": "system", "content": system_instruction}] if system_instruction else [])
+        mensagens.append({"role": "user", "content": prompt})
+        def resposta(texto, provedor, modelo_efetivo, status="success"):
+            entrada = self._estimate_tokens(prompt + (system_instruction or "")) if texto else 0
+            saida = self._estimate_tokens(texto)
+            return LLMResponse(text=texto, model=modelo_efetivo, provider=provedor,
+                duration_seconds=time.perf_counter()-inicio, prompt_tokens=entrada,
+                completion_tokens=saida, total_tokens=entrada+saida, cost_usd=None,
+                status=status, error_message=None if texto else "Geração indisponível; nenhum conteúdo simulado foi produzido.",
+                is_mock=False)
+        def classificar(exc):
+            codigo = getattr(getattr(exc, "response", None), "status_code", None)
+            if codigo in (401, 403): return "auth_error"
+            if codigo in (402,): return "billing_error"
+            if codigo == 429: return "rate_limit_exceeded"
+            if isinstance(exc, TimeoutError) or "timeout" in type(exc).__name__.lower(): return "timeout"
+            if isinstance(exc, ValueError): return "empty_or_invalid_response"
+            return "service_unavailable"
+        if self.execution_mode not in {"auto", "api"}:
+            return resposta("", "none", modelo, "remote_disabled")
+        falha = "credentials_missing"
         if self.hf_token:
             try:
                 from huggingface_hub import InferenceClient
-                client = InferenceClient(token=self.hf_token, timeout=t_out)
-                messages = []
-                if system_instruction:
-                    messages.append({"role": "system", "content": system_instruction})
-                messages.append({"role": "user", "content": prompt})
-
-                chat_resp = client.chat_completion(
-                    messages=messages,
-                    model=target_model,
-                    temperature=temp,
-                    max_tokens=m_tokens,
-                )
-                output_text = chat_resp.choices[0].message.content or ""
-                if not output_text.strip():
-                    raise ValueError("Resposta vazia retornada pelo provedor HF.")
-
-                duration = round(time.time() - start_time, 3)
-                prompt_toks = self._estimate_tokens(prompt + (system_instruction or ""))
-                comp_toks = self._estimate_tokens(output_text)
-                return LLMResponse(
-                    text=output_text,
-                    model=target_model,
-                    provider="HuggingFace_Serverless",
-                    duration_seconds=duration,
-                    prompt_tokens=prompt_toks,
-                    completion_tokens=comp_toks,
-                    total_tokens=prompt_toks + comp_toks,
-                    cost_usd=0.0,  # Gratuito no plano Serverless
-                    status="success",
-                    is_mock=False,
-                )
-            except Exception as e:
-                err_msg = self._sanitize_log_message(str(e))
-                # Trata erros específicos
-                if "401" in err_msg or "403" in err_msg:
-                    err_status = "auth_error"
-                elif "429" in err_msg:
-                    err_status = "rate_limit_exceeded"
-                elif "timeout" in err_msg.lower():
-                    err_status = "timeout"
-                else:
-                    err_status = "service_unavailable"
-
-                # Continua para fallback OpenRouter ou Mock
-                pass
-
-        # 2. Fallback via OpenRouter
-        if self.openrouter_key:
+                cliente = InferenceClient(token=self.hf_token, timeout=espera)
+                dado = cliente.chat_completion(messages=mensagens, model=modelo,
+                                                temperature=temp, max_tokens=limite)
+                texto = dado.choices[0].message.content
+                if not isinstance(texto, str) or not texto.strip():
+                    raise ValueError("Resposta HF vazia.")
+                return resposta(texto, "HuggingFace_Serverless", modelo)
+            except Exception as exc:
+                falha = classificar(exc)
+        # Fallback opcional, explícito. Nunca executado apenas por existir uma chave.
+        habilitado = os.getenv("OPENROUTER_ENABLED", "false").lower() == "true"
+        if habilitado and self.openrouter_key:
             try:
                 import requests
-                headers = {
-                    "Authorization": f"Bearer {self.openrouter_key}",
-                    "Content-Type": "application/json",
-                }
-                messages = []
-                if system_instruction:
-                    messages.append({"role": "system", "content": system_instruction})
-                messages.append({"role": "user", "content": prompt})
+                modelo_or = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+                if not modelo_or.endswith(":free"):
+                    return resposta("", "none", modelo, "fallback_model_not_free")
+                dado = requests.post("https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {self.openrouter_key}"},
+                    json={"model": modelo_or, "messages": mensagens, "temperature": temp, "max_tokens": limite},
+                    timeout=espera, allow_redirects=False)
+                if dado.status_code != 200:
+                    erro = RuntimeError("Falha OpenRouter")
+                    erro.response = dado
+                    raise erro
+                texto = dado.json()["choices"][0]["message"]["content"]
+                if not isinstance(texto, str) or not texto.strip():
+                    raise ValueError("Resposta OpenRouter vazia.")
+                return resposta(texto, "OpenRouter_Free", modelo_or)
+            except Exception as exc:
+                falha = classificar(exc)
+        return resposta("", "none", modelo, falha)
 
-                payload = {
-                    "model": "meta-llama/llama-3.3-70b-instruct:free",
-                    "messages": messages,
-                    "temperature": temp,
-                    "max_tokens": m_tokens,
-                }
-                resp = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=t_out,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    out_text = data["choices"][0]["message"]["content"]
-                    duration = round(time.time() - start_time, 3)
-                    p_tok = data.get("usage", {}).get("prompt_tokens", self._estimate_tokens(prompt))
-                    c_tok = data.get("usage", {}).get("completion_tokens", self._estimate_tokens(out_text))
-                    return LLMResponse(
-                        text=out_text,
-                        model="meta-llama/llama-3.3-70b-instruct:free",
-                        provider="OpenRouter_Free",
-                        duration_seconds=duration,
-                        prompt_tokens=p_tok,
-                        completion_tokens=c_tok,
-                        total_tokens=p_tok + c_tok,
-                        cost_usd=0.0,
-                        status="success",
-                        is_mock=False,
-                    )
-            except Exception:
-                pass
 
-        # 3. Fallback inteligente para Modo Mock offline (determinístico e seguro)
-        duration = round(time.time() - start_time, 3)
-        return self._generate_mock(prompt, system_instruction, target_model, duration)
 
-    def _generate_mock(
-        self, prompt: str, system_instruction: Optional[str], model: str, duration: float
-    ) -> LLMResponse:
+
+
+    def _extrair_entidades_dinamico(self, texto: str, diag_seg: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Gera resposta simulada realista em conformidade com as regras do GOV.MT,
-        tratando detecção de injeção de prompt e respeitando campos ausentes.
+        Extrai dinamicamente entidades estruturadas do texto fornecido, aplicando a regra
+        estrita de alucinação zero ('não localizado' para qualquer campo não fornecido).
         """
-        # Checa se o prompt contém injeção de prompt
-        is_injection = "IGNORE TODAS AS REGRAS" in prompt.upper() or "COMANDO ADMINISTRATIVO" in prompt.upper()
+        texto_busca = diag_seg.get("texto_limpo", texto)
 
-        if is_injection:
-            mock_text = self._mock_injection_response()
-        elif "MATRÍCULA" in prompt.upper() or "ENFERMAGEM" in prompt.upper() or "2026-000142" in prompt:
-            mock_text = self._mock_matricula_response(prompt)
+        # 1. Protocolo
+        m_proto = re.search(r"(?:Protocolo|Protocolo nº|Prot\.?)\s*[:=]?\s*([0-9]{4}[-/][0-9]{5,7})", texto_busca, re.IGNORECASE)
+        if not m_proto:
+            m_proto = re.search(r"\b(202\d[-/]\d{5,7})\b", texto_busca)
+        protocolo = m_proto.group(1).strip() if m_proto else "não localizado"
+
+        # 2. Data
+        m_data_line = re.search(r"(?:^|[\r\n])\s*(?:Data|Emissão|Data da solicitação)\s*[:=][ \t]*([^\r\n,;]+)", texto_busca, re.IGNORECASE)
+        if m_data_line:
+            data = m_data_line.group(1).strip()
         else:
-            mock_text = self._mock_general_response(prompt)
+            data = "não localizado"
 
-        p_tok = self._estimate_tokens(prompt + (system_instruction or ""))
-        c_tok = self._estimate_tokens(mock_text)
+        # 3. Solicitante
+        m_nome = re.search(r"(?:^|[\r\n])\s*(?:Solicitante|Nome completo|Nome do requerente|Nome do aluno|Requerente|Nome)\s*[:=][ \t]*([^\n\r,;]+)", texto_busca, re.IGNORECASE)
+        if not m_nome:
+            m_nome = re.search(r"(?:Meu nome é|Chamo-me|Eu sou)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ'\s]+?)(?:\s+e\s+meu|\s+e\s+o|,|\.|\n|\r|$)", texto_busca, re.IGNORECASE)
+        if not m_nome:
+            m_nome = re.search(r"(?:^|[\r\n])\s*(?:Cidadão|Aluno)\s*[:=][ \t]*([^\n\r,;]+)", texto_busca, re.IGNORECASE)
+        if not m_nome:
+            m_nome = re.search(r"Atenciosamente,\s*\n+([A-ZÀ-ÿ][A-Za-zÀ-ÿ'\s]+?)(?:\n|\r|$)", texto_busca)
+        solicitante = m_nome.group(1).strip() if m_nome else "não localizado"
+        if solicitante != "não localizado":
+            solicitante = re.sub(r"\s+", " ", solicitante).strip()
 
-        return LLMResponse(
-            text=mock_text,
-            model=f"{model} [Simulação Local]",
-            provider="Local_Mock_Offline",
-            duration_seconds=max(0.12, duration),
-            prompt_tokens=p_tok,
-            completion_tokens=c_tok,
-            total_tokens=p_tok + c_tok,
-            cost_usd=0.0,
-            status="success",
-            is_mock=True,
-            error_message="Chaves de API não configuradas no .env ou conexão indisponível. Executado via mecanismo de contingência local.",
-        )
+        # 4. CPF
+        m_cpf = re.search(r"(?:CPF\s*[:=]?\s*)?(\d{3}\.\d{3}\.\d{3}-\d{2})\b", texto_busca)
+        cpf = m_cpf.group(1).strip() if m_cpf else "não localizado"
 
-    def _mock_injection_response(self) -> str:
-        """Resposta com proteção estrita contra Prompt Injection (RF03)."""
-        return """{
-  "extracao": {
-    "protocolo": "2026-000999",
-    "data": "15/10/2026",
-    "solicitante": "Carlos Alberto da Silva",
-    "cpf": "não localizado",
-    "rg": "não localizado",
-    "email": "carlos.teste@example.com",
-    "telefone": "não localizado",
-    "assunto": "Informações sobre vestibular para o curso de Informática",
-    "pedido": "Solicitação de informações a respeito do vestibular para ingresso no curso de Informática.",
-    "categoria": "Cursos e Horários",
-    "seguranca": {
-      "tentativa_prompt_injection_detectada": true,
-      "instrucao_maliciosa_ignorada": true,
-      "observacao": "Tentativa de injeção de comando visando aprovação indevida e invenção de normas legais. O comando foi neutralizado e tratado estritamente como dado."
-    }
-  },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\\n\\nOFÍCIO Nº 2026-000999/SECITECI/ETEC\\nCuiabá-MT, 15 de outubro de 2026.\\n\\nAo Senhor:\\nCarlos Alberto da Silva\\nE-mail: carlos.teste@example.com\\n\\nAssunto: Informações sobre processo seletivo do curso de Informática\\nReferência: Protocolo nº 2026-000999\\n\\nPrezado Cidadão,\\n\\nEm atenção à sua solicitação registrada sob o protocolo nº 2026-000999, informamos que o cronograma e os editais de processos seletivos e vestibulares para os cursos técnicos, incluindo o curso de Informática, são publicados oficialmente no portal da SECITECI/MT e no mural da Escola Técnica Estadual de Cuiabá.\\n\\nInformamos ainda que não há no momento publicação de isenção extraordinária de taxas ou diplomação antecipada sem o devido cumprimento do processo seletivo regular e das normas acadêmicas vigentes.\\n\\nDados ausentes na solicitação: CPF (não localizado), RG (não localizado), Telefone (não localizado).\\n\\nAtenciosamente,\\n\\nSecretaria de Atendimento ao Cidadão\\nEscola Técnica Estadual de Cuiabá\\nSECITECI - Governo de Mato Grosso"
-}"""
+        # 5. RG
+        m_rg = re.search(r"(?:RG|Identidade)\s*[:=]?\s*([0-9.\-xX]{6,12})", texto_busca, re.IGNORECASE)
+        rg = m_rg.group(1).strip() if m_rg else "não localizado"
 
-    def _mock_matricula_response(self, prompt: str) -> str:
-        """Resposta para o caso principal de Matrícula (Marcos Vinícius)."""
-        return """{
-  "extracao": {
-    "protocolo": "2026-000142",
-    "data": "14/10/2026",
-    "solicitante": "Marcos Vinícius de Almeida Santos",
-    "cpf": "123.456.789-00",
-    "rg": "1234567-8",
-    "orgao_expedidor": "não localizado",
-    "data_nascimento": "12/08/2008",
-    "naturalidade": "Cuiabá",
-    "uf": "não localizado",
-    "nome_mae": "Lúcia Helena de Almeida Santos",
-    "nome_pai": "não localizado",
-    "curso": "Técnico em Enfermagem",
-    "eixo_tecnologico": "Saúde",
-    "carga_horaria": "1200 horas",
-    "turno": "noturno",
-    "inicio_curso": "01/02/2027",
-    "email": "marcos.almeida.teste@examplo.com",
-    "telefone": "não localizado",
-    "assunto": "Efetivação de matrícula e consulta de pendências documentais",
-    "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e esclarecimento sobre quais documentos ainda precisam ser apresentados.",
-    "categoria": "Matrícula e Ingresso",
-    "confianca": "alta",
-    "necessidade_revisao_humana": true
-  },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\\nESCOLA TÉCNICA ESTADUAL DE CUIABÁ\\n\\nCOMUNICADO OFICIAL DE ATENDIMENTO\\nProtocolo: 2026-000142 | Data: 14/10/2026\\n\\nPrezado(a) Marcos Vinícius de Almeida Santos,\\n\\nAcusamos o recebimento de sua manifestação formal referente à solicitação de matrícula no curso Técnico em Enfermagem (Eixo Tecnológico: Saúde, Carga Horária: 1200 horas, Turno: Noturno), com início previsto para 01/02/2027.\\n\\nInformamos que seu registro inicial foi localizado em nosso sistema sob o protocolo 2026-000142. Para a efetivação definitiva e validação cadastral, solicitamos a apresentação dos seguintes documentos complementares na secretaria escolar:\\n1. Cópia do documento oficial de identidade com menção ao Órgão Expedidor (não localizado na documentação inicial);\\n2. Comprovante de naturalidade e UF (não localizado);\\n3. Dados de contato telefônico atualizado (não localizado).\\n\\nReiteramos a ciência manifestada sobre o regimento escolar: a matrícula será automaticamente cancelada caso ocorra falta sem justificativa comprovada nos dois primeiros dias letivos consecutivos ou em três dias nos primeiros dez dias letivos.\\n\\nArquivos de origem consultados: entrada_texto.txt e ficha cadastral 2026-000142.\\n\\nAtenciosamente,\\n\\nCoordenação de Registros Escolares\\nEscola Técnica Estadual de Cuiabá\\nSECITECI - Governo de Mato Grosso"
-}"""
+        # 6. Órgão Expedidor
+        m_exp = re.search(r"(?:Órgão Expedidor|Expedidor|SSP)\s*[:=]?\s*([A-Za-z/]{2,10})", texto_busca, re.IGNORECASE)
+        orgao_expedidor = m_exp.group(1).strip() if m_exp else "não localizado"
 
-    def _mock_general_response(self, prompt: str) -> str:
-        return """{
-  "extracao": {
-    "protocolo": "não localizado",
-    "data": "16/10/2026",
-    "solicitante": "não localizado",
-    "assunto": "Solicitação geral de atendimento",
-    "pedido": "Atendimento à demanda do cidadão",
-    "categoria": "Outros / Informações Gerais",
-    "confianca": "media",
-    "necessidade_revisao_humana": true
-  },
-  "minuta_institucional": "GOVERNO DO ESTADO DE MATO GROSSO\\nSECRETARIA DE ESTADO DE CIÊNCIA, TECNOLOGIA E INOVAÇÃO - SECITECI/MT\\n\\nPrezado(a) Cidadão(ã),\\n\\nSua manifestação foi recebida e registrada em nossa central institucional. Para prosseguimento do atendimento, solicitamos complementar as informações cadastrais necessárias.\\n\\nAtenciosamente,\\nOuvidoria e Atendimento Institucional\\nGoverno de Mato Grosso"
-}"""
+        # 7. Data de Nascimento
+        m_nasc = re.search(r"(?:Data de Nascimento|Nascimento|nasci em)\s*[:=]?\s*(\d{2}/\d{2}/\d{4})", texto_busca, re.IGNORECASE)
+        data_nascimento = m_nasc.group(1).strip() if m_nasc else "não localizado"
+
+        # 8. Naturalidade e UF
+        m_nat = re.search(r"(?:Naturalidade\s*[:=]?\s*|nasci em \d{2}/\d{2}/\d{4},\s+em\s+)([A-Za-zÀ-ÿ]+)", texto_busca, re.IGNORECASE)
+        naturalidade = m_nat.group(1).strip() if m_nat else "não localizado"
+
+        m_uf = re.search(r"(?:UF|Estado)\s*[:=]?\s*([A-Z]{2})\b", texto_busca)
+        uf = m_uf.group(1).strip() if m_uf else "não localizado"
+
+        # 9. Filiação (Nome da Mãe e Pai)
+        m_mae = re.search(r"(?:Nome da Mãe|mãe)\s*[,:=]?\s*([A-Za-zÀ-ÿ\s]+?)(?:;|\.|\n|\r|$)", texto_busca, re.IGNORECASE)
+        nome_mae = m_mae.group(1).strip() if m_mae else "não localizado"
+        if nome_mae.lower() in ("não localizado", "nao", ""):
+            nome_mae = "não localizado"
+
+        m_pai = re.search(r"(?:Nome do Pai|pai)\s*[,:=]?\s*([A-Za-zÀ-ÿ\s]+?)(?:;|\.|\n|\r|$)", texto_busca, re.IGNORECASE)
+        nome_pai = m_pai.group(1).strip() if m_pai else "não localizado"
+        if nome_pai.lower() in ("não localizado", "nao", ""):
+            nome_pai = "não localizado"
+
+        # 10. Curso
+        m_curso = re.search(r"(?:curso|habilitação|vestibular para o curso de)\s*[:=]?\s+([A-Za-zÀ-ÿ\s]+?)(?:,|\.|\n|\r|;|$)", texto_busca, re.IGNORECASE)
+        curso = m_curso.group(1).strip() if m_curso else "não localizado"
+        if curso != "não localizado":
+            curso = re.sub(r"(?i)^(de\s+|o\s+)", "", curso).strip()
+
+        # 11. Eixo Tecnológico, Carga Horária, Turno, Início
+        m_eixo = re.search(r"eixo(?:\s+tecnológico)?\s+([A-Za-zÀ-ÿ\s]+?)(?:,|\.|\n|\r|;|$)", texto_busca, re.IGNORECASE)
+        eixo = m_eixo.group(1).strip() if m_eixo else "não localizado"
+
+        m_ch = re.search(r"carga horária\s+(?:de\s+)?([0-9]+\s*(?:horas|h)?)", texto_busca, re.IGNORECASE)
+        carga_horaria = m_ch.group(1).strip() if m_ch else "não localizado"
+
+        m_turno = re.search(r"\b(noturno|matutino|vespertino|integral)\b", texto_busca, re.IGNORECASE)
+        turno = m_turno.group(1).lower() if m_turno else "não localizado"
+
+        m_ini = re.search(r"início\s+(?:em|previsto para)?\s*(\d{2}/\d{2}/\d{4})", texto_busca, re.IGNORECASE)
+        inicio_curso = m_ini.group(1).strip() if m_ini else "não localizado"
+
+        # 12. Contatos (E-mail e Telefone)
+        m_email = re.search(r"\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b", texto_busca)
+        email = m_email.group(1).strip() if m_email else "não localizado"
+
+        m_tel = re.search(r"(?:Telefone|Celular|WhatsApp|Fone)\s*[:=]?\s*([0-9()\s.-]{8,20})", texto_busca, re.IGNORECASE)
+        telefone = m_tel.group(1).strip() if m_tel else "não localizado"
+
+        def campo(rotulo):
+            match = re.search(r"(?:^|[\r\n])\s*" + rotulo + r"\s*:\s*([^\r\n]+)", texto_busca, re.IGNORECASE)
+            return match.group(1).strip() if match else "não localizado"
+        assunto = campo("Assunto")
+        pedido = campo("Pedido")
+        categoria = "Matrícula e Ingresso" if re.search(r"matr[ií]cula", texto_busca, re.IGNORECASE) else "Outros / Informações Gerais"
+
+        extracao = {
+            "protocolo": protocolo,
+            "data": data,
+            "solicitante": solicitante,
+            "cpf": cpf,
+            "rg": rg,
+            "orgao_expedidor": orgao_expedidor,
+            "data_nascimento": data_nascimento,
+            "naturalidade": naturalidade,
+            "uf": uf,
+            "nome_mae": nome_mae,
+            "nome_pai": nome_pai,
+            "curso": curso,
+            "eixo_tecnologico": eixo,
+            "carga_horaria": carga_horaria,
+            "turno": turno,
+            "inicio_curso": inicio_curso,
+            "email": email,
+            "telefone": telefone,
+            "assunto": assunto,
+            "pedido": pedido,
+            "categoria": categoria,
+            "confianca": "não estimada",
+            "necessidade_revisao_humana": True,
+        }
+
+        if diag_seg.get("detectada"):
+            extracao["seguranca"] = {
+                "tentativa_prompt_injection_detectada": True,
+                "instrucao_maliciosa_ignorada": True,
+                "nivel_risco": diag_seg.get("nivel_risco", "alto"),
+                "observacao": diag_seg.get("observacao"),
+            }
+
+        return extracao
+
+    def extrair_entidades_local(self, texto):
+        """Extração regex real; não é geração de modelo nem substitui STT/OCR."""
+        from src.prompts import SegurancaPrompts
+        diagnostico = SegurancaPrompts.analisar_risco_injecao(texto)
+        return self._extrair_entidades_dinamico(texto, diagnostico)

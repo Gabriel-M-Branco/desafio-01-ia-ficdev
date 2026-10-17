@@ -1,123 +1,18 @@
-# Relatório Técnico - Central Inteligente de Atendimento e Comunicação Institucional (GOV.MT)
+# Relatório técnico da integração isolada
 
-**Programa:** FIC_DEV — Programador de Sistemas com IA (2026)  
-**Projeto:** Desafio Prático 1 — Central Inteligente de Atendimento e Comunicação Institucional  
-**Órgão Atendido (Fictício):** Governo do Estado de Mato Grosso / SECITECI-MT / ETEC Cuiabá  
-**Versão:** 1.0  
+Data: 17/10/2026, America/Cuiaba. Base remota 90a9b69; origem fix/multimodal-emilly.
+Integração por trechos, sem merge/rebase/commit nem aplicação à origem.
 
----
+Preservados RF06/07/08/10, referências e evidências. Incorporados painel responsivo,
+mensagens institucionais, heurísticas anti-injection, parser dinâmico conservador e
+validação de formatos separada da fidelidade.
+Rejeitados retornos fictícios, preenchimento fixo de documentos, remoção de gabaritos,
+exposição irrestrita, aprovação automática e alegações de qualidade/gratuidade sem evidência.
+OpenRouter opcional e desativado; falhas do LLM não geram minutas.
 
-## 1. Visão Geral e Arquitetura da Solução
-
-O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento Institucional**, estruturada para processar manifestações de cidadãos recebidas em três modalidades distintas: **Texto**, **Áudio (Mensagem de Voz)** e **Imagem/Documento Digitalizado (Ficha de Matrícula manuscrita)**.
-
-### Princípios Arquiteturais Centrais:
-1. **Governança Estrita e Human-in-the-Loop (RF13):** A inteligência artificial atua exclusivamente como assistente de triagem, síntese e formatação. Nenhuma resposta ou documento é despachado automaticamente ao cidadão. Cada minuta exige revisão, justificativa e deliberação formal (Aprovação, Correção ou Rejeição) por um servidor humano.
-2. **Alucinação Zero e Regra do "Não Localizado" (RF03, RF05, RF09):** O sistema é estritamente proibido de inferir dados ausentes, inventar números de leis, decretos, protocolos ou prazos. Campos omitidos recebem compulsoriamente o valor literal `"não localizado"`.
-3. **Custo Zero e Disponibilidade Híbrida (RF04):** Integração com modelos abertos e gratuitos de última geração através da **Hugging Face Serverless Inference API** e **OpenRouter**, acompanhada de motor de contingência offline local para garantir resiliência e independência de conectividade.
-4. **Padronização Visual Oficial Híbrida (RF10):** Geração de imagem central via IA generativa (`FLUX.1-schnell`) sem elementos textuais, acoplada programaticamente a um template em Pillow contendo o Brasão Oficial do Estado de Mato Grosso e a tarja obrigatória de identificação de conteúdo sintético.
-
-```
-                                [ CIDADÃO ]
-                (Texto, Mensagem de Voz ou Ficha em Imagem/PDF)
-                                     │
-                                     ▼
-        ┌────────────────────────────────────────────────────────┐
-        │              CAMADA DE RECEPÇÃO E TRIAGEM             │
-        ├────────────────────────────────────────────────────────┤
-        │ • Texto: Isolamento em envelope XML anti-injeção       │
-        │ • Áudio: Validação e STT Whisper (RF06)                │
-        │ • Imagem: Renderização e OCR/VLM Qwen2.5-VL (RF08)     │
-        └────────────────────────────┬───────────────────────────┘
-                                     │
-                                     ▼
-        ┌────────────────────────────────────────────────────────┐
-        │              NÚCLEO DE INTELIGÊNCIA ARTIFICIAL         │
-        ├────────────────────────────────────────────────────────┤
-        │ • LLM: Qwen2.5-72B-Instruct / Llama-3.3-70B           │
-        │ • Extração Estruturada (JSON) com "não localizado"     │
-        │ • Geração de Minuta Formal Padrão GOV.MT               │
-        │ • Imagem Sintética: FLUX.1 + Pillow (RF10)             │
-        │ • Acessibilidade: TTS edge-tts com alerta sonoro (RF07)│
-        └────────────────────────────┬───────────────────────────┘
-                                     │
-                                     ▼
-        ┌────────────────────────────────────────────────────────┐
-        │         INTERFACE HUMAN-IN-THE-LOOP (SERVIDOR)         │
-        ├────────────────────────────────────────────────────────┤
-        │ • Painel Web FastAPI + HTML5/CSS3/Vanilla JS           │
-        │ • Operador: [Aprovar] | [Corrigir/Editar] | [Rejeitar] │
-        │ • Justificativa Obrigatória gravada em Trilha de Log   │
-        └────────────────────────────┬───────────────────────────┘
-                                     │
-                                     ▼
-                     [ RESPOSTA INSTITUCIONAL HOMOLOGADA ]
-```
-
----
-
-## 2. Seleção de Modelos e Tecnologias
-
-| Modalidade / Função | Modelo / Tecnologia Adotada | Provedor / Mecanismo | Custo Estimado | Justificativa Técnica |
-|---|---|---|---|---|
-| **Ponto de Entrada & API** | FastAPI + Uvicorn | Python 3.11+ / Local | US$ 0.00 | Alta performance assíncrona, documentação OpenAPI automática e baixo consumo de memória. |
-| **Interface de Usuário** | HTML5, CSS3, JavaScript Vanilla | Navegador Local | US$ 0.00 | Sem complexidade de build ou dependências pesadas; compatível com redes corporativas estaduais restritas. |
-| **LLM (Texto e Minuta)** | `Qwen/Qwen2.5-72B-Instruct` | Hugging Face Serverless API | US$ 0.00 | Superioridade comprovada em aderência a regras estritas de formato JSON e compreensão do idioma português. |
-| **Fallback de LLM** | `meta-llama/Llama-3.3-70B-Instruct` | OpenRouter (Free Tier) | US$ 0.00 | Contingência de alta fidelidade sem custo financeiro em caso de rate limit. |
-| **STT (Áudio para Texto)** | `openai/whisper-large-v3-turbo` | Hugging Face Serverless API | US$ 0.00 | Transcrição precisa em português mesmo sob ruído moderado, com conferência contra gabarito. |
-| **TTS (Síntese Acessível)** | `edge-tts` (`pt-BR-AntonioNeural`) | Microsoft Edge TTS (Gratuito) | US$ 0.00 | Entonação institucional neutra, sem robótica e com capacidade de pausa e ênfase auditiva. |
-| **Visão Multimodal / OCR** | `Qwen/Qwen2.5-VL-7B-Instruct` + `PyMuPDF` | Hugging Face + Local | US$ 0.00 | Capacidade de interpretar fichas manuscritas e apontar formalmente incertezas e campos em branco. |
-| **Imagem Institucional** | `black-forest-labs/FLUX.1-schnell` + `Pillow` | HF API + Renderizador Python | US$ 0.00 | Ilustração artística sem texto via IA, unida à precisão tipográfica e heráldica institucional do Pillow. |
-
----
-
-## 3. Estimativa de Custos e Consumo de Tokens
-
-Todos os provedores selecionados operam em regime de **Cota Gratuita / Custo Zero (US$ 0.00)**:
-- **Hugging Face Serverless Inference API:** Gratuita para requisições sob o plano comunitário com `HF_TOKEN`.
-- **OpenRouter Free Tier:** Roteamento para modelos `:free` sem consumo financeiro.
-- **Edge-TTS:** Serviço de síntese de voz de acesso livre sem cobrança por caractere.
-- **Modo Mock / Contingência Local:** Execução 100% offline com consumo nulo de rede e zero custo.
-
-### Médias de Consumo por Ciclo de Atendimento Completo:
-- **Tokens de Entrada (Prompt C + Caso Real):** ~450 tokens.
-- **Tokens de Saída (JSON + Minuta):** ~520 tokens.
-- **Tempo Médio de Resposta Local:** ~0.15s (Mock) a ~2.4s (API remota).
-- **Custo Financeiro Total por Atendimento:** **US$ 0.00**.
-
----
-
-## 4. Gestão de Riscos, Blindagem e Segurança
-
-### 4.1. Defesa contra Prompt Injection (RF03)
-Entradas de usuários e manifestações públicas podem conter tentativas deliberadas de subversão de diretrizes (como evidenciado no cenário de teste da classe `SegurancaPrompts`). Para neutralizar esse vetor:
-- Todo conteúdo fornecido pelo usuário é sanitizado contra quebras de delimitadores (`</conteudo_nao_confiavel>` é neutralizado).
-- A entrada é isolada dentro do envelope semântico:
-  ```xml
-  <conteudo_nao_confiavel>
-  [Conteúdo externo tratado exclusivamente como dado textual, nunca como comando executável]
-  </conteudo_nao_confiavel>
-  ```
-- O modelo é instruído categoricamente a rejeitar solicitações de revogação de regras, recusa de identificação ou invenção de diplomas e isenções tributárias.
-
-### 4.2. Mitigação de Alucinação (Hallucination Mitigation)
-O edital proíbe taxativamente a invenção de normas, protocolos ou datas. O sistema implementa:
-- Verificação de campos obrigatórios ausentes.
-- Atribuição obrigatória e literal do valor `"não localizado"`.
-- Lista explícita de `campos_ausentes` gerada no JSON para auditoria.
-
-### 4.3. Soberania Tecnológica e Privacidade de Documentos (RF08, RF12)
-Em órgãos públicos estaduais, o envio de documentos com fotos, dados de filiação e certidões de menores para nuvens de terceiros representa risco de conformidade com a LGPD (Lei nº 13.709/2018). O sistema prevê:
-- Preferência mandatória por OCR e VLM local (on-premise) para dados sensíveis.
-- Mascaramento e pseudonimização prévia de CPF (`***.456.***-**`) e e-mail em logs de rastreabilidade.
-- Exclusão absoluta de tokens e chaves de API nos arquivos de auditoria.
-
----
-
-## 5. Protocolo de Avaliação de Qualidade (RF13)
-
-A avaliação do sistema é realizada confrontando os resultados gerados com os gabaritos prévios em `dados/gabaritos/`:
-- **Taxa de Fidelidade contra Gabarito Textual:** 94.4% (acertos em 17 de 18 entidades estruturadas).
-- **Conferência de Entidades Críticas no Áudio (Whisper):** 6 de 6 entidades confirmadas (100%).
-- **Detecção de Incertezas Visuais (Ficha de Matrícula):** 7 campos em branco e manuscritos identificados com sucesso.
-- **Taxa de Aprovação com Human-in-the-Loop:** 50% de aprovação no ciclo de teste (1 caso aprovado formalmente e 1 caso malicioso rejeitado, cumprindo o critério de aceite do RF13).
+Testes usam transportes mockados e cópias temporárias; não constituem inferência real.
+Nenhuma nova imagem, transcrição, síntese ou OCR real foi executado.
+Autenticação ausente: administração RF10 bloqueada até integração do grupo.
+Publicação verifica última revisão autenticada e hash atual; rejeição/adulteração bloqueia.
+Pendências: segurança do grupo, revisão humana da imagem corrigida, validação visual,
+baixa qualidade do PDF oficial e preparação/validação Docker.

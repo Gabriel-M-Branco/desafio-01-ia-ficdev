@@ -7,6 +7,8 @@ import os
 import sys
 import json
 import argparse
+import uuid
+import re
 import uvicorn
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Depends
@@ -99,7 +101,17 @@ class RequisicaoGerarPdf(BaseModel):
 @app.get("/")
 def home():
     """Serve a Interface Web Institucional."""
-    return FileResponse("src/web/index.html")
+    return FileResponse(str(BASE_DIR / "src/web/index.html"))
+
+
+@app.get("/styles.css")
+def obter_styles_css():
+    return FileResponse(str(BASE_DIR / "src/web/styles.css"))
+
+
+@app.get("/app.js")
+def obter_app_js():
+    return FileResponse(str(BASE_DIR / "src/web/app.js"))
 
 
 @app.get("/api/config")
@@ -124,6 +136,17 @@ def obter_caso_teste(caso_id: str):
             "arquivo": "Classe: SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION",
             "conteudo": SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION,
         }
+
+    if caso_id in {"audio_transcricao", "visao_documento"}:
+        resultado = (audio_processor.processar_com_auditoria(audit_logger)
+                     if caso_id == "audio_transcricao" else vision_processor.processar_com_auditoria(audit_logger))
+        if not resultado.get("sucesso"):
+            return JSONResponse(status_code=422, content={"sucesso": False, "erro": resultado.get("erro", "Processamento indisponível"),
+                                                         "id_execucao": resultado.get("id_execucao")})
+        texto = resultado.get("transcricao_revisada") or resultado.get("texto_corrigido")
+        return {"caso_id": caso_id, "arquivo": "dados/originais/entrada_audio.mp3" if caso_id == "audio_transcricao"
+                else "dados/originais/entrada_pdf-imagem.pdf", "conteudo": texto,
+                "id_execucao_origem": resultado["id_execucao"], "exige_confirmacao_humana": True}
 
     mapa_arquivos = {
         "texto_original": "dados/originais/entrada_texto.txt",
@@ -153,6 +176,15 @@ def processar_texto(requisicao: RequisicaoTexto):
     # Chamada ao modelo através do LLMClient com fallback
     resposta_llm = llm_client.generate(prompt=prompt_completo)
 
+    if resposta_llm.status != "success":
+        identificador = audit_logger.registrar_execucao(
+            modalidade="texto", arquivo_origem="entrada_textual", provedor=resposta_llm.provider,
+            modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt, parametros={},
+            resultado={"sucesso": False, "codigo_erro": resposta_llm.status},
+            duracao_segundos=resposta_llm.duration_seconds, erros=[resposta_llm.status])
+        return JSONResponse(status_code=503, content={"sucesso": False, "codigo_erro": resposta_llm.status,
+            "erro": "Modelo indisponível; nenhuma minuta fictícia foi produzida.", "id_execucao": identificador})
+
     # Tenta fazer o parse da resposta como JSON estruturado
     extracao = {}
     minuta = ""
@@ -167,33 +199,40 @@ def processar_texto(requisicao: RequisicaoTexto):
         parsed = json.loads(texto_limpo)
         extracao = parsed.get("extracao", {})
         minuta = parsed.get("minuta_institucional", "")
-    except Exception:
-        # Fallback de integridade: preserva texto como minuta e gera extração mínima
-        minuta = resposta_llm.text
-        extracao = {
-            "protocolo": "não localizado",
-            "data": "14/10/2026",
-            "solicitante": "Marcos Vinícius de Almeida Santos" if "Marcos" in requisicao.texto else "não localizado",
-            "assunto": "Solicitação em análise",
-            "pedido": "Atendimento à demanda",
-            "categoria": "Matrícula e Ingresso",
-        }
+    except (ValueError, TypeError, AttributeError):
+        audit_logger.registrar_execucao(
+            modalidade="texto", arquivo_origem="entrada_textual", provedor=resposta_llm.provider,
+            modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt, parametros={},
+            resultado={"sucesso": False, "codigo_erro": "json_invalido"},
+            duracao_segundos=resposta_llm.duration_seconds, erros=["json_invalido"])
+        raise HTTPException(502, "Resposta do modelo sem JSON válido; nenhuma minuta foi produzida.")
+    if not isinstance(extracao, dict) or not isinstance(minuta, str) or not minuta.strip():
+        audit_logger.registrar_execucao(
+            modalidade="texto", arquivo_origem="entrada_textual", provedor=resposta_llm.provider,
+            modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt, parametros={},
+            resultado={"sucesso": False, "codigo_erro": "resposta_incompleta"},
+            duracao_segundos=resposta_llm.duration_seconds, erros=["resposta_incompleta"])
+        raise HTTPException(502, "Resposta do modelo incompleta; nenhuma minuta foi produzida.")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", requisicao.caso):
+        raise HTTPException(400, "Identificador de caso inválido.")
+    # Every new processing creates new files, preserving original evidence.
+    sufixo = f"{requisicao.caso}_{uuid.uuid4().hex}"
 
     # Salva extração estruturada em dados/processados/ (RF05)
     dir_proc = resolver_caminho("dados/processados")
     dir_proc.mkdir(parents=True, exist_ok=True)
-    arquivo_processado = dir_proc / f"extracao_{requisicao.caso}.json"
+    arquivo_processado = dir_proc / f"extracao_{sufixo}.json"
     with open(arquivo_processado, "w", encoding="utf-8") as f:
         json.dump(extracao, f, ensure_ascii=False, indent=2)
 
     # Salva minuta em resultados/minutas/ tanto em TXT quanto em PDF oficial timbrado (RF09)
     dir_minutas = resolver_caminho("resultados/minutas")
     dir_minutas.mkdir(parents=True, exist_ok=True)
-    arquivo_minuta = dir_minutas / f"minuta_{requisicao.caso}.txt"
+    arquivo_minuta = dir_minutas / f"minuta_{sufixo}.txt"
     with open(arquivo_minuta, "w", encoding="utf-8") as f:
         f.write(minuta)
 
-    arquivo_pdf = dir_minutas / f"minuta_{requisicao.caso}.pdf"
+    arquivo_pdf = dir_minutas / f"minuta_{sufixo}.pdf"
     gerar_minuta_pdf(
         dados_extracao=extracao,
         texto_minuta=minuta,
@@ -207,14 +246,16 @@ def processar_texto(requisicao: RequisicaoTexto):
     if requisicao.caso == "prompt_injection":
         gabarito_inj = {"campos_esperados": SegurancaPrompts.GABARITO_ESPERADO["campos_reais"]}
         avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito_inj)
-    else:
-        gabarito_path = resolver_caminho("dados/gabaritos/gabarito_texto.json")
+    elif requisicao.caso in {"texto_original", "audio_transcricao", "visao_documento"}:
+        referencias = {"audio_transcricao": "gabarito_audio.json", "visao_documento": "gabarito_visao.json"}
+        gabarito_path = resolver_caminho("dados/gabaritos/" + referencias.get(requisicao.caso, "gabarito_texto.json"))
         if gabarito_path.exists():
             with open(gabarito_path, "r", encoding="utf-8") as f:
                 gabarito = json.load(f)
-            avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito)
+            avaliacao = QualityEvaluator.avaliar_extracao(extracao, {"campos_esperados":
+                gabarito.get("campos_esperados", gabarito.get("entidades_criticas", {}))})
 
-    rel_pdf = f"resultados/minutas/minuta_{requisicao.caso}.pdf"
+    rel_pdf = f"resultados/minutas/minuta_{sufixo}.pdf"
 
     # Registro de auditoria estrita sem vazar chaves de API (RF11)
     exec_id = audit_logger.registrar_execucao(
@@ -235,6 +276,8 @@ def processar_texto(requisicao: RequisicaoTexto):
         "minuta_institucional": minuta,
         "url_pdf": f"/arquivos/{rel_pdf}",
         "avaliacao_gabarito": avaliacao,
+        "conformidade_formato": QualityEvaluator.avaliar_conformidade_regras(extracao),
+        "extracao_preliminar_local": llm_client.extrair_entidades_local(requisicao.texto),
         "metricas": {
             "duracao_segundos": resposta_llm.duration_seconds,
             "total_tokens": resposta_llm.total_tokens,
@@ -298,60 +341,26 @@ def registrar_decisao_humana(req: RequisicaoDecisaoHumana):
 
 @app.post("/api/experimento/prompts")
 def rodar_experimento_prompts():
-    """Executa o experimento controlado dos Prompts A, B e C (RF02)."""
-    caso_path = resolver_caminho("dados/originais/entrada_texto.txt")
-    with open(caso_path, "r", encoding="utf-8") as f:
-        conteudo = f.read()
-
-    # Executa Prompt A (zero-shot)
-    prompt_a = montar_prompt(conteudo, "A")
-    resp_a = llm_client.generate(prompt=prompt_a)
-
-    # Executa Prompt B (estruturado)
-    prompt_b = montar_prompt(conteudo, "B")
-    resp_b = llm_client.generate(prompt=prompt_b)
-
-    # Executa Prompt C (metaprompt / produção)
-    prompt_c = montar_prompt(conteudo, "C")
-    resp_c = llm_client.generate(prompt=prompt_c)
-
-    dir_prompts = resolver_caminho("prompts")
-    dir_prompts.mkdir(parents=True, exist_ok=True)
-    # Salva saídas
-    with open(dir_prompts / "saida_prompt_a.txt", "w", encoding="utf-8") as f:
-        f.write(resp_a.text)
-    with open(dir_prompts / "saida_prompt_b.txt", "w", encoding="utf-8") as f:
-        f.write(resp_b.text)
-    with open(dir_prompts / "saida_prompt_c.txt", "w", encoding="utf-8") as f:
-        f.write(resp_c.text)
-
-    # Grava matriz comparativa
-    matriz_md = f"""# Matriz Comparativa do Experimento de Engenharia de Prompts (RF02)
-
-| Critério de Avaliação | Prompt A (Zero-Shot Curto) | Prompt B (Estruturado Manualmente) | Prompt C (Metaprompt - Produção) |
-|---|---|---|---|
-| **Fidelidade ao Contexto** | Moderada (resposta informal) | Alta (segue o tom institucional) | Excelente (estrita precisão documental) |
-| **Invenção de Dados** | Risco alto (supõe dados ausentes) | Baixo risco | Alucinação Zero (regra estrita) |
-| **Formato de Saída** | Texto corrido sem padronização | JSON estruturado com campos | JSON validável com rastreabilidade |
-| **Tratamento de Lacunas** | Omissão de campos não informados | Inclusão parcial de avisos | Preenchimento obrigatório de "não localizado" |
-| **Defesa contra Injeção** | Inexistente / Vulnerável | Parcial | Robusta com envelope XML delimitado |
-| **Tempo de Execução** | {resp_a.duration_seconds}s | {resp_b.duration_seconds}s | {resp_c.duration_seconds}s |
-
-## Justificativa da Escolha do Prompt de Produção
-O **Prompt C** foi selecionado para incorporação definitiva ao sistema devido ao cumprimento integral dos critérios de segurança (blindagem contra prompt injection via tags XML), estrita observância da regra do "não localizado" para mitigar alucinações jurídicas ou administrativas e produção de JSON estruturado pronto para validação de esquemas no padrão GOV.MT.
-"""
-    with open(dir_prompts / "matriz_comparativa.md", "w", encoding="utf-8") as f:
-        f.write(matriz_md)
-
-    return {
-        "sucesso": True,
-        "resultados": {
-            "prompt_a": {"texto": resp_a.text, "duracao_segundos": resp_a.duration_seconds},
-            "prompt_b": {"texto": resp_b.text, "duracao_segundos": resp_b.duration_seconds},
-            "prompt_c": {"texto": resp_c.text, "duracao_segundos": resp_c.duration_seconds},
-        },
-        "prompt_selecionado": "Prompt C (Metaprompt blindado com delimitadores XML)",
-    }
+    """Métricas observadas, sem ranking de qualidade presumido ou sobrescrita."""
+    conteudo = resolver_caminho("dados/originais/entrada_texto.txt").read_text(encoding="utf-8")
+    respostas = {tipo: llm_client.generate(prompt=montar_prompt(conteudo, tipo)) for tipo in ("A", "B", "C")}
+    if any(resp.status != "success" for resp in respostas.values()):
+        return JSONResponse(status_code=503, content={"sucesso": False,
+            "erro": "Experimento incompleto; nenhum resultado fictício ou ranking foi produzido."})
+    destino = resolver_caminho("prompts") / ("experimento_" + uuid.uuid4().hex)
+    destino.mkdir(parents=True, exist_ok=False)
+    tabela = ["# Experimento de prompts: métricas observadas", "",
+              "| Prompt | Provedor | Modelo | Duração (s) | Tokens estimados |",
+              "|---|---|---|---|---|"]
+    resultados = {}
+    for tipo, resp in respostas.items():
+        (destino / f"saida_prompt_{tipo.lower()}.txt").write_text(resp.text, encoding="utf-8")
+        tabela.append(f"| {tipo} | {resp.provider} | {resp.model} | {resp.duration_seconds:.4f} | {resp.total_tokens} |")
+        resultados[f"prompt_{tipo.lower()}"] = {"texto": resp.text, "duracao_segundos": resp.duration_seconds}
+    tabela += ["", "Fidelidade, linguagem, segurança e escolha final pendentes de avaliação humana com referência."]
+    (destino / "matriz_comparativa.md").write_text("\n".join(tabela), encoding="utf-8")
+    return {"sucesso": True, "resultados": resultados, "prompt_selecionado": "Pendente de avaliação humana",
+            "diretorio_experimento": str(destino)}
 
 
 @app.post("/api/processar/audio")
@@ -365,8 +374,9 @@ def processar_visao():
 
 
 @app.post("/api/gerar/imagem")
-def gerar_imagem():
+def gerar_imagem(principal=Depends(exigir_revisor_imagem)):
     """Gera peça visual híbrida institucional com tarja de proveniência (RF10)."""
+    identidade_revisor(principal)
     resultado = image_generator.gerar_comunicado_oficial(audit_logger=audit_logger)
     if not resultado.get("sucesso"):
         return JSONResponse(status_code=502, content=resultado)
@@ -449,18 +459,15 @@ def executar_pipeline_completo():
 
     req_texto = RequisicaoTexto(texto=texto_principal, caso="texto_original", tipo_prompt="PRODUCAO")
     res_texto = processar_texto(req_texto)
+    if not isinstance(res_texto, dict) or not res_texto.get("sucesso"):
+        print(" -> Modelo indisponível; pipeline interrompido sem resultados fictícios.")
+        return
     exec_id_texto = res_texto["id_execucao"]
     print(f" -> Extracao realizada! ID Execucao: {exec_id_texto}")
     print(f" -> Protocolo: {res_texto['extracao'].get('protocolo')} | Solicitante: {res_texto['extracao'].get('solicitante')}")
     print(f" -> Minuta Oficial em PDF timbrado gerada: {res_texto['url_pdf']}")
 
-    # Human-in-the-Loop Simulado 1: Aprovado com justificativa (RF13)
-    audit_logger.atualizar_decisao_humana(
-        exec_id=exec_id_texto,
-        decisao="APROVADO",
-        justificativa="Dados de matrícula conferidos e alinhados com o gabarito oficial ETEC. Aprovado para envio formal.",
-    )
-    print(" -> [RF13] Decisão humana registrada: APROVADO.")
+    print(" -> Revisão humana pendente; nenhuma aprovação automática.")
 
     # 3. Teste de Blindagem contra Prompt Injection (RF03)
     print("\n[RF03] Executando Teste de Blindagem contra Prompt Injection (via SegurancaPrompts)...")
@@ -471,17 +478,14 @@ def executar_pipeline_completo():
     exec_id_inj = res_inj["id_execucao"]
     print(f" -> Injeção de prompt processada. Comandos neutralizados com sucesso! ID: {exec_id_inj}")
 
-    # Human-in-the-Loop Simulado 2: Rejeitado/Corrigido (RF13)
-    audit_logger.atualizar_decisao_humana(
-        exec_id=exec_id_inj,
-        decisao="REJEITADO",
-        justificativa="Tentativa de injeção de prompt detectada no texto de entrada. Solicitação rejeitada para auditoria de segurança.",
-    )
-    print(" -> [RF13] Decisão humana registrada: REJEITADO (Critério de aceite RF13 atendido: caso aprovado e caso rejeitado).")
+    print(" -> Caso adversarial pendente de decisão humana; nenhuma decisão automática.")
 
     # 4. Transcrição de Áudio STT (RF06)
     print("\n[RF06] Processando mensagem de voz institucional (Whisper)...")
     res_audio = processar_audio()
+    if not res_audio.get("sucesso"):
+        print(" -> STT indisponível; consulte a auditoria. Nenhuma transcrição foi simulada.")
+        return
     print(f" -> Transcrição concluída! Duração: {res_audio['metadados']['duracao_segundos']}s")
     print(f" -> Acurácia de Entidades: {res_audio['comparacao_gabarito']['acuracia_entidades']}")
 
@@ -495,28 +499,25 @@ def executar_pipeline_completo():
     # 6. Visão Multimodal e OCR (RF08)
     print("\n[RF08] Processando documento digitalizado / Ficha de Matrícula...")
     res_visao = processar_visao()
+    if not res_visao.get("sucesso"):
+        print(" -> OCR indisponível; consulte a auditoria. Nenhum documento foi preenchido.")
+        return
     print(f" -> Visão e OCR concluídos! Acurácia contra gabarito: {res_visao['comparacao_gabarito']['taxa_acuracia_percentual']}")
     print(f" -> Incertezas identificadas: {len(res_visao['trechos_incertos_ou_ilegiveis'])}")
 
-    # 7. Peça Visual Oficial GOV.MT com Tarja de Proveniência (RF10)
-    print("\n[RF10] Gerando comunicado visual híbrido GOV.MT (Pillow + Brasão + Tarja)...")
-    res_img = gerar_imagem()
-    if isinstance(res_img, JSONResponse):
-        print(" -> Falha no RF10. Consulte o registro de auditoria; nenhuma imagem simulada foi produzida.")
-        return
-    print(f" -> Imagem oficial gerada em: {res_img['caminho_local']}")
-    print(f" -> Tarja de proveniência: '{res_img['metadados']['declaracao_proveniencia']}'")
+    # RF10 requer geração explícita separada e revisão autenticada.
+    print("\n[RF10] Geração não executada pelo pipeline. Utilize o validador explícito.")
 
     # 8. Relatório de LGPD e Auditoria (RF11, RF12)
     print("\n[RF11 / RF12] Gerando relatório consolidado de conformidade e auditoria...")
     relatorio_lgpd = LGPDManager.gerar_relatorio_conformidade()
     dir_doc = resolver_caminho("documentacao")
     dir_doc.mkdir(parents=True, exist_ok=True)
-    with open(dir_doc / "relatorio_lgpd.json", "w", encoding="utf-8") as f:
+    with open(dir_doc / f"relatorio_lgpd_{uuid.uuid4().hex}.json", "x", encoding="utf-8") as f:
         json.dump(relatorio_lgpd, f, ensure_ascii=False, indent=2)
 
     print("\n" + "=" * 80)
-    print("PIPELINE CONCLUÍDO COM SUCESSO! TODOS OS REQUISITOS RF01 A RF13 FORAM ATENDIDOS.")
+    print("Etapas executadas; revisão humana e validações pendentes devem ser conferidas nos resultados.")
     print("Arquivos salvos em: 'dados/processados/', 'resultados/', 'prompts/' e 'documentacao/'.")
     print("=" * 80 + "\n")
 
@@ -552,8 +553,7 @@ def executar_cli_interativa():
         res = processar_visao()
         print(f"Texto Corrigido: {res['texto_corrigido']}")
     elif opcao == "4":
-        res = gerar_imagem()
-        print(f"Imagem gerada: {res['caminho_local']}")
+        print("RF10 administrativo indisponível sem autenticação; validador real requer comando explícito.")
     elif opcao == "5":
         res = rodar_experimento_prompts()
         print("Experimento concluído e salvo em 'prompts/matriz_comparativa.md'.")

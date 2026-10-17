@@ -334,7 +334,7 @@ class ImageGenerator:
         )
         self._texto(draw,
             (50, altura_total - altura_tarja + 65),
-            "Processamento Supervisionado | Human-in-the-Loop | Sistema ETEC/SECITECI/MT",
+            "Comunicação institucional | Revisão humana obrigatória | ETEC/SECITECI/MT",
             "#A0C4E2", 16, 980,
         )
         self._texto(draw,

@@ -6,6 +6,8 @@ import json
 import uuid
 import hashlib
 import re
+import unicodedata
+from datetime import datetime as _datetime
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -204,9 +206,12 @@ class LGPDManager:
     @staticmethod
     def mascarar_dado_sensivel(valor: str, tipo: str) -> str:
         """Aplica pseudonimização/máscara para exibição segura em telas públicas ou logs."""
-        if not valor or valor == "não localizado":
+        if not valor or valor.lower() in ["não localizado", "nao localizado"]:
             return valor
         if tipo == "cpf" and len(valor) >= 11:
+            v_clean = "".join(c for c in valor if c.isdigit())
+            if len(v_clean) == 11:
+                return f"***.{v_clean[3:6]}.***-**"
             return f"***.{valor[4:7]}.***-**"
         if tipo == "email" and "@" in valor:
             partes = valor.split("@")
@@ -236,54 +241,165 @@ class QualityEvaluator:
     Calcula fidelidade, completude, gravidade de erros e taxas de aprovação.
     """
 
-    @staticmethod
-    def avaliar_extracao(extracao: Dict[str, Any], gabarito: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Compara o resultado obtido contra o gabarito oficial com métricas detalhadas.
-        """
-        campos_esperados = gabarito.get("campos_esperados", {})
-        total_campos = len(campos_esperados)
-        acertos = 0
-        erros_classificados = []
+    ROTULOS_CAMPOS = {
+        "protocolo": "Número de Protocolo",
+        "data": "Data da Solicitação",
+        "solicitante": "Nome do Requerente / Solicitante",
+        "cpf": "Cadastro de Pessoa Física (CPF)",
+        "rg": "Registro Geral (RG)",
+        "orgao_expedidor": "Órgão Expedidor do RG",
+        "data_nascimento": "Data de Nascimento",
+        "naturalidade": "Naturalidade / Cidade",
+        "uf": "Unidade Federativa (UF)",
+        "nome_mae": "Nome da Mãe (Filiação)",
+        "nome_pai": "Nome do Pai (Filiação)",
+        "curso": "Curso Técnico Pretendido",
+        "eixo_tecnologico": "Eixo Tecnológico",
+        "carga_horaria": "Carga Horária do Curso",
+        "turno": "Turno Solicitado",
+        "inicio_curso": "Previsão de Início das Aulas",
+        "email": "E-mail de Contato",
+        "telefone": "Telefone / Celular",
+        "assunto": "Assunto da Manifestação",
+        "pedido": "Teor do Pedido Formal",
+        "categoria": "Categoria do Atendimento",
+    }
 
-        for campo, val_esperado in campos_esperados.items():
-            val_obtido = extracao.get(campo, "")
-            # Normalização para comparação justa
-            str_esp = str(val_esperado).strip().lower()
-            str_obt = str(val_obtido).strip().lower()
+    REGRAS_FORMATO_PADRAO = {
+        "protocolo": {
+            "padrao": r"^\d{4}[-/]\d{5,7}$",
+            "esperado": "AAAA-XXXXXX (ex: 2026-000142)",
+        },
+        "data": {
+            "padrao": r"^\d{2}/\d{2}/\d{4}$",
+            "esperado": "DD/MM/AAAA",
+        },
+        "solicitante": {
+            "padrao": r"^[A-Za-zÀ-ÿ'\s]{3,}\s+[A-Za-zÀ-ÿ'\s]{2,}$",
+            "esperado": "Nome Completo (Mínimo 2 palavras)",
+        },
+        "cpf": {
+            "padrao": r"^\d{3}\.\d{3}\.\d{3}-\d{2}$",
+            "esperado": "000.000.000-00",
+        },
+        "rg": {
+            "padrao": r"^[0-9A-Za-z.\-]{5,15}$",
+            "esperado": "0000000-0 (RG oficial)",
+        },
+        "orgao_expedidor": {
+            "esperado": "Sigla oficial ou 'não localizado'",
+        },
+        "data_nascimento": {
+            "padrao": r"^\d{2}/\d{2}/\d{4}$",
+            "esperado": "DD/MM/AAAA",
+        },
+        "naturalidade": {
+            "esperado": "Município / Cidade oficial",
+        },
+        "uf": {
+            "padrao": r"^[A-Za-z]{2}$",
+            "esperado": "Sigla da UF (2 letras) ou 'não localizado'",
+        },
+        "nome_mae": {
+            "padrao": r"^[A-Za-zÀ-ÿ'\s]{3,}\s+[A-Za-zÀ-ÿ'\s]{2,}$",
+            "esperado": "Nome Completo da Mãe",
+        },
+        "nome_pai": {
+            "esperado": "Nome do Pai ou 'não localizado'",
+        },
+        "curso": {
+            "esperado": "Denominação Institucional do Curso",
+        },
+        "eixo_tecnologico": {
+            "esperado": "Eixo Institucional Oficial (MEC)",
+        },
+        "carga_horaria": {
+            "esperado": "Carga Horária (ex: 1200 horas)",
+        },
+        "turno": {
+            "esperado": "Turno (matutino, vespertino ou noturno)",
+        },
+        "inicio_curso": {
+            "padrao": r"^\d{2}/\d{2}/\d{4}$",
+            "esperado": "DD/MM/AAAA",
+        },
+        "email": {
+            "padrao": r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
+            "esperado": "nome@dominio.ext",
+        },
+        "telefone": {
+            "esperado": "DDD + Telefone ou 'não localizado'",
+        },
+        "assunto": {
+            "esperado": "Tema resumido da manifestação",
+        },
+        "pedido": {
+            "esperado": "Teor da solicitação expressa",
+        },
+        "categoria": {
+            "esperado": "Categoria institucional",
+        },
+    }
 
-            if str_esp == str_obt or (str_esp in str_obt):
-                acertos += 1
-            else:
-                # Classifica gravidade do erro
-                if campo in ["cpf", "rg", "protocolo"]:
-                    gravidade = "Alta"
-                    acao = "Exige correção manual obrigatória"
-                elif campo in ["solicitante", "curso"]:
-                    gravidade = "Crítica"
-                    acao = "Exige nova geração imediata"
-                else:
-                    gravidade = "Baixa"
-                    acao = "Ajuste secundário opcional"
+    @classmethod
+    def avaliar_conformidade_regras(cls, extracao, regras_customizadas=None):
+        """Formato e presença, sem alegar fidelidade ao documento original."""
+        regras = cls.REGRAS_FORMATO_PADRAO if regras_customizadas is None else regras_customizadas
+        detalhes = []
+        erros = []
+        conformes = 0
+        for campo, regra in regras.items():
+            valor = str(extracao.get(campo, "")).strip()
+            ausente = not valor or valor.casefold() in {"não localizado", "nao localizado"}
+            padrao = regra.get("padrao")
+            valido = not ausente and (not padrao or re.fullmatch(padrao, valor) is not None)
+            if valido and campo in {"data", "data_nascimento", "inicio_curso"}:
+                try:
+                    _datetime.strptime(valor, "%d/%m/%Y")
+                except ValueError:
+                    valido = False
+            conformes += int(valido)
+            detalhe = {"campo": campo, "rotulo": cls.ROTULOS_CAMPOS.get(campo, campo),
+                "esperado": regra.get("esperado", "Formato a conferir"),
+                "obtido": valor or "não localizado", "eh_pendencia": ausente,
+                "status": "PENDENCIA" if ausente else "FORMATO_CONFORME" if valido else "DIVERGENTE",
+                "gravidade": "Alta" if not valido else "Nenhuma",
+                "acao_recomendada": "Confirmar na fonte; formato não comprova fidelidade."}
+            detalhes.append(detalhe)
+            if not valido:
+                erros.append(detalhe)
+        return {"total_campos_analisados": len(detalhes), "total_acertos": conformes,
+            "total_pendencias": sum(d["eh_pendencia"] for d in detalhes),
+            "taxa_conformidade_percentual": round(conformes/max(1,len(detalhes))*100,1),
+            "comparativo_campos": detalhes, "erros_encontrados": erros,
+            "status_qualidade": "Formato conforme; fidelidade não avaliada" if not erros else "Requer revisão",
+            "tipo_avaliacao": "formato"}
 
-                erros_classificados.append({
-                    "campo": campo,
-                    "esperado": val_esperado,
-                    "obtido": val_obtido,
-                    "gravidade": gravidade,
-                    "acao_recomendada": acao,
-                })
-
-        taxa_fidelidade = round((acertos / max(1, total_campos)) * 100, 1)
-
-        # Avaliação de completude (campos preenchidos vs 'não localizado' quando ausentes)
-        completude = 100.0 if all(k in extracao for k in ["protocolo", "data", "solicitante", "pedido"]) else 75.0
-
-        return {
-            "total_campos_analisados": total_campos,
-            "total_acertos": acertos,
-            "taxa_fidelidade_percentual": taxa_fidelidade,
-            "taxa_completude_percentual": completude,
-            "erros_encontrados": erros_classificados,
-            "status_qualidade": "Excelente" if taxa_fidelidade >= 90 else "Aceitável com Revisão" if taxa_fidelidade >= 70 else "Reprovado",
-        }
+    @classmethod
+    def avaliar_extracao(cls, extracao, gabarito):
+        """Fidelidade campo a campo: ausentes e divergentes não são acertos."""
+        esperados = gabarito.get("campos_esperados", {})
+        def normalizar(valor):
+            texto = unicodedata.normalize("NFKD", str(valor).strip().casefold())
+            return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
+        comparativo = []
+        for campo, esperado in esperados.items():
+            obtido = extracao.get(campo, "não localizado")
+            ausente = normalizar(obtido) in {"", "nao localizado"}
+            correto = not ausente and normalizar(obtido) == normalizar(esperado)
+            comparativo.append({"campo": campo, "rotulo": cls.ROTULOS_CAMPOS.get(campo, campo),
+                "esperado": esperado, "obtido": obtido, "eh_pendencia": ausente,
+                "status": "CORRETO" if correto else "PENDENCIA" if ausente else "DIVERGENTE",
+                "gravidade": "Nenhuma" if correto else "Alta",
+                "acao_recomendada": "Conferir na fonte e registrar revisão humana."})
+        acertos = sum(d["status"] == "CORRETO" for d in comparativo)
+        total = len(comparativo)
+        taxa = round(acertos/max(1,total)*100,1)
+        return {"total_campos_analisados": total, "total_acertos": acertos,
+            "total_pendencias": sum(d["eh_pendencia"] for d in comparativo),
+            "taxa_fidelidade_percentual": taxa,
+            "taxa_completude_percentual": round(sum(not d["eh_pendencia"] for d in comparativo)/max(1,total)*100,1),
+            "comparativo_campos": comparativo,
+            "erros_encontrados": [d for d in comparativo if d["status"] != "CORRETO"],
+            "status_qualidade": "Conferido com referência" if total and acertos == total else "Requer revisão",
+            "tipo_avaliacao": "fidelidade", "conformidade_formato": cls.avaliar_conformidade_regras(extracao)}

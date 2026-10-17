@@ -29,7 +29,7 @@
         </div>
       </div>
       <div class="header-badges">
-        <span class="badge badge-hitl">Human-in-the-Loop Ativo</span>
+        <span class="badge badge-hitl">Revisão humana obrigatória</span>
         <span id="badge-api-mode" class="badge badge-mode">Carregando modo...</span>
       </div>
     </div>
@@ -70,11 +70,13 @@
           </div>
           <div class="card-body">
             <div class="form-group">
-              <label for="caso-predefinido">Carregar Caso de Teste Ficticio:</label>
+              <label for="caso-predefinido">Carregar Manifestação por Modalidade (Multimodal Omnichannel):</label>
               <select id="caso-predefinido" class="form-control">
-                <option value="texto_original">Caso Oficial 1: Matricula Enfermagem (entrada_texto.txt)</option>
-                <option value="prompt_injection">Caso de Teste: Tentativa de Prompt Injection (RF03)</option>
-                <option value="personalizado">Personalizado (Digitar abaixo)</option>
+                <option value="texto_original">📝 Modalidade 1: Mensagem de Texto (entrada_texto.txt)</option>
+                <option value="audio_transcricao">🎙️ Modalidade 2: Mensagem de Voz / Áudio (entrada_audio.mp3 - Whisper STT)</option>
+                <option value="visao_documento">📑 Modalidade 3: Imagem / Ficha Digitalizada (entrada_pdf-imagem.pdf - OCR/VLM)</option>
+                <option value="prompt_injection">🛡️ Teste de Segurança: Tentativa de Prompt Injection (RF03)</option>
+                <option value="personalizado">✏️ Personalizado (Digitar ou colar livremente)</option>
               </select>
             </div>
 
@@ -99,16 +101,22 @@
             <span id="badge-status-revisao" class="badge badge-warning">Aguardando Processamento</span>
           </div>
           <div class="card-body">
-            <!-- Abas internas: Extracao vs Minuta -->
+            <!-- Abas internas: Minuta, Conferência, JSON, Métricas -->
             <div class="sub-nav">
               <button class="sub-tab active" data-subtab="subtab-minuta">Minuta de Resposta Oficial (RF09)</button>
+              <button class="sub-tab" data-subtab="subtab-conferencia" id="btn-subtab-conferencia">
+                Painel de Conferência (RF13) <span id="badge-divergencias-count" class="badge-tab-count badge badge-danger">0</span>
+              </button>
               <button class="sub-tab" data-subtab="subtab-json">JSON Estruturado Extraido (RF05)</button>
               <button class="sub-tab" data-subtab="subtab-metricas">Metricas e Seguranca</button>
             </div>
 
             <div id="subtab-minuta" class="subtab-pane active">
+              <!-- Banner Dinâmico de Diagnóstico de Conferência do Operador -->
+              <div id="banner-conferencia-operador" class="conferencia-banner" style="display: none;"></div>
+
               <div class="alert alert-notice">
-                <strong>Atencao do Servidor:</strong> Esta minuta foi elaborada com modelo de linguagem. Nenhuma resposta e enviada automaticamente ao cidadao. Faca a conferencia antes de aprovar.
+                <strong>Revisão de Minuta:</strong> Nenhum envio automático. Realize a conferência do texto antes de registrar a decisão e gerar o documento oficial.
               </div>
               <div class="form-group">
                 <label for="editor-minuta">Texto da Minuta Oficial (Editavel pelo Servidor):</label>
@@ -116,7 +124,7 @@
               </div>
 
               <!-- Acoes do Documento Oficial -->
-              <div class="form-actions" style="margin-bottom: 14px;">
+              <div class="form-actions mb-3">
                 <button id="btn-exportar-pdf" class="btn btn-secondary">
                   Visualizar / Baixar Minuta em PDF Oficial
                 </button>
@@ -145,6 +153,70 @@
                   <button id="btn-corrigir-minuta" class="btn btn-warning">Salvar com Correcoes</button>
                   <button id="btn-rejeitar-minuta" class="btn btn-danger">Rejeitar / Solicitar Nova Geracao</button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Sub-aba de Conferência de Dados (RF13) -->
+            <div id="subtab-conferencia" class="subtab-pane">
+              <!-- Resumo da Auditoria e Métricas de Qualidade -->
+              <div class="audit-summary-grid">
+                <div class="audit-card">
+                  <span class="audit-card-title">Fidelidade aos Dados</span>
+                  <span id="audit-taxa-fidelidade" class="audit-card-value">-</span>
+                  <span id="audit-status-qualidade" class="badge badge-ok">Aguardando</span>
+                </div>
+                <div class="audit-card">
+                  <span class="audit-card-title">Campos Conformes</span>
+                  <span id="audit-campos-acertos" class="audit-card-value text-green">-</span>
+                  <span class="audit-card-sub">Dados coincidentes com a referência</span>
+                </div>
+                <div class="audit-card">
+                  <span class="audit-card-title">Divergências / Erros</span>
+                  <span id="audit-campos-erros" class="audit-card-value text-danger">0</span>
+                  <span id="audit-sub-erros" class="audit-card-sub">Nenhuma divergência</span>
+                </div>
+                <div class="audit-card">
+                  <span class="audit-card-title">Pendências Documentais</span>
+                  <span id="audit-campos-pendencias" class="audit-card-value text-warning">0</span>
+                  <span class="audit-card-sub">Campos "não localizado"</span>
+                </div>
+              </div>
+
+              <!-- Filtros da Tabela de Conferência -->
+              <div class="conferencia-filters">
+                <div class="filter-group">
+                  <button type="button" class="btn btn-filter active" data-filter="todos">Todos os Campos</button>
+                  <button type="button" class="btn btn-filter" data-filter="divergentes">Apenas Divergências / Erros</button>
+                  <button type="button" class="btn btn-filter" data-filter="pendencias">Apenas Pendências</button>
+                </div>
+                <div class="filter-hint">
+                  Campos com discrepância em relação aos formatos e regras oficiais estão destacados.
+                </div>
+              </div>
+
+              <!-- Tabela Comparativa Detalhada -->
+              <div class="table-responsive mt-3">
+                <table class="table-gov table-conferencia" id="tabela-conferencia">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 130px; width: 20%;">Campo / Dado</th>
+                      <th style="min-width: 140px; width: 23%;">Valor Extraído</th>
+                      <th style="min-width: 160px; width: 26%;">Referência / Formato Esperado</th>
+                      <th style="min-width: 110px; width: 16%;">Diagnóstico</th>
+                      <th style="min-width: 130px; width: 15%; text-align: center;">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tabela-conferencia-body">
+                    <tr>
+                      <td colspan="5" style="text-align:center; padding: 24px; color: #64748B;">
+                        Processe uma solicitação para visualizar a conferência detalhada campo a campo.
+                      </td>
+                    </tr>
+                    <tr id="tr-empty-filter" style="display:none;">
+                      <td colspan="5" style="text-align:center; padding: 24px; color: #16A34A; font-weight: 600;"></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -269,11 +341,11 @@
           </div>
           <div class="card-body">
             <p>Arquivo: <code>dados/originais/entrada_audio.mp3</code></p>
-            <audio id="audio-input-player" src="/arquivos/dados/originais/entrada_audio.mp3" controls style="width: 100%; margin-bottom: 12px;"></audio>
-            <button id="btn-processar-audio" class="btn btn-primary" style="width: 100%;">
-              Transcrever Audio e Conferir Gabarito
+            <audio id="audio-input-player" src="/arquivos/dados/originais/entrada_audio.mp3" controls class="w-full mb-3"></audio>
+            <button id="btn-processar-audio" class="btn btn-primary w-full">
+              Transcrever Áudio e Validar Entidades
             </button>
-            <div id="resultado-audio-stt" style="margin-top: 15px;"></div>
+            <div id="resultado-audio-stt" class="mt-3"></div>
           </div>
         </div>
 
@@ -285,10 +357,10 @@
           </div>
           <div class="card-body">
             <p>Arquivo: <code>dados/originais/entrada_pdf-imagem.pdf</code> (Ficha de Matricula)</p>
-            <button id="btn-processar-visao" class="btn btn-primary" style="width: 100%;">
+            <button id="btn-processar-visao" class="btn btn-primary w-full">
               Executar Leitura Visual e OCR
             </button>
-            <div id="resultado-visao-ocr" style="margin-top: 15px;"></div>
+            <div id="resultado-visao-ocr" class="mt-3"></div>
           </div>
         </div>
       </div>
@@ -311,7 +383,7 @@
 
           <div class="image-preview-wrapper">
             <div class="image-box">
-              <img id="img-peca-visual" src="/arquivos/dados/originais/brasao.png" alt="Previa da Peca Visual" class="gov-piece-image">
+              <img id="img-peca-visual" src="/arquivos/dados/originais/brasao.png" alt="Previa da Peca Visual" class="gov-piece-image" onerror="this.style.display='none'">
             </div>
             <div class="image-meta-box">
               <h4>Metadados da Peca Sintetica (RF10)</h4>
@@ -355,8 +427,8 @@
   <!-- Rodape Institucional -->
   <footer class="gov-footer">
     <div class="footer-container">
-      <p>Desenvolvido para o Desafio Pratico 1 - FIC_DEV - Programador de Sistemas com IA (2026)</p>
-      <p>Padrao de Governanca Institucional: Decisao final e envio sob responsabilidade exclusiva de servidor humano.</p>
+      <p>Governo do Estado de Mato Grosso — Secretaria de Estado de Ciência, Tecnologia e Inovação (SECITECI/MT)</p>
+      <p>Escola Técnica Estadual de Cuiabá — Central de Atendimento e Comunicação Institucional</p>
     </div>
   </footer>
 

@@ -1,0 +1,28 @@
+{
+  "id_execucao": "EXEC_20261016_213834_5757ee",
+  "timestamp": "2026-10-16T21:38:34.785288",
+  "modalidade": "texto",
+  "arquivo_origem": "dados/originais/entrada_texto.txt",
+  "provedor": "Teste",
+  "modelo": "Qwen/Qwen2.5-72B-Instruct",
+  "versao_prompt": "PRODUCAO",
+  "parametros": {
+    "temp": 0.1,
+    "chave_falsa_secreta": "[REDACTED]"
+  },
+  "duracao_segundos": 0.5,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "APROVADO",
+    "operador": "Servidor Chefe",
+    "justificativa": "Minuta conferida com o processo acadêmico.",
+    "data_decisao": "2026-10-16T21:38:34.792890"
+  },
+  "detalhes_completos": {
+    "teste": "ok"
+  }
+}

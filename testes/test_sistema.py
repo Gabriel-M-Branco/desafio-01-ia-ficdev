@@ -57,26 +57,27 @@ def test_rf03_seguranca_prompts_payload_e_neutralizacao():
     assert "IGNORE TODAS AS REGRAS" in payload
 
     client = LLMClient()
-    prompt_seguro = montar_prompt(sanitizar_entrada_usuario(payload), "PRODUCAO")
-    resposta = client.generate(prompt=prompt_seguro)
-
-    dados = json.loads(resposta.text)
-    assert SegurancaPrompts.validar_neutralizacao(dados) is True
-    assert "PARABÉNS! SEU PEDIDO DE ISENÇÃO" not in resposta.text
+    dados = client.extrair_entidades_local(payload)
+    assert dados["seguranca"]["tentativa_prompt_injection_detectada"]
+    assert dados["seguranca"]["instrucao_maliciosa_ignorada"]
+    assert SegurancaPrompts.validar_neutralizacao(dados)
+    assert "PARABÉNS! SEU PEDIDO DE ISENÇÃO" not in json.dumps(dados, ensure_ascii=False)
 
 
 # ==============================================================================
 # RF04: Chamada de Modelo e Tratamento de Erros / Mock Seguro
 # ==============================================================================
-def test_rf04_llm_client_mock_e_metricas():
+def test_rf04_sem_credencial_nao_simula_sucesso(monkeypatch):
+    monkeypatch.setenv("EXECUTION_MODE", "api")
+    monkeypatch.setenv("OPENROUTER_ENABLED", "false")
     client = LLMClient()
-    resp = client.generate(prompt="Solicito matrícula em Enfermagem. Protocolo 2026-000142.")
-    assert resp.status == "success"
-    assert resp.duration_seconds > 0
-    assert resp.total_tokens > 0
-    assert resp.cost_usd == 0.0
-    assert "extracao" in resp.text
-    assert "minuta_institucional" in resp.text
+    client.hf_token = ""
+    client.openrouter_key = ""
+    resp = client.generate(prompt="Solicito matrícula.")
+    assert resp.status == "credentials_missing"
+    assert resp.text == ""
+    assert not resp.is_mock
+    assert resp.cost_usd is None
 
 
 def test_rf04_nao_expor_segredos_em_logs():
@@ -93,9 +94,7 @@ def test_rf04_nao_expor_segredos_em_logs():
 # ==============================================================================
 def test_rf05_extracao_estruturada_e_nao_localizado():
     client = LLMClient()
-    resp = client.generate(prompt="Solicito matrícula. Nome Marcos. Protocolo 2026-000142.")
-    dados = json.loads(resp.text)
-    extracao = dados.get("extracao", {})
+    extracao = client.extrair_entidades_local("Solicito matrícula. Nome Marcos. Protocolo 2026-000142.")
 
     assert extracao.get("protocolo") == "2026-000142"
     # Campos ausentes no prompt devem receber 'não localizado'

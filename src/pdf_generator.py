@@ -129,7 +129,7 @@ def gerar_minuta_pdf(
     page.draw_rect(pymupdf.Rect(0, 810, 595, 842), color=None, fill=(15/255, 37/255, 64/255))
     page.insert_text(
         (45, 825),
-        "DOCUMENTO OFICIAL GOV.MT - Validado por Servidor Responsavel (Human-in-the-Loop)",
+        "DOCUMENTO OFICIAL - GOVERNO DO ESTADO DE MATO GROSSO",
         fontsize=8,
         fontname="helv",
         color=(255/255, 255/255, 255/255),
@@ -137,7 +137,7 @@ def gerar_minuta_pdf(
     exec_txt = f"ID: {identificador_execucao}" if identificador_execucao else f"Emissao: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
     page.insert_text(
         (45, 836),
-        f"Conformidade com a Governanca Institucional e Protecao de Dados | {exec_txt}",
+        f"Autenticidade e Protecao de Dados | {exec_txt}",
         fontsize=7,
         fontname="helv",
         color=(160/255, 196/255, 226/255),

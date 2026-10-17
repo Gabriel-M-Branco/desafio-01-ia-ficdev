@@ -10,7 +10,7 @@ O sistema processa solicitações fictícias em **texto, áudio e imagem**, extr
 
 
 
-## 2. Stack Tecnológica Definida (100% Gratuita / Custo Zero)
+## 2. Stack Tecnológica Definida (Provedores Configuráveis / Custo Não Presumido)
 
 - **Linguagem & Ponto de Entrada:** Python 3.11+ acionado via `python -m src.main` (que sobe o servidor FastAPI com a interface web por padrão ou roda o modo CLI/experimento via flags `--cli` / `--run-all`).
 
@@ -20,15 +20,15 @@ O sistema processa solicitações fictícias em **texto, áudio e imagem**, extr
 
   - **LLM (Texto/Extração/Minuta):** `Qwen/Qwen2.5-72B-Instruct` ou `meta-llama/Llama-3.3-70B-Instruct`.
 
-  - **Visão/OCR Multimodal (RF08):** `Qwen/Qwen2.5-VL-7B-Instruct` via HF (com fallback local em `pytesseract`/OCR ou modo mock seguro).
+  - **Visão/OCR (RF08):** PyMuPDF + Tesseract português local; alternativas PSM e regiões, sem preenchimento inventado.
 
-  - **Áudio STT (RF06):** `openai/whisper-large-v3-turbo` via HF Inference API.
+  - **Áudio STT (RF06):** faster-whisper local small/CPU/int8/pt ou whisper via HF, com provedores configuráveis.
 
-  - **Imagem (RF10 - Abordagem Híbrida):** `black-forest-labs/FLUX.1-schnell` via HF Inference API (gera apenas a arte/ilustração central sem texto) + composição programática de layout institucional GOV.MT com `Pillow` (PIL).
+  - **Imagem (RF10 - Abordagem Híbrida):** Cloudflare Workers AI FLUX ou HF/endpoint configurável (gera apenas a arte/ilustração central sem texto) + composição programática de layout institucional GOV.MT com `Pillow` (PIL).
 
-- **Provedor de Fallback (Opcional):** **OpenRouter API** (`OPENROUTER_API_KEY`) usando modelos `:free` caso o rate limit da Hugging Face seja atingido, além de modo `mock` local caso nenhuma chave esteja presente no `.env`.
+- **Provedor de Fallback (Opcional):** **OpenRouter API** (`OPENROUTER_API_KEY`) usando modelos `:free` caso o rate limit da Hugging Face seja atingido, sem simulação de produção; ausência de chave retorna erro explícito.
 
-- **Síntese de Voz / Acessibilidade (RF07):** `edge-tts` (voz neural pt-BR gratuita com controle de entonação/velocidade) ou `gTTS` como fallback.
+- **Síntese de Voz / Acessibilidade (RF07):** SAPI5/Microsoft Maria no Windows ou edge-tts opcional, ambos exigindo aprovação persistida do texto exato.
 
 - **Containerização:** `Dockerfile` e `docker-compose.yml` expondo a porta `8000` e incluindo `ffmpeg`.
 
@@ -128,7 +128,7 @@ desafio_ia_generativa/
 
    - O módulo `image_generation.py` deve gerar a ilustração central via IA (`FLUX.1-schnell`) usando prompt estruturado (sujeito, composição, estilo flat institucional nas cores azul `#004A8F`, verde `#008B47` e amarelo `#F7B500` do GOV.MT, iluminação limpa, proporção 1:1 ou 16:9 e restrição explícita de `no text, no words, no letters`).
 
-   - Em seguida, o Python (`Pillow`) deve encaixar essa ilustração dentro do **Template Institucional GOV.MT**, aplicando programaticamente o cabeçalho oficial com a imagem de `dados/originais/gov_mt_logo.png`, o título da orientação em fonte nítida e uma tarja inferior obrigatória de proveniência: `"CONTEÚDO SINTÉTICO GERADO POR IA - Validado por Servidor Responsável"`, salvando também o JSON de metadados da imagem.
+   - Em seguida, o Python (`Pillow`) deve encaixar essa ilustração dentro do **Template Institucional GOV.MT**, aplicando programaticamente o cabeçalho oficial com a imagem de `dados/originais/gov_mt_logo.png`, o título da orientação em fonte nítida e uma tarja inferior obrigatória de proveniência: `"CONTEÚDO SINTÉTICO GERADO POR IA - Consulte o status de revisão"`, salvando também o JSON de metadados da imagem.
 
 6. **Acessibilidade (RF07):** Antes de sintetizar o áudio da minuta aprovada, substitua ou preceda qualquer ocorrência de `"não localizado"` por um aviso claro ao ouvinte: *"Atenção: informação pendente de localização no sistema"*.
 
@@ -145,3 +145,10 @@ desafio_ia_generativa/
 - **Executar via Docker:** `docker compose up --build`
 
 - **Executar Testes Automatizados:** `pytest testes/ -v`
+## Integração isolada de 17/10/2026
+Preservar motores reais RF06/07/08/10, gabaritos e artefatos.
+Mocks somente em testes; modo mock desabilita geração sem conteúdo fictício.
+Autenticação ausente: administração RF10 desabilitada até integração do grupo.
+Sem mounts públicos /dados ou /resultados. Publicação exige revisão autenticada e SHA-256 atual.
+Pillow compõe/corrige; não apresenta desenho determinístico como geração real.
+Funcionalidades e pendências atuais: README.md e documentacao/relatorio_tecnico.md.

@@ -3,7 +3,8 @@ Definição dos Prompts do Sistema e Blindagem contra Injeção de Prompt (RF02,
 Inclui os Prompts A (zero-shot), B (estruturado), C (metaprompt) e o Prompt Seguro de Produção.
 """
 
-from typing import Dict, Any
+import re
+from typing import Dict, Any, List, Optional
 
 # ==============================================================================
 # PROMPT A - Instrução Zero-Shot Curta (RF02)
@@ -145,9 +146,23 @@ def sanitizar_entrada_usuario(texto: str) -> str:
 class SegurancaPrompts:
     """
     Classe de Governança de Segurança e Cenários de Teste Antagônicos (RF03).
-    Encapsula o payload de teste de injeção de prompt e critérios de neutralização,
-    evitando poluição na pasta de dados originais.
+    Encapsula detecção multicamadas de injeção de prompt, payloads e critérios de neutralização.
     """
+
+    # Padrões heurísticos para detecção de fuga de contexto, jailbreaks e injeção de comandos
+    PADROES_INJECAO = [
+        r"(?i)ignore\s+(todas\s+as|as|all|previous|prior)\s+(regras|instru[çc][õo]es|instructions|guidelines)",
+        r"(?i)desconsidere\s+(todas\s+as|as|as\s+diretrizes|qualquer)",
+        r"(?i)(?:voc[êe]\s+agora\s+[eé]|you\s+are\s+now|act\s+as|aja\s+como)\s+(?:um\s+)?(?:dan|developer|admin|modo\s+desenvolvedor)",
+        r"(?i)\[(?:aten[çc][ãa]o\s+do\s+sistema|comando\s+priorit[áa]rio|comando\s+administrativo|system\s+instruction|admin\s+override)\]",
+        r"(?i)\[fim\s+do\s+comando(?:\s+administrativo)?\]",
+        r"(?i)(?:responda|diga|output)\s+(?:apenas|exatamente|strict|somente)\s*:\s*[\"']",
+        r"(?i)n[ãa]o\s+use\s+(?:a\s+express[ãa]o\s+)?[\"']?n[ãa]o\s+localizado[\"']?",
+        r"(?i)invente\s+(?:uma\s+lei|norma|decreto|artigo|n[úu]mero)",
+        r"(?i)</?conteudo_nao_confiavel>",
+        r"(?i)(?:jailbreak|bypass\s+safety|sem\s+restri[çc][õo]es)",
+        r"(?i)(?:parab[eé]ns!?\s+seu\s+pedido\s+de\s+isen[çc][ãa]o)",
+    ]
 
     CASO_TESTE_PROMPT_INJECTION = (
         "Canal: Formulário Web\n"
@@ -178,6 +193,56 @@ class SegurancaPrompts:
             "curso": "Informática",
         },
     }
+
+    @classmethod
+    def analisar_risco_injecao(cls, texto: str) -> Dict[str, Any]:
+        """
+        Analisa o texto com heurísticas avançadas de detecção de injeção de prompt (RF03).
+        Retorna o diagnóstico de segurança e o texto limpo com os comandos neutralizados.
+        """
+        if not texto:
+            return {
+                "detectada": False,
+                "nivel_risco": "baixo",
+                "padroes_encontrados": [],
+                "texto_limpo": "",
+                "observacao": "Texto vazio.",
+            }
+
+        padroes_encontrados = []
+        for padrao in cls.PADROES_INJECAO:
+            if re.search(padrao, texto):
+                padroes_encontrados.append(padrao)
+
+        # 1. Isola e remove blocos delimitados de falso comando de sistema
+        texto_limpo = re.sub(
+            r"(?is)\[(?:ATENÇÃO DO SISTEMA|COMANDO PRIORITÁRIO|COMANDO ADMINISTRATIVO|ADMIN OVERRIDE)\].*?\[(?:FIM DO COMANDO|FIM DO COMANDO ADMINISTRATIVO)\]",
+            "[COMANDO_HOSTIL_NEUTRALIZADO]",
+            texto,
+        )
+
+        # 2. Neutraliza ordens diretas de bypass soltas no texto
+        texto_limpo = re.sub(
+            r"(?i)(?:IGNORE TODAS AS REGRAS|DESCONSIDERE AS INSTRUÇÕES|INVENTE UMA LEI)[^\n.]*[\n.]?",
+            "",
+            texto_limpo,
+        )
+
+        detectada = len(padroes_encontrados) > 0
+        risco = "alto" if len(padroes_encontrados) >= 2 else ("medio" if len(padroes_encontrados) == 1 else "baixo")
+
+        return {
+            "detectada": detectada,
+            "nivel_risco": risco,
+            "quantidade_padroes": len(padroes_encontrados),
+            "padroes_encontrados": padroes_encontrados,
+            "texto_limpo": texto_limpo.strip(),
+            "observacao": (
+                "Sinais de injeção detectados; aplicar isolamento de entrada e revisão humana. Heurísticas não garantem neutralização total."
+                if detectada
+                else "Nenhum vetor de injeção identificado."
+            ),
+        }
 
     @staticmethod
     def validar_neutralizacao(resposta_extracao: Dict[str, Any]) -> bool:

@@ -1,0 +1,57 @@
+{
+  "id_execucao": "EXEC_20261016_220846_bb1824",
+  "timestamp": "2026-10-16T22:08:46.567013",
+  "modalidade": "imagem",
+  "arquivo_origem": "dados/originais/brasao.png",
+  "provedor": "FLUX.1-schnell + Pillow",
+  "modelo": "black-forest-labs/FLUX.1-schnell",
+  "versao_prompt": "Prompt Estruturado Institucional GOV.MT",
+  "parametros": {
+    "sujeito": "Estudante jovem sorridente vestindo jaleco branco e uniforme institucional, segurando prancheta escolar de enfermagem e mochila, em frente ao balcão de atendimento educacional",
+    "composicao": "Composição centralizada limpa, plano médio, vista frontal, elementos educacionais e de saúde integrados harmonicamente, sem poluição visual",
+    "estilo": "Ilustração vetorial flat moderna e institucional, design gráfico corporativo e acolhedor, paleta oficial com tons de azul marinho (#004A8F), verde floresta (#008B47) e amarelo dourado (#F7B500)",
+    "iluminacao": "Iluminação suave difusa de estúdio, ambiente limpo, profissional e bem iluminado",
+    "proporcao": "1:1 quadrado (1024x1024)",
+    "restricoes": "no text, no letters, no words, no typo, no signatures, no watermarks, anatomically correct hands with 5 fingers, no distorted faces, no real human faces, vector flat art only",
+    "prompt_completo_en": "High quality flat vector illustration of a young healthcare vocational student in clean white coat standing near an educational reception desk with a clipboard and stethoscope. Warm welcoming government service mood. Color palette featuring royal blue (#004A8F), emerald green (#008B47) and bright gold accents (#F7B500). Soft studio lighting, crisp edges, minimal background, absolutely no text, no letters, no words, no typography, no watermark, realistic anatomy, 5 fingers per hand, vector art 1:1."
+  },
+  "duracao_segundos": 0.05,
+  "erros": [],
+  "resultado_resumo": {
+    "sucesso": true,
+    "campos_extraidos": 0
+  },
+  "decisao_humana": {
+    "status": "pendente_revisao",
+    "operador": "aguardando_validacao",
+    "justificativa": "Aguardando deliberação de servidor responsável no painel web."
+  },
+  "detalhes_completos": {
+    "identificador": "PECA_VISUAL_001",
+    "titulo": "COMUNICADO OFICIAL: MATRÍCULAS E INGRESSO ETEC 2026",
+    "arquivo_imagem": "resultados/imagens/comunicado_institucional_govmt.png",
+    "formato": "PNG",
+    "dimensoes": "1080x1350",
+    "data_geracao": "2026-10-16T22:08:46.563458",
+    "tempo_processamento_segundos": 0.05,
+    "modelo_ia_utilizado": "black-forest-labs/FLUX.1-schnell",
+    "template_institucional": "GOV.MT Oficial Padrão SECITECI",
+    "prompt_estruturado": {
+      "sujeito": "Estudante jovem sorridente vestindo jaleco branco e uniforme institucional, segurando prancheta escolar de enfermagem e mochila, em frente ao balcão de atendimento educacional",
+      "composicao": "Composição centralizada limpa, plano médio, vista frontal, elementos educacionais e de saúde integrados harmonicamente, sem poluição visual",
+      "estilo": "Ilustração vetorial flat moderna e institucional, design gráfico corporativo e acolhedor, paleta oficial com tons de azul marinho (#004A8F), verde floresta (#008B47) e amarelo dourado (#F7B500)",
+      "iluminacao": "Iluminação suave difusa de estúdio, ambiente limpo, profissional e bem iluminado",
+      "proporcao": "1:1 quadrado (1024x1024)",
+      "restricoes": "no text, no letters, no words, no typo, no signatures, no watermarks, anatomically correct hands with 5 fingers, no distorted faces, no real human faces, vector flat art only",
+      "prompt_completo_en": "High quality flat vector illustration of a young healthcare vocational student in clean white coat standing near an educational reception desk with a clipboard and stethoscope. Warm welcoming government service mood. Color palette featuring royal blue (#004A8F), emerald green (#008B47) and bright gold accents (#F7B500). Soft studio lighting, crisp edges, minimal background, absolutely no text, no letters, no words, no typography, no watermark, realistic anatomy, 5 fingers per hand, vector art 1:1."
+    },
+    "restricoes_aplicadas": "no text, no letters, no words, no typo, no signatures, no watermarks, anatomically correct hands with 5 fingers, no distorted faces, no real human faces, vector flat art only",
+    "declaracao_proveniencia": "CONTEÚDO SINTÉTICO GERADO POR IA - Validado por Servidor Responsável",
+    "conformidade_seguranca": {
+      "sem_pessoas_reais": true,
+      "sem_direitos_autorais_terceiros": true,
+      "tarja_visivel_aplicada": true,
+      "revisao_humana_obrigatoria": true
+    }
+  }
+}
