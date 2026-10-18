@@ -29,6 +29,7 @@ class LLMResponse:
     is_mock: bool = False
     finish_reason: Optional[str] = None
     provider_response_id: Optional[str] = None
+    token_usage_source: str = "estimado"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -100,18 +101,26 @@ class LLMClient:
         mensagens = ([{"role": "system", "content": system_instruction}] if system_instruction else [])
         mensagens.append({"role": "user", "content": prompt})
 
-        def resposta(texto, provedor, modelo_efetivo, status="success", detalhe_erro=None, finish_reason=None, response_id=None):
+        import math
+        def resposta(texto, provedor, modelo_efetivo, status="success", detalhe_erro=None, finish_reason=None, response_id=None, usage=None):
             entrada = self._estimate_tokens(prompt + (system_instruction or "")) if texto else 0
             saida = self._estimate_tokens(texto)
+            fonte, custo = "estimado", None
+            if isinstance(usage, dict) and all(type(usage.get(k)) is int and usage[k] >= 0 for k in ("prompt_tokens", "completion_tokens")):
+                entrada, saida, fonte = usage["prompt_tokens"], usage["completion_tokens"], "provedor"
+                valor = usage.get("cost")
+                if type(valor) in (int, float) and math.isfinite(valor) and valor >= 0:
+                    custo = valor
             return LLMResponse(
                 text=texto, model=modelo_efetivo, provider=provedor,
                 duration_seconds=time.perf_counter()-inicio, prompt_tokens=entrada,
-                completion_tokens=saida, total_tokens=entrada+saida, cost_usd=None,
+                completion_tokens=saida, total_tokens=entrada+saida, cost_usd=custo,
                 status=status,
                 error_message=detalhe_erro if detalhe_erro else (None if texto else "Geração indisponível; nenhum conteúdo simulado foi produzido."),
                 is_mock=False,
                 finish_reason=finish_reason,
                 provider_response_id=response_id,
+                token_usage_source=fonte,
             )
 
         def classificar(exc):
@@ -141,8 +150,10 @@ class LLMClient:
             texto = dado.choices[0].message.content
             if not isinstance(texto, str) or not texto.strip():
                 raise ValueError("Resposta HF vazia.")
+            usage = {k: getattr(getattr(dado, "usage", None), k, None) for k in ("prompt_tokens", "completion_tokens")}
             return resposta(texto, "HuggingFace_Serverless", modelo_hf,
-                            finish_reason=getattr(dado.choices[0], "finish_reason", None))
+                            finish_reason=getattr(dado.choices[0], "finish_reason", None),
+                            usage=usage)
 
         def chamar_openrouter():
             if not self.openrouter_key:
@@ -173,7 +184,8 @@ class LLMClient:
             nome_provedor = "OpenRouter_Free" if gratuito else "OpenRouter"
             return resposta(texto, nome_provedor, corpo.get("model") or modelo_or,
                             finish_reason=escolhas[0].get("finish_reason"),
-                            response_id=corpo.get("id"))
+                            response_id=corpo.get("id"),
+                            usage=corpo.get("usage"))
 
         provedores = [self.text_provider]
         if self.text_provider == "huggingface" and os.getenv("OPENROUTER_ENABLED", "false").lower() == "true":

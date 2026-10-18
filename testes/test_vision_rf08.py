@@ -24,6 +24,7 @@ def ocr(tmp_path, monkeypatch):
     (tess / "tesseract.exe").touch()
     (tess / "tessdata" / "por.traineddata").touch()
     monkeypatch.setattr(vision, "TESSERACT_DIR", tess)
+    monkeypatch.setenv("VISION_PROVIDER", "local")
     path = tmp_path / "documento.pdf"
     path.write_bytes(b"documento simulado")
     page = Mock()
@@ -273,3 +274,72 @@ def test_falha_recortes_nao_apaga_ocr_original(ocr, monkeypatch):
     assert resultado["sucesso"]
     assert resultado["erros_regioes"]
     assert resultado["texto_bruto"]
+
+
+def test_obter_provedor_visao_prioridades(monkeypatch):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("VISION_PROVIDER", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert vision.VisionProcessor._obter_provedor_visao() == "local"
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "chave-teste")
+    assert vision.VisionProcessor._obter_provedor_visao() == "openrouter"
+
+    monkeypatch.setenv("VISION_PROVIDER", "local")
+    assert vision.VisionProcessor._obter_provedor_visao() == "local"
+
+
+def test_ocr_openrouter_vlm_sucesso(tmp_path, monkeypatch):
+    pdf = tmp_path / "documento.pdf"
+    pdf.write_bytes(b"conteudo ficticio")
+    page = Mock()
+    page.get_pixmap.return_value.tobytes.return_value = b"png-bytes"
+    doc = MagicMock()
+    doc.needs_pass = False
+    doc.__len__.return_value = 1
+    doc.__iter__.side_effect = lambda: iter([page])
+    doc.__enter__.return_value = doc
+    monkeypatch.setattr(vision.pymupdf, "open", Mock(return_value=doc))
+
+    monkeypatch.setenv("VISION_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-mock-key")
+    monkeypatch.setenv("EXECUTION_MODE", "auto")
+
+    resposta_mock = Mock()
+    resposta_mock.status_code = 200
+    resposta_mock.json.return_value = {
+        "choices": [{
+            "message": {
+                "content": "CODIGO: 2026-000142\nNOME: Marcos Vinicius de Almeida Santos\nCPF: 123.456.789-00\nCURSO: Tecnico em Enfermagem\nASSINATURA DO ALUNO: Consta assinatura do aluno"
+            }
+        }]
+    }
+
+    import requests
+    monkeypatch.setattr(requests, "post", Mock(return_value=resposta_mock))
+
+    proc = vision.VisionProcessor()
+    resultado = proc.processar_documento(str(pdf))
+    assert resultado["sucesso"]
+    assert "OpenRouter" in resultado["provedor"]
+    assert resultado["campos_extraidos"]["codigo"] == "2026-000142"
+    assert resultado["campos_extraidos"]["nome"] == "Marcos Vinicius de Almeida Santos"
+    assert resultado["campos_extraidos"]["assinatura_aluno"] == "Consta assinatura do aluno"
+    assert resultado["comparacao_gabarito"]["campos_conferidos"] >= 4
+
+
+def test_ocr_openrouter_fallback_para_tesseract(ocr, monkeypatch):
+    proc, path, page, doc, _ = ocr
+    monkeypatch.setenv("VISION_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-chave-invalida")
+    monkeypatch.setenv("EXECUTION_MODE", "auto")
+
+    import requests
+    monkeypatch.setattr(requests, "post", Mock(side_effect=RuntimeError("Simulando falha de rede OpenRouter")))
+
+    resultado = proc.processar_documento(str(path))
+    assert resultado["sucesso"]
+    assert resultado["provedor"] == "Tesseract local / PyMuPDF"
+    assert "aviso_fallback" in resultado
+    assert "OpenRouter VLM indisponível" in resultado["aviso_fallback"]
+

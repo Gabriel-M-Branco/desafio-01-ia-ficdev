@@ -9,6 +9,7 @@ edge-tts>=6.1.10
 pillow>=10.2.0
 pymupdf>=1.24.0
 mutagen>=1.47.0
+lameenc>=1.7.0
 faster-whisper>=1.2.1,<2
 av>=16.0.1,<17
 pytest>=8.0.0

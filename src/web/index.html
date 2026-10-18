@@ -71,7 +71,7 @@
     <section id="tab-atendimento" class="tab-pane active">
       <div class="pane-grid">
         <!-- Coluna da Esquerda: Entrada de Solicitacao -->
-        <div class="card card-input">
+        <div class="card card-input" id="card-entrada-solicitacao">
           <div class="card-header">
             <h3>1. Entrada de Solicitação do Cidadão</h3>
             <span class="badge badge-info">Conteúdo Não Confiável</span>
@@ -88,9 +88,9 @@
               </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group form-group-textarea">
               <label for="input-texto-solicitacao">Texto da Solicitação:</label>
-              <textarea id="input-texto-solicitacao" class="form-control code-font" rows="12" placeholder="Insira aqui o texto da solicitação..."></textarea>
+              <textarea id="input-texto-solicitacao" class="form-control code-font" rows="8" placeholder="Insira aqui o texto da solicitação..."></textarea>
             </div>
 
             <div class="form-actions">
@@ -103,7 +103,7 @@
         </div>
 
         <!-- Coluna da Direita: Extracao Estruturada e Minuta Oficial -->
-        <div class="card card-output">
+        <div class="card card-output card-output-shrunk" id="card-analise-minuta">
           <div class="card-header">
             <h3>2. Análise Estruturada e Minuta Gerada</h3>
             <span id="badge-status-revisao" class="badge badge-warning">Aguardando Processamento</span>
@@ -123,43 +123,57 @@
               <!-- Banner Dinâmico de Diagnóstico de Conferência do Operador -->
               <div id="banner-conferencia-operador" class="conferencia-banner" style="display: none;"></div>
 
-              <div class="alert alert-notice">
-                <strong>Revisão de Minuta:</strong> Nenhum envio automático. Realize a conferência do texto antes de registrar a decisão e gerar o documento oficial.
-              </div>
-              <div class="form-group">
-                <label for="editor-minuta">Texto da Minuta Oficial (Editavel pelo Servidor):</label>
-                <textarea id="editor-minuta" class="form-control doc-editor" rows="13"></textarea>
-              </div>
-
-              <!-- Acoes do Documento Oficial -->
-              <div class="form-actions mb-3">
-                <button id="btn-exportar-pdf" class="btn btn-secondary">
-                  Visualizar / Baixar Minuta em PDF Oficial
-                </button>
-              </div>
-
-              <!-- Controles de Acessibilidade TTS -->
-              <div class="tts-section">
-                <button id="btn-gerar-tts" class="btn btn-access">
-                  Gerar Áudio Acessível (RF07)
-                </button>
-                <div id="tts-audio-container" class="audio-player-wrapper" style="display: none;">
-                  <audio id="tts-audio-player" controls></audio>
-                  <span class="tts-note">Requer aprovação do texto exato. Campos “não localizado” recebem aviso ao ouvinte.</span>
+              <!-- Estado Vazio Encolhido (Quando ainda não há minuta gerada) -->
+              <div id="minuta-empty-state" class="minuta-empty-state">
+                <div class="empty-icon-wrap">
+                  <span class="empty-icon">📋</span>
+                </div>
+                <div class="empty-text-wrap">
+                  <h4>Aguardando Processamento da Solicitação</h4>
+                  <p>Nenhuma minuta gerada no momento. Selecione ou insira a manifestação na coluna à esquerda e clique em <strong>Processar Solicitação (RF03/RF05)</strong>.</p>
                 </div>
               </div>
 
-              <!-- Painel de Revisao Humana (Human-in-the-Loop) -->
-              <div class="hitl-box">
-                <h4>Decisao do Servidor Responsavel (RF13)</h4>
+              <!-- Conteúdo Ativo da Minuta (Exibido após processamento) -->
+              <div id="minuta-conteudo-ativo" class="minuta-conteudo-ativo" style="display: none;">
+                <div class="alert alert-notice">
+                  <strong>Revisão de Minuta:</strong> Nenhum envio automático. Realize a conferência do texto antes de registrar a decisão e gerar o documento oficial.
+                </div>
                 <div class="form-group">
-                  <label for="justificativa-revisao">Justificativa da Decisao (Obrigatoria para registro no log de auditoria):</label>
-                  <input type="text" id="justificativa-revisao" class="form-control" placeholder="Ex: Dados cadastrais conferidos com os registros da ETEC. Aprovado para emissão.">
+                  <label for="editor-minuta">Texto da Minuta Oficial (Editavel pelo Servidor):</label>
+                  <textarea id="editor-minuta" class="form-control doc-editor" rows="12"></textarea>
                 </div>
-                <div class="hitl-actions">
-                  <button id="btn-aprovar-minuta" class="btn btn-success">Aprovar Resposta</button>
-                  <button id="btn-corrigir-minuta" class="btn btn-warning">Salvar com Correções</button>
-                  <button id="btn-rejeitar-minuta" class="btn btn-danger">Rejeitar / Solicitar Nova Geração</button>
+
+                <!-- Acoes do Documento Oficial -->
+                <div class="form-actions mb-3">
+                  <button id="btn-exportar-pdf" class="btn btn-secondary">
+                    Visualizar / Baixar Minuta em PDF Oficial
+                  </button>
+                </div>
+
+                <!-- Controles de Acessibilidade TTS -->
+                <div class="tts-section">
+                  <button id="btn-gerar-tts" class="btn btn-access">
+                    Gerar Áudio Acessível (RF07)
+                  </button>
+                  <div id="tts-audio-container" class="audio-player-wrapper" style="display: none;">
+                    <audio id="tts-audio-player" controls></audio>
+                    <span class="tts-note">Campos “não localizado” recebem aviso sonoro na narração.</span>
+                  </div>
+                </div>
+
+                <!-- Painel de Revisao Humana (Human-in-the-Loop) -->
+                <div class="hitl-box">
+                  <h4>Decisao do Servidor Responsavel (RF13)</h4>
+                  <div class="form-group">
+                    <label for="justificativa-revisao">Justificativa da Decisao (Obrigatoria para registro no log de auditoria):</label>
+                    <input type="text" id="justificativa-revisao" class="form-control" placeholder="Ex: Dados cadastrais conferidos com os registros da ETEC. Aprovado para emissão.">
+                  </div>
+                  <div class="hitl-actions">
+                    <button id="btn-aprovar-minuta" class="btn btn-success">Aprovar Resposta</button>
+                    <button id="btn-corrigir-minuta" class="btn btn-warning">Salvar com Correções</button>
+                    <button id="btn-rejeitar-minuta" class="btn btn-danger">Rejeitar / Solicitar Nova Geração</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -473,6 +487,24 @@
     </div>
   </footer>
 
+  <!-- Tela de Loading Global Institucional GOV.MT -->
+  <div id="gov-loading-overlay" class="gov-loading-overlay" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="gov-loading-card">
+      <div class="gov-loading-spinner-wrapper">
+        <div class="gov-spinner"></div>
+        <div class="gov-spinner-inner"></div>
+      </div>
+      <div class="gov-loading-text-group">
+        <h3 id="gov-loading-title">Processando...</h3>
+        <p id="gov-loading-message">Processando requisição, por favor aguarde.</p>
+      </div>
+      <div class="gov-loading-progress-bar">
+        <div class="gov-loading-progress-indeterminate"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
+

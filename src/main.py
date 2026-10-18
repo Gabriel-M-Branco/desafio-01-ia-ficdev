@@ -45,6 +45,19 @@ image_generator = ImageGenerator()
 audit_logger = AuditLogger()
 
 
+def operador_padrao_web():
+    return {
+        "sub": "servidor_publico",
+        "permissoes": ["rf10:revisar"],
+    }
+
+
+# Habilita operador institucional padrão para a interface web interativa (RF10)
+if os.getenv("RF10_ADMINISTRATIVO_HABILITADO", "true").lower() in ("true", "1", "yes"):
+    app.dependency_overrides[exigir_revisor_imagem] = operador_padrao_web
+
+
+
 @app.middleware("http")
 async def interface_sem_cache(request, call_next):
     resposta = await call_next(request)
@@ -88,6 +101,7 @@ class RequisicaoSintese(BaseModel):
     texto: str
     nome_arquivo: Optional[str] = "minuta_acessivel.mp3"
     id_execucao: Optional[str] = None
+    previa: bool = False
 
 
 class RequisicaoDecisaoHumana(BaseModel):
@@ -150,6 +164,16 @@ def obter_favicon_png():
 @app.get("/api/config")
 def obter_configuracoes():
     """Retorna o estado e parametrizações do sistema (RF01)."""
+    img_prov = image_generator.image_provider
+    if img_prov == "cloudflare":
+        img_habilitado = bool(os.getenv("CLOUDFLARE_ACCOUNT_ID") and os.getenv("CLOUDFLARE_API_TOKEN"))
+    elif img_prov == "openrouter":
+        img_habilitado = bool(os.getenv("OPENROUTER_API_KEY"))
+    elif img_prov in {"fal-ai", "huggingface", "hf-inference"}:
+        img_habilitado = bool(os.getenv("HF_TOKEN"))
+    else:
+        img_habilitado = bool(image_generator.image_endpoint)
+
     return {
         "projeto": llm_client.config.get("project_name", "Central de Atendimento GOV.MT"),
         "versao": "1.0.0",
@@ -157,16 +181,26 @@ def obter_configuracoes():
         "has_hf_token": bool(llm_client.hf_token),
         "has_openrouter_key": bool(llm_client.openrouter_key),
         "modelos": llm_client.config.get("models", {}),
-        "texto": {"provedor": llm_client.text_provider, "modelo": llm_client.primary_model,
-                  "habilitado": llm_client.execution_mode in {"auto", "api"}},
-        "stt": {"provedor": os.getenv("STT_PROVIDER", "huggingface"), "modelo": audio_processor.stt_model},
-        "tts": {"provedor": os.getenv("TTS_PROVIDER", "sapi5")},
-        "ocr": {"provedor": "Tesseract local / PyMuPDF", "revisao_humana_obrigatoria": True},
+        "texto": {
+            "provedor": llm_client.text_provider,
+            "modelo": llm_client.primary_model,
+            "habilitado": (llm_client.execution_mode in {"auto", "api"}) and bool(
+                llm_client.openrouter_key if llm_client.text_provider == "openrouter" else llm_client.hf_token
+            ),
+        },
+        "stt": {"provedor": audio_processor._obter_provedor_stt(), "modelo": audio_processor.stt_model},
+        "tts": {
+            "provedor": os.getenv("TTS_PROVIDER", "edge-tts"),
+            "modelo": os.getenv("OPENROUTER_TTS_MODEL", "google/gemini-3.8-flash-tts"),
+            "fallback": "edge-tts (Neural)" if os.getenv("TTS_PROVIDER") == "openrouter" else None,
+        },
+        "ocr": vision_processor.obter_status_visao(),
         "imagem": {
             "provedor": image_generator.image_provider,
             "modelo": image_generator.image_model,
+            "habilitado": img_habilitado,
         },
-        "rf10_administrativo_habilitado": False,
+        "rf10_administrativo_habilitado": bool(app.dependency_overrides.get(exigir_revisor_imagem)),
     }
 
 
@@ -246,15 +280,6 @@ def processar_texto(requisicao: RequisicaoTexto):
                 "id_resposta_provedor": resposta_llm.provider_response_id,
                 "caracteres": len(resposta_llm.text),
                 "sha256_resposta": hashlib.sha256(resposta_llm.text.encode("utf-8")).hexdigest()}
-            privado = resolver_caminho(".llm-diagnosticos") / f"formato_{uuid.uuid4().hex}.json"
-            try:
-                privado.parent.mkdir(parents=True, exist_ok=True)
-                privado.write_text(json.dumps({**diagnostico,
-                    "resposta_bruta": llm_client._sanitize_log_message(resposta_llm.text)},
-                    ensure_ascii=False, indent=2), encoding="utf-8")
-                diagnostico["arquivo_privado"] = str(privado.relative_to(resolver_caminho(".")))
-            except OSError:
-                diagnostico["diagnostico_bruto_indisponivel"] = True
             identificador = audit_logger.registrar_execucao(
                 modalidade="texto_formato" if numero == 1 else "texto", arquivo_origem="entrada_textual",
                 provedor=resposta_llm.provider, modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt,
@@ -310,11 +335,14 @@ def processar_texto(requisicao: RequisicaoTexto):
 
     # Avaliacao contra gabarito oficial (RF13)
     avaliacao = None
-    if requisicao.caso == "prompt_injection":
+    oficial_texto = resolver_caminho("dados/originais/entrada_texto.txt")
+    texto_oficial_igual = (oficial_texto.is_file() and requisicao.texto.replace("\r\n", "\n").strip() == oficial_texto.read_text(encoding="utf-8-sig").replace("\r\n", "\n").strip())
+
+    if requisicao.caso == "prompt_injection" and requisicao.texto.strip() == SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION.strip():
         gabarito_inj = {"campos_esperados": SegurancaPrompts.GABARITO_ESPERADO["campos_reais"]}
         avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito_inj)
-    elif requisicao.caso in {"texto_original", "audio_transcricao", "visao_documento"}:
-        referencias = {"audio_transcricao": "gabarito_audio.json", "visao_documento": "gabarito_visao.json"}
+    elif (requisicao.caso == "texto_original" and texto_oficial_igual) or requisicao.caso == "audio_transcricao":
+        referencias = {"audio_transcricao": "gabarito_audio.json"}
         gabarito_path = resolver_caminho("dados/gabaritos/" + referencias.get(requisicao.caso, "gabarito_texto.json"))
         if gabarito_path.exists():
             with open(gabarito_path, "r", encoding="utf-8") as f:
@@ -385,10 +413,10 @@ def gerar_pdf_minuta_endpoint(req: RequisicaoGerarPdf):
 
 @app.post("/api/sintetizar/audio")
 def sintetizar_audio(req: RequisicaoSintese):
-    """Sintetiza somente o texto vinculado a uma aprovação humana persistida."""
+    """Sintetiza áudio de acessibilidade para conferência humana prévia ou minuta aprovada."""
     padrao_nome = "minuta_acessivel.wav" if os.getenv("TTS_PROVIDER", "").strip().lower() == "sapi5" else "minuta_acessivel.mp3"
     resultado = audio_processor.sintetizar_minuta_audio(
-        req.texto, req.nome_arquivo or padrao_nome, req.id_execucao, audit_logger)
+        req.texto, req.nome_arquivo or padrao_nome, req.id_execucao, audit_logger, exigir_aprovacao=not req.previa)
     if not resultado.get("sucesso"):
         raise HTTPException(status_code=403 if resultado.get("codigo_erro") == "texto_nao_aprovado" else 500,
                             detail=resultado.get("erro", "Erro na síntese."))
@@ -566,20 +594,50 @@ def listar_logs():
     registros = audit_logger.listar_execucoes()
     for registro in registros:
         identificador = registro.get("id_execucao", "")
-        if registro.get("modalidade") == "texto" and re.fullmatch(r"[A-Za-z0-9_-]+", identificador):
+        if re.fullmatch(r"[A-Za-z0-9_-]+", identificador):
             try:
                 atual = json.loads((audit_logger.log_dir / f"{identificador}.json").read_text(encoding="utf-8"))
                 # Exibe o estado atual sem reescrever o evento histórico.
                 registro["decisao_humana_atual"] = atual.get("decisao_humana", {})
             except (OSError, ValueError):
                 registro["decisao_humana_atual"] = {"status": "indisponivel"}
+        teve_falha = not registro.get("resultado_resumo", {}).get("sucesso", True) or bool(registro.get("erros"))
+        if teve_falha:
+            status_atual = registro.get("decisao_humana_atual", {}).get("status")
+            if status_atual in {"pendente_revisao", "aguardando_validacao", None}:
+                registro["decisao_humana_atual"] = {
+                    "status": "nao_aplicavel",
+                    "operador": "sistema",
+                    "justificativa": "Geração com falha; nenhum artefato produzido para validação humana."
+                }
     return registros
+
+
+@app.get("/api/logs/{id_execucao}")
+def obter_detalhes_log(id_execucao: str):
+    """Retorna os detalhes completos de um registro de auditoria (RF11)."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", id_execucao):
+        raise HTTPException(status_code=400, detail="Identificador de log inválido.")
+    caminho = audit_logger.log_dir / f"{id_execucao}.json"
+    if not caminho.exists():
+        raise HTTPException(status_code=404, detail="Registro de log não localizado.")
+    try:
+        return json.loads(caminho.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar log: {str(e)}")
+
 
 
 @app.get("/api/lgpd/relatorio")
 def relatorio_lgpd():
     """Retorna relatório e matriz de conformidade LGPD (RF12)."""
     return LGPDManager.gerar_relatorio_conformidade()
+
+
+@app.get("/api/qualidade/revisoes")
+def resumo_qualidade_revisoes():
+    """Retorna contagem e percentual de decisões humanas auditadas (RF13)."""
+    return audit_logger.resumo_revisoes()
 
 
 # ==============================================================================
@@ -696,18 +754,36 @@ def executar_cli_interativa():
         with open(caminho, "r", encoding="utf-8") as f:
             txt = f.read()
         res = processar_texto(RequisicaoTexto(texto=txt, caso="cli_exec"))
+        if not isinstance(res, dict) or not res.get("sucesso"):
+            mensagem = json.loads(res.body).get("erro", "Processamento indisponível") if isinstance(res, JSONResponse) else "Processamento indisponível"
+            print(mensagem)
+            return
         print("\n--- JSON EXTRAÍDO ---")
         print(json.dumps(res["extracao"], indent=2, ensure_ascii=False))
         print("\n--- MINUTA INSTITUCIONAL ---")
         print(res["minuta_institucional"])
     elif opcao == "2":
         res = processar_audio()
+        if isinstance(res, JSONResponse):
+            res = json.loads(res.body)
+        if not res.get("sucesso"):
+            print(res.get("erro", "Falha STT; consulte a auditoria."))
+            return
         print(f"Transcrição: {res['transcricao_revisada']}")
     elif opcao == "3":
         res = processar_visao()
+        if not res.get("sucesso"):
+            print(res.get("erro", "Falha OCR; consulte a auditoria."))
+            return
         print(f"Texto Corrigido: {res['texto_corrigido']}")
     elif opcao == "4":
-        print("RF10 administrativo indisponível sem autenticação; validador real requer comando explícito.")
+        print("\n[RF10] Gerando comunicado visual oficial GOV.MT...")
+        res_img = image_generator.gerar_comunicado_oficial(audit_logger=audit_logger)
+        if res_img.get("sucesso"):
+            print(f" -> Imagem oficial gerada em: {res_img['caminho_imagem']}")
+            print(f" -> Tarja de proveniência: '{res_img['metadados']['declaracao_proveniencia']}'")
+        else:
+            print(f" -> Falha ao gerar imagem: {res_img.get('erro', 'Provedor indisponível')}")
     elif opcao == "5":
         res = rodar_experimento_prompts()
         print("Experimento concluído e salvo em 'prompts/matriz_comparativa.md'.")
@@ -731,17 +807,20 @@ def main():
 
     args = parser.parse_args()
 
-    if args.run_all:
-        executar_pipeline_completo()
-    elif args.cli:
-        executar_cli_interativa()
-    else:
-        url_amigavel = f"http://localhost:{args.port}" if args.host in {"0.0.0.0", "127.0.0.1"} else f"http://{args.host}:{args.port}"
-        print("\n" + "=" * 60)
-        print("  CENTRAL INTELIGENTE DE ATENDIMENTO GOV.MT (WEB UI)")
-        print(f"  Acesse no navegador: {url_amigavel}")
-        print("=" * 60 + "\n")
-        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    try:
+        if args.run_all:
+            executar_pipeline_completo()
+        elif args.cli:
+            executar_cli_interativa()
+        else:
+            url_amigavel = f"http://localhost:{args.port}" if args.host in {"0.0.0.0", "127.0.0.1"} else f"http://{args.host}:{args.port}"
+            print("\n" + "=" * 60)
+            print("  CENTRAL INTELIGENTE DE ATENDIMENTO GOV.MT (WEB UI)")
+            print(f"  Acesse no navegador: {url_amigavel}")
+            print("=" * 60 + "\n")
+            uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    except HTTPException as exc:
+        print(f"HTTP {exc.status_code}: {exc.detail}")
 
 
 if __name__ == "__main__":

@@ -43,6 +43,8 @@ class ImageGenerator:
         self.image_provider = os.getenv("IMAGE_PROVIDER") or image_config.get("provider", "fal-ai")
         if self.image_provider == "cloudflare":
             self.image_model = os.getenv("CLOUDFLARE_IMAGE_MODEL") or "@cf/black-forest-labs/flux-1-schnell"
+        elif self.image_provider == "openrouter":
+            self.image_model = os.getenv("OPENROUTER_IMAGE_MODEL") or "google/gemini-3.1-flash-image"
         self.image_endpoint = os.getenv("IMAGE_ENDPOINT") or image_config.get("endpoint")
         if self.image_endpoint and self.image_provider != "cloudflare":
             url = urlsplit(self.image_endpoint)
@@ -162,6 +164,8 @@ class ImageGenerator:
             raise RuntimeError("Geração de imagem desativada no modo mock.")
         if self.image_provider == "cloudflare":
             return self._gerar_cloudflare(prompt_en)
+        if self.image_provider == "openrouter":
+            return self._gerar_openrouter(prompt_en)
         if not token and not self.image_endpoint:
             raise RuntimeError("HF_TOKEN ausente.")
         if not self.image_provider or self.image_provider == "auto":
@@ -183,6 +187,81 @@ class ImageGenerator:
             raise ValueError("Provedor não retornou uma imagem válida.")
         imagem.load()
         return imagem.convert("RGB")
+
+    def _gerar_openrouter(self, prompt: str) -> Image.Image:
+        """Geração de imagem central via modelos de difusão/visão do OpenRouter (ex: google/gemini-2.5-flash-image)."""
+        import requests
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise ImageProviderError("Configure OPENROUTER_API_KEY para geração de imagem.", "credencial_ausente")
+        modelo = os.getenv("OPENROUTER_IMAGE_MODEL") or self.image_model or "google/gemini-2.5-flash-image"
+        payload = {
+            "model": modelo,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        }
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://ficdev.mt.gov.br",
+            "X-Title": "Central GOV.MT - Image Generation",
+        }
+        try:
+            resposta = requests.post(url, headers=headers, json=payload, timeout=self.image_timeout)
+        except requests.exceptions.Timeout as exc:
+            raise ImageProviderError("Timeout ao conectar ao OpenRouter Imagem.", "timeout") from exc
+        except Exception as exc:
+            raise ImageProviderError(f"Falha de conexão com OpenRouter Imagem: {exc}", "indisponibilidade") from exc
+
+        if resposta.status_code != 200:
+            err_msg = ""
+            try:
+                err_msg = resposta.json().get("error", {}).get("message", "")
+            except Exception:
+                pass
+            status = resposta.status_code
+            if status in (401, 403):
+                codigo = "autenticacao"
+            elif status == 429:
+                codigo = "limite_requisicoes"
+            elif status == 402:
+                codigo = "cobranca_ou_creditos"
+            elif status >= 500:
+                codigo = "indisponibilidade"
+            else:
+                codigo = "falha_geracao"
+            raise ImageProviderError(f"OpenRouter Imagem HTTP {status}: {err_msg or 'requisição recusada'}", codigo, resposta)
+
+        data = resposta.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise ImageProviderError("OpenRouter não retornou escolhas de imagem.", "resposta_vazia")
+        msg = choices[0].get("message", {})
+        images = msg.get("images", [])
+        b64_data = None
+        if images and isinstance(images, list):
+            url_img = images[0].get("image_url", {}).get("url", "")
+            if "base64," in url_img:
+                b64_data = url_img.split("base64,", 1)[1]
+            elif url_img.startswith("http"):
+                resp_img = requests.get(url_img, timeout=self.image_timeout)
+                return Image.open(io.BytesIO(resp_img.content)).convert("RGB")
+        if not b64_data:
+            content = msg.get("content", "") or ""
+            match = re.search(r"data:image/[^;]+;base64,([A-Za-z0-9+/=]+)", content)
+            if match:
+                b64_data = match.group(1)
+        if not b64_data:
+            raise ImageProviderError("OpenRouter não retornou dados de imagem válidos.", "resposta_invalida")
+        dados = base64.b64decode(b64_data)
+        img = Image.open(io.BytesIO(dados))
+        img.load()
+        return img.convert("RGB")
 
     def _gerar_cloudflare(self, prompt):
         import requests

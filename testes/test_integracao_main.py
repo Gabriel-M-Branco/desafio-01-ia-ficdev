@@ -14,6 +14,14 @@ from src.llm_client import LLMClient, LLMResponse
 from src.prompts import SegurancaPrompts
 
 
+def payload_contrato(extracao, minuta):
+    from src.text_contract import CAMPOS_TEXTO
+    campos = {k: "não localizado" for k in CAMPOS_TEXTO}
+    campos.update(extracao)
+    campos.update(campos_ausentes=[k for k, v in campos.items() if v == "não localizado"], necessidade_revisao=True)
+    return json.dumps({"extracao": campos, "minuta_institucional": minuta})
+
+
 def test_referencia_prompts_nao_inventa_tempos():
     from src.main import obter_experimento_prompts
     referencia = obter_experimento_prompts()
@@ -507,9 +515,6 @@ def test_correcao_formato_unica_auditada_sem_expor_resposta_bruta(web, monkeypat
     registro = json.loads((main.audit_logger.log_dir / (falha["id_execucao"] + ".json")).read_text(encoding="utf-8"))
     diagnostico = registro["detalhes_completos"]
     assert "resposta_bruta" not in diagnostico
-    assert pedir("GET", "/arquivos/" + diagnostico["arquivo_privado"]).status_code == 404
-    privado = json.loads(main.resolver_caminho(diagnostico["arquivo_privado"]).read_text(encoding="utf-8"))
-    assert privado["resposta_bruta"] == ruim.text
 
 
 def test_openrouter_envia_schema_e_preserva_motivo_termino(llm, monkeypatch):

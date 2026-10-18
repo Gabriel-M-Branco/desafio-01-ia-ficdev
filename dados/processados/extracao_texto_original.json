@@ -17,9 +17,15 @@
   "inicio_curso": "01/02/2027",
   "email": "marcos.almeida.teste@examplo.com",
   "telefone": "não localizado",
-  "assunto": "Efetivação de matrícula e consulta de pendências documentais",
-  "pedido": "Efetivação da matrícula no curso Técnico em Enfermagem e esclarecimento sobre quais documentos ainda precisam ser apresentados.",
+  "assunto": "Efetivação de matrícula e documentação pendente",
+  "pedido": "Solicitação de efetivação de matrícula no curso Técnico em Enfermagem e orientações sobre documentos pendentes a apresentar",
   "categoria": "Matrícula e Ingresso",
-  "confianca": "alta",
-  "necessidade_revisao_humana": true
+  "nivel_confianca": "alta",
+  "campos_ausentes": [
+    "orgao_expedidor",
+    "uf",
+    "nome_pai",
+    "telefone"
+  ],
+  "necessidade_revisao": true
 }

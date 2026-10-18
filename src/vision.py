@@ -10,6 +10,7 @@ import uuid
 import io
 import hashlib
 import subprocess
+import base64
 from pathlib import Path
 from typing import Optional
 
@@ -18,6 +19,42 @@ from PIL import Image, ImageOps
 from src import resolver_caminho, caminho_relativo
 
 AUSENTE = "não localizado"
+
+PROMPT_OCR_VLM = (
+    "Você é um especialista em OCR e visão computacional de documentos governamentais do Estado de Mato Grosso.\n"
+    "Analise com atenção a imagem da Ficha de Matrícula (ETEC/SECITECI) e extraia o texto de TODOS os campos listados a seguir, "
+    "tanto impressos quanto manuscritos.\n"
+    "Você DEVE retornar OBRIGATORIAMENTE todas as 23 linhas abaixo, uma por campo, sem omitir nenhuma linha:\n\n"
+    "CODIGO: <valor ou 'não localizado'>\n"
+    "NOME: <valor ou 'não localizado'>\n"
+    "DATA DE NASCIMENTO: <valor ou 'não localizado'>\n"
+    "CPF: <valor ou 'não localizado'>\n"
+    "RG: <valor ou 'não localizado'>\n"
+    "ORGAO EXPEDIDOR: <valor ou 'não localizado'>\n"
+    "NATURALIDADE: <valor ou 'não localizado'>\n"
+    "UF: <valor ou 'não localizado'>\n"
+    "NOME DA MAE: <valor ou 'não localizado'>\n"
+    "NOME DO PAI: <valor ou 'não localizado'>\n"
+    "CURSO: <valor ou 'não localizado'>\n"
+    "CH: <valor ou 'não localizado'>\n"
+    "EIXO TECNOLOGICO: <valor ou 'não localizado'>\n"
+    "TURMA: <valor ou 'não localizado'>\n"
+    "MUNICIPIO: <valor ou 'não localizado'>\n"
+    "TURNO: <valor ou 'não localizado'>\n"
+    "INICIO DO CURSO: <valor ou 'não localizado'>\n"
+    "TERMINO DO CURSO: <valor ou 'não localizado'>\n"
+    "TEL. CELULAR: <valor ou 'não localizado'>\n"
+    "TELEFONE RESIDENCIAL: <valor ou 'não localizado'>\n"
+    "EMAIL: <valor ou 'não localizado'>\n"
+    "DATA MATRICULA: <valor ou 'não localizado'>\n"
+    "ASSINATURA DO ALUNO: <valor ou 'não localizado'>\n\n"
+    "Regras obrigatórias:\n"
+    "1. Não abrevie nem interrompa a resposta: retorne exatamente as 23 linhas acima.\n"
+    "2. Para qualquer campo em branco, ausente ou ilegível, escreva exatamente: não localizado\n"
+    "3. Se houver assinatura ou rubrica manuscrita no campo de assinatura do aluno/responsável, escreva: Consta assinatura do aluno\n"
+    "4. Transcreva os valores com fidelidade, sem inventar informações ausentes."
+)
+
 def _detectar_tesseract_dir() -> Optional[Path]:
     """
     Localiza o diretório do Tesseract de forma dinâmica e independente de SO.
@@ -136,12 +173,51 @@ class VisionProcessor:
             return TESSERACT_DIR / "tessdata"
         return Path("tessdata")
 
+    @classmethod
+    def _obter_provedor_visao(cls) -> str:
+        """Determina o provedor de OCR/Visão (openrouter ou local)."""
+        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("VISION_PROVIDER"):
+            return "local"
+        provider = os.getenv("VISION_PROVIDER", "").strip().lower()
+        if provider in {"local", "openrouter"}:
+            return provider
+        if os.getenv("OPENROUTER_API_KEY", "").strip():
+            return "openrouter"
+        return "local"
+
     def __init__(self, config_path="config.json"):
         try:
             self.config = json.loads(resolver_caminho(config_path).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             self.config = {}
-        self.vision_model = "Tesseract OCR / PyMuPDF (por)"
+        self.vision_provider = self._obter_provedor_visao()
+        self.vision_model_openrouter = (
+            os.getenv("OPENROUTER_VISION_MODEL")
+            or os.getenv("VISION_MODEL")
+            or self.config.get("models", {}).get("vision")
+            or "google/gemini-2.0-flash"
+        )
+        if self.vision_provider == "openrouter":
+            self.vision_model = self.vision_model_openrouter
+        else:
+            self.vision_model = "Tesseract OCR / PyMuPDF (por)"
+
+    def obter_status_visao(self) -> dict:
+        """Retorna as informações do provedor de visão para a API e Web UI."""
+        provedor = self._obter_provedor_visao()
+        if provedor == "openrouter":
+            return {
+                "provedor": "openrouter",
+                "modelo": self.vision_model_openrouter,
+                "fallback": "Tesseract local / PyMuPDF",
+                "revisao_humana_obrigatoria": True,
+            }
+        return {
+            "provedor": "local",
+            "modelo": "Tesseract OCR / PyMuPDF (por)",
+            "fallback": None,
+            "revisao_humana_obrigatoria": True,
+        }
 
     @staticmethod
     def _normalizar(texto):
@@ -230,24 +306,127 @@ class VisionProcessor:
             versao["texto_bruto"] = "\n".join(v.get("texto_bruto", "") for v in versao["regioes"].values())
         return versoes
 
-    def processar_documento(self, caminho_arquivo):
-        inicio = time.perf_counter()
-        path = resolver_caminho(caminho_arquivo)
-        base = {"arquivo_analisado": path.name, "modelo_utilizado": self.vision_model,
-                "provedor": "Tesseract local / PyMuPDF", "exige_confirmacao_humana": True}
+    def _processar_openrouter(self, path: Path, inicio: float, base: dict, hash_original: str) -> dict:
+        """Executa OCR / Leitura multimodal com VLM do OpenRouter (ex: google/gemini-2.0-flash)."""
+        import requests
+        api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY não configurada para visão.")
+        if os.getenv("EXECUTION_MODE", "auto").lower() == "mock":
+            raise ValueError("Modo mock ativo; chamadas remotas de visão desabilitadas.")
+
+        imagens_b64 = []
+        if path.suffix.lower() == ".pdf":
+            with pymupdf.open(str(path)) as doc:
+                if doc.needs_pass or not 0 < len(doc) <= 50:
+                    raise ValueError("Documento protegido, vazio ou com páginas demais.")
+                for pagina in doc:
+                    pix = pagina.get_pixmap(dpi=200)
+                    png_bytes = pix.tobytes("png")
+                    imagens_b64.append(base64.b64encode(png_bytes).decode("utf-8"))
+        else:
+            imagens_b64.append(base64.b64encode(path.read_bytes()).decode("utf-8"))
+
+        if not imagens_b64:
+            raise ValueError("Nenhuma imagem gerada para envio ao VLM.")
+
+        content = [{"type": "text", "text": PROMPT_OCR_VLM}]
+        for b64 in imagens_b64:
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"}
+            })
+
+        modelo_vlm = self.vision_model_openrouter
+        payload = {
+            "model": modelo_vlm,
+            "messages": [{"role": "user", "content": content}],
+            "temperature": 0.0,
+            "max_tokens": 2000,
+        }
+
+        timeout = self.config.get("generation_params", {}).get("timeout_seconds", 60)
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://ficdev.mt.gov.br",
+                "X-Title": "Central GOV.MT - OCR Vision",
+            },
+            json=payload,
+            timeout=timeout,
+        )
+
+        if resp.status_code != 200:
+            err_msg = ""
+            try:
+                err_msg = resp.json().get("error", {}).get("message", "")
+            except Exception:
+                pass
+            raise RuntimeError(f"OpenRouter VLM retornou status {resp.status_code}: {err_msg}")
+
+        data = resp.json()
+        texto_vlm = data["choices"][0]["message"]["content"]
+        if not texto_vlm or not texto_vlm.strip():
+            raise RuntimeError("OpenRouter VLM retornou resposta vazia.")
+
+        corrigido = "\n".join(re.sub(r"[ \t]+", " ", linha).strip() for linha in texto_vlm.splitlines())
+        campos = self._extrair_campos(corrigido)
+        if campos.get("assinatura_aluno") == AUSENTE and re.search(r"assinatura.*aluno.*consta\s+assinatura", texto_vlm, re.IGNORECASE):
+            campos["assinatura_aluno"] = "Consta assinatura do aluno"
+        comparacao = self.comparar_com_gabarito(campos)
+
+        versoes = {
+            "openrouter_vlm": {
+                "texto_bruto": texto_vlm,
+                "campos_extraidos": campos,
+                "comparacao_gabarito": comparacao,
+                "erros": [],
+            }
+        }
+
+        incertos = [
+            "Todos os campos críticos exigem conferência humana; OCR não valida assinaturas ou autenticidade cartorial."
+        ]
+        incertos += [f"Campo '{c}': ausente, ilegível ou pendente no documento."
+                     for c, v in campos.items() if v == AUSENTE]
+
+        return {
+            "arquivo_analisado": path.name,
+            "modelo_utilizado": modelo_vlm,
+            "provedor": f"OpenRouter ({modelo_vlm})",
+            "exige_confirmacao_humana": True,
+            "sucesso": True,
+            "texto_bruto": texto_vlm,
+            "texto_corrigido": corrigido,
+            "campos_extraidos": campos,
+            "paginas_processadas": len(imagens_b64),
+            "origem_campos": "openrouter_vlm",
+            "perfil_regional": "vlm_direto",
+            "erros_regioes": [],
+            "versoes_ocr": versoes,
+            "divergencias_entre_estrategias": [],
+            "estrategias_por_pagina": ["openrouter_vlm"] * len(imagens_b64),
+            "politica_selecao": "Visão multimodal de alta acurácia (VLM OpenRouter); conferência humana obrigatória.",
+            "parametros_ocr": {"provedor": "openrouter", "modelo": modelo_vlm, "temperatura": 0.0},
+            "sha256_original": hash_original,
+            "trechos_incertos_ou_ilegiveis": incertos,
+            "comparacao_gabarito": comparacao,
+            "justificativa_soberania_privacidade": "Processamento via modelo multimodal com revisão e deliberação humana prévia.",
+            "tempo_processamento_segundos": time.perf_counter() - inicio,
+        }
+
+    def _processar_tesseract_local(self, path: Path, inicio: float, base: dict, hash_original: str) -> dict:
+        """Executa OCR soberano local via Tesseract e PyMuPDF (RF08)."""
         def falha(codigo, mensagem):
             return {**base, "sucesso": False, "codigo_erro": codigo, "erro": mensagem,
                     "tempo_processamento_segundos": time.perf_counter() - inicio}
         try:
-            if (not path.is_file() or path.suffix.lower() not in
-                    {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
-                    or not 0 < path.stat().st_size <= 50 * 1024 * 1024):
-                return falha("arquivo_invalido", "Documento ausente, vazio, muito grande ou formato inválido.")
             tessdata = self.obter_tessdata_dir()
             if not self.obter_executavel_tesseract().is_file() or not (tessdata / "por.traineddata").is_file():
                 return falha("ocr_indisponivel", "Tesseract e idioma português não localizados no diretório configurado.")
             paginas = []
-            hash_original = hashlib.sha256(path.read_bytes()).hexdigest()
             regionais = {}
             erros_regioes = []
             variantes = {nome: {"paginas": [], "erros": []} for nome in ("pymupdf", "psm11")}
@@ -335,6 +514,37 @@ class VisionProcessor:
                 "comparacao_gabarito": self.comparar_com_gabarito(campos),
                 "justificativa_soberania_privacidade": "OCR local evita envio do documento a terceiros e favorece soberania e privacidade.",
                 "tempo_processamento_segundos": time.perf_counter() - inicio}
+
+    def processar_documento(self, caminho_arquivo):
+        inicio = time.perf_counter()
+        path = resolver_caminho(caminho_arquivo)
+        base = {"arquivo_analisado": path.name, "modelo_utilizado": self.vision_model,
+                "provedor": "Tesseract local / PyMuPDF", "exige_confirmacao_humana": True}
+        def falha(codigo, mensagem):
+            return {**base, "sucesso": False, "codigo_erro": codigo, "erro": mensagem,
+                    "tempo_processamento_segundos": time.perf_counter() - inicio}
+
+        if (not path.is_file() or path.suffix.lower() not in
+                {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+                or not 0 < path.stat().st_size <= 50 * 1024 * 1024):
+            return falha("arquivo_invalido", "Documento ausente, vazio, muito grande ou formato inválido.")
+
+        hash_original = hashlib.sha256(path.read_bytes()).hexdigest()
+        provedor = self._obter_provedor_visao()
+
+        # 1. Tenta primeiro OpenRouter VLM se configurado
+        if provedor == "openrouter":
+            try:
+                return self._processar_openrouter(path, inicio, base, hash_original)
+            except Exception as exc:
+                print(f"[RF08] OpenRouter VLM indisponível ({exc}). Acionando fallback para Tesseract local...", flush=True)
+
+        # 2. Execução Soberana Local (Fallback do Tesseract)
+        resultado_local = self._processar_tesseract_local(path, inicio, base, hash_original)
+        if provedor == "openrouter" and resultado_local.get("sucesso"):
+            resultado_local["aviso_fallback"] = "OpenRouter VLM indisponível; OCR executado via Tesseract local como fallback."
+        return resultado_local
+
 
     def comparar_com_gabarito(self, texto_extraido):
         campos = texto_extraido if isinstance(texto_extraido, dict) else self._extrair_campos(texto_extraido)

@@ -37,6 +37,8 @@ Responda exclusivamente com um objeto JSON na seguinte estrutura:
     "solicitante": "string ou 'não localizado'",
     "cpf": "string ou 'não localizado'",
     "rg": "string ou 'não localizado'",
+    "orgao_expedidor": "string ou 'não localizado'",
+    "uf": "string ou 'não localizado'",
     "data_nascimento": "string ou 'não localizado'",
     "naturalidade": "string ou 'não localizado'",
     "nome_mae": "string ou 'não localizado'",
@@ -52,7 +54,7 @@ Responda exclusivamente com um objeto JSON na seguinte estrutura:
     "pedido": "string detalhando o que foi pedido",
     "categoria": "Matrícula e Ingresso | Documentação e Certidões | Assistência Estudantil | Cursos e Horários | Outros / Informações Gerais"
   }},
-  "minuta_institucional": "Texto oficial e completo da minuta padrão GOV.MT, estruturado com cabeçalho (SECITECI/MT - Escola Técnica Estadual de Cuiabá), vocativo, acolhimento do pedido informando apenas Nome, Protocolo e Curso (sem expor RG, e-mail, filiação ou CPF desmascarado, conforme a LGPD), e uma seção 'DOCUMENTOS E CAMPOS PENDENTES' relacionando os campos não localizados comprovados na fonte e orientando sobre a complementação de dados, sem inventar exigências inexistentes, com encerramento formal."
+  "minuta_institucional": "Texto oficial e completo da minuta padrão GOV.MT, estruturado com cabeçalho (SECITECI/MT - Escola Técnica Estadual de Cuiabá), vocativo, acolhimento do pedido informando apenas Nome, Protocolo e Curso (sem expor RG, e-mail, filiação ou CPF desmascarado, conforme a LGPD), e uma seção temática com itens em lista ('ORIENTAÇÕES AO CANDIDATO' para informações de vestibular/processo seletivo, ou 'DOCUMENTOS E DADOS PENDENTES' orientando o requerente de forma prática e formal sobre quais dados e documentos faltantes devem ser apresentados para sanar as pendências cadastrais da matrícula), com encerramento formal."
 }}
 
 # CRITÉRIOS DE SUCESSO
@@ -60,7 +62,7 @@ Responda exclusivamente com um objeto JSON na seguinte estrutura:
 - Caso qualquer dado não conste no texto, utilize estritamente 'não localizado'.
 - Conformidade LGPD: não exponha RG, nome da mãe/pai, e-mail ou CPF aberto no texto da minuta.
 - Tom formal, respeitoso e acolhedor compatível com a administração pública de Mato Grosso.
-- Respondendo expressamente à pergunta do cidadão sobre documentos faltantes.
+- Respondendo expressamente à dúvida ou demanda do cidadão.
 
 # CONTEÚDO FORNECIDO:
 {conteudo}
@@ -77,7 +79,7 @@ Requisitos obrigatórios do prompt a ser gerado:
 2. VEDAÇÃO ABSOLUTA DE ALUCINAÇÃO: Não invente normas, dados, protocolos ou datas. Nunca criar regras ausentes da fonte.
 3. REGRA DO "NÃO LOCALIZADO": Exigir que qualquer campo ausente, omisso ou não comprovado receba compulsoriamente o valor literal 'não localizado'.
 4. FORMATO ESTRUTURADO JSON: Exigir resposta em JSON válido contendo 'extracao' detalhada, lista de 'campos_ausentes', 'nivel_confianca', 'necessidade_revisao' e a 'minuta_institucional'.
-5. MINUTA OFICIAL PADRÃO GOV.MT COM CONFORMIDADE LGPD: Redação impessoal, formal, com cabeçalho de Estado, vocativo respeitoso e comunicação formal de pendências documentais para validação por servidor público (Human-in-the-Loop), suprimindo dados sensíveis dispensáveis (sem RG, e-mail ou filiação na minuta pública).
+5. MINUTA OFICIAL PADRÃO GOV.MT COM CONFORMIDADE LGPD: Redação impessoal, formal, com cabeçalho de Estado, vocativo respeitoso e comunicação formal de pendências documentais ou orientações de processo seletivo para validação por servidor público (Human-in-the-Loop), suprimindo dados sensíveis dispensáveis (sem RG, e-mail ou filiação na minuta pública).
 
 Gere o template de prompt definitivo."""
 
@@ -94,9 +96,20 @@ REGRAS DE CONFORMIDADE E PRECISÃO:
 1. DELIMITAÇÃO ESTREITA: Extraia apenas informações textualmente comprováveis no documento.
 2. REGRA DO "NÃO LOCALIZADO": Se um campo obrigatório estiver ausente, omisso ou ilegível, o preenchimento OBRIGATÓRIO do valor deve ser exatamente a expressão: "não localizado".
 3. VEDAÇÃO ABSOLUTA DE ALUCINAÇÃO: Não invente decretos, portarias, números de protocolo fictícios ou datas inexistentes. Nunca criar regras ou documentos obrigatórios ausentes da fonte.
-4. RESPOSTA DIRETA AO CIDADÃO SOBRE PENDÊNCIAS: Distinguir dados ausentes de exigências documentais comprovadas na fonte. Se não houver lista oficial na fonte, informar "não localizado" e solicitar conferência humana.
+4. RESPOSTA INSTITUCIONAL PROATIVA E TEMÁTICA: O texto da 'minuta_institucional' deve estar pronto para validação e despacho direto pelo servidor público:
+   - Se a solicitação for sobre vestibular, processo seletivo, edital de ingresso ou início de turmas: instrua o cidadão de forma clara e objetiva sobre o ingresso na Rede de Educação Profissional e Tecnológica (SECITECI/GOV.MT), orientando a acompanhar a publicação de editais e cronogramas oficiais no portal da SECITECI e Diário Oficial de Mato Grosso (DOE-MT), e esclarecendo que os documentos comprobatórios de escolaridade e identificação só serão exigidos na fase de matrícula dos candidatos classificados e convocados;
+   - Se a solicitação for sobre efetivação de matrícula ou cadastro acadêmico com pendências: na seção 'DOCUMENTOS E DADOS PENDENTES', instrua objetivamente sobre quais documentos faltantes ele precisa apresentar para regularizar a matrícula (cópia de documento de identificação com Órgão Expedidor e UF, telefone atualizado, filiação e documentação regulamentar de conclusão);
+   Evite jargões de erro de sistema como 'não localizado nesta Secretaria' ou frases artificiais que exijam retrabalho do servidor.
 5. MINIMIZAÇÃO E PRIVACIDADE (LGPD): No texto da minuta institucional, identifique o requerente exclusivamente pelo Nome Completo e Número de Protocolo (se fizer referência ao CPF, use estritamente a forma mascarada '***.XXX.XXX-**'). É EXPRESSAMENTE PROIBIDO incluir número de RG, nome de mãe/pai ou endereço de e-mail no corpo da minuta institucional oficial (Art. 6º, III da Lei 13.709/2018).
-6. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
+6. ESTRUTURAÇÃO VISUAL EM PARÁGRAFOS DISTINTOS: A 'minuta_institucional' NÃO DEVE ser um bloco contínuo de texto. Ela DEVE ser formatada obrigatoriamente com quebras de linha duplas (\\n\\n) entre parágrafos e itens em linhas separadas com hífen (-), exatamente nesta ordem:
+   - Parágrafo 1 (Vocativo formal e Protocolo);
+   - Parágrafo 2 (Acolhimento da manifestação informando Nome Completo, Protocolo e Curso pretendido);
+   - Parágrafo 3 (Seção temática estruturada com itens em lista com hífen '-'):
+     * Para vestibular/processo seletivo: 'ORIENTAÇÕES AO CANDIDATO:' orientando sobre edital, canais oficiais e documentação futura;
+     * Para matrícula com pendências: 'DOCUMENTOS E DADOS PENDENTES:' listando os documentos cadastrais pendentes a apresentar;
+   - Parágrafo 4 (Orientações de acompanhamento institucional nos canais oficiais do GOV.MT ou advertência sobre regras de frequência se aplicável);
+   - Parágrafo 5 (Fechamento formal e assinatura: 'Atenciosamente,\\nCoordenação de Atendimento e Registros Escolares').
+7. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
 
 ESTRUTURA DE DADOS EXIGIDA:
 {{
@@ -106,6 +119,8 @@ ESTRUTURA DE DADOS EXIGIDA:
     "solicitante": "string ou 'não localizado'",
     "cpf": "string ou 'não localizado'",
     "rg": "string ou 'não localizado'",
+    "orgao_expedidor": "string ou 'não localizado'",
+    "uf": "string ou 'não localizado'",
     "data_nascimento": "string ou 'não localizado'",
     "naturalidade": "string ou 'não localizado'",
     "nome_mae": "string ou 'não localizado'",
@@ -124,7 +139,7 @@ ESTRUTURA DE DADOS EXIGIDA:
     "nivel_confianca": "alta | media | baixa",
     "necessidade_revisao": true
   }},
-  "minuta_institucional": "Texto formal e objetivo de resposta oficial da Secretaria de Registro Escolar da Escola Técnica Estadual de Cuiabá / SECITECI-MT ao cidadão requerente. Não repita cabeçalhos do Estado ou timbrados oficiais (eles são inseridos pelo template). Deve conter: 1) Vocativo respeitoso ao solicitante; 2) Acolhimento do pedido informando apenas o Nome Completo, Protocolo, Curso e Turno pretendidos, aplicando as regras de LGPD (NUNCA expor RG, filiação, e-mail ou CPF aberto no corpo do texto); 3) Resposta explícita ao pedido com a SEÇÃO 'DOCUMENTOS E DADOS PENDENTES' contendo a relação clara dos campos ausentes ('não localizado') e orientando sobre a apresentação de documentos regulamentares; 4) Advertência de frequência escolar obrigatória; 5) Despedida e assinatura simples ('Atenciosamente, Coordenação de Atendimento e Registros Escolares'). Use hífen simples (-) e evite travessão longo (—)."
+  "minuta_institucional": "Texto oficial e objetivo de resposta da Secretaria de Registro Escolar da Escola Técnica Estadual de Cuiabá / SECITECI-MT ao cidadão requerente. Formate OBRIGATORIAMENTE em parágrafos separados com quebras de linha duplas (\\n\\n) e itens com hífen (-), NUNCA em bloco contínuo de texto. Estrutura necessária: 1) Vocativo formal e Protocolo; 2) Acolhimento do pedido informando Nome Completo, Protocolo e Curso pretendido (sem expor RG, filiação, e-mail ou CPF aberto, conforme LGPD); 3) Seção temática com itens em lista com hífen (-) respondendo estritamente à demanda: se for dúvida de vestibular/processo seletivo, utilize a seção 'ORIENTAÇÕES AO CANDIDATO:' com orientações sobre edital oficial, inscrições no portal da SECITECI e esclarecendo que documentos só serão exigidos na matrícula após classificação; se for efetivação de matrícula com dados pendentes, utilize a seção 'DOCUMENTOS E DADOS PENDENTES:' listando os documentos faltantes; 4) Orientações institucionais de acompanhamento oficial ou regras regimentais de frequência; 5) Despedida e assinatura institucional ('Atenciosamente,\\nCoordenação de Atendimento e Registros Escolares')."
 }}
 
 DADOS DE ENTRADA DO USUÁRIO (NÃO CONFIÁVEL):

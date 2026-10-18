@@ -1,40 +1,51 @@
-## Informações extraídas
-
-- **Protocolo:** 2026-000142 | **Canal:** E-mail | **Data:** 14/10/2026
-- **Solicitante:** Marcos Vinícius de Almeida Santos (nasc. 12/08/2008, Cuiabá-MT)
-- **Documentos:** CPF 123.456.789-00; RG 1234567-8
-- **Mãe:** Lúcia Helena de Almeida Santos
-- **E-mail:** marcos.almeida.teste@examplo.com
-- **Solicitação:** efetivação de matrícula no curso Técnico em Enfermagem (eixo tecnológico Saúde, 1200 h, turno noturno), início em 01/02/2027
-- **Pedido:** relação de documentos pendentes
+Abaixo apresento a extração dos dados contidos na solicitação e, em seguida, a minuta de resposta oficial da Secretaria.
 
 ---
 
-## Minuta de resposta oficial
+### 1. Extração de Informações
 
-**[Órgão/Secretaria]**
-**Resposta ao Protocolo nº 2026-000142**
+* **Protocolo:** 2026-000142
+* **Data da Solicitação/Matrícula:** 14/10/2026
+* **Canal:** E-mail
+* **Nome do Requerente:** Marcos Vinícius de Almeida Santos
+* **Data de Nascimento:** 12/08/2008 (Naturalidade: Cuiabá)
+* **Filiação:** Lúcia Helena de Almeida Santos
+* **Documentos:** CPF: 123.456.789-00 | RG: 1234567-8
+* **E-mail de Contato:** marcos.almeida.teste@examplo.com
+* **Curso Solicitado:** Técnico em Enfermagem
+* **Eixo Tecnológico:** Saúde
+* **Carga Horária:** 1.200 horas
+* **Turno:** Noturno
+* **Início das Aulas:** 01/02/2027
+* **Declaração de Ciência:** Ciente da regra de cancelamento automático da matrícula em caso de ausência injustificada nos primeiros dias (2 dias consecutivos ou 3 intercalados nos primeiros 10 dias).
+* **Demanda:** Confirmação da matrícula e relação de documentos pendentes a apresentar.
 
-Cuiabá, 14 de outubro de 2026.
+---
 
-**Ao Senhor**
-Marcos Vinícius de Almeida Santos
+### 2. Resposta Oficial da Secretaria
 
-**Assunto:** Requerimento de efetivação de matrícula — Curso Técnico em Enfermagem
+**Assunto:** Resposta ao Protocolo nº 2026-000142 – Solicitação de Efetivação de Matrícula  
+**Para:** marcos.almeida.teste@examplo.com  
 
-Prezado Senhor,
+Prezado Marcos Vinícius de Almeida Santos,
 
-1. Recebemos seu requerimento, protocolado sob nº 2026-000142, solicitando a efetivação da matrícula no curso **Técnico em Enfermagem**, eixo tecnológico Saúde, carga horária de 1200 horas, turno noturno, com início em 01/02/2027. Seus dados cadastrais foram registrados no sistema desta Secretaria.
+Acusamos o recebimento de sua solicitação referente ao **Protocolo nº 2026-000142**, registrada em 14 de outubro de 2026, para o curso **Técnico em Enfermagem** (Eixo Tecnológico: Saúde, Carga Horária: 1.200h, Turno: Noturno), com previsão de início para **01/02/2027**.
 
-2. Quanto aos documentos necessários, informamos que, em regra, são exigidos para efetivação:
-   - RG e CPF (original e cópia);
-   - Certidão de nascimento;
-   - Histórico escolar ou declaração de conclusão do ensino médio;
-   - Comprovante de residência atualizado;
-   - Uma foto 3x4 recente;
-   - Título de eleitor e comprovante de quitação com a Justiça Eleitoral;
-   - Comprovante de alistamento militar, quando aplicável.
+Confirmamos o recebimento dos seus dados cadastrais e registramos sua ciência formal quanto às normas de frequência no início do período letivo (cancelamento automático em caso de falta sem justificativa nos dois primeiros dias consecutivos ou em três dias nos primeiros dez dias de aula).
 
-   A relação definitiva de documentos pendentes será encaminhada ao seu e-mail, conforme análise do setor competente. Ressaltamos que, tendo o senhor completado 18 anos em 12/08/2026, não é necessária a representação por responsável legal.
+Em atenção ao seu questionamento sobre a documentação necessária para a efetivação definitiva da matrícula, solicitamos o envio (ou apresentação na Secretaria Acadêmica) dos seguintes documentos originais acompanhados de cópia simples:
 
-3. Registramos sua declaração de ciência quanto ao cancelamento automático da matrícula em caso de falta, sem justificativa comprovada, nos dois primeiros dias de aula con
+1. **Documento de Identidade (RG)** e **CPF**;
+2. **Certidão de Nascimento** ou Casamento;
+3. **Histórico Escolar e Certificado de Conclusão do Ensino Médio** (ou declaração original de matrícula no último ano do Ensino Médio, conforme o edital);
+4. **Comprovante de residência atualizado** (com CEP, emitido nos últimos 90 dias);
+5. **Título de Eleitor** e comprovante de quitação eleitoral (para maiores de 18 anos);
+6. **Certificado de Alistamento Militar / Quitação com o Serviço Militar** (para requerentes do sexo masculino maiores de 18 anos);
+7. **1 (uma) foto 3x4 recente**.
+
+O prazo para a entrega da documentação e validação da matrícula encerra-se no prazo regulamentar do calendário acadêmico. Em caso de dúvidas, favor responder a este e-mail mantendo o histórico da conversa e o número de protocolo.
+
+Atenciosamente,
+
+**Secretaria Acadêmica**  
+*Setor de Atendimento ao Aluno*

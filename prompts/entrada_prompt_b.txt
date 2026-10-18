@@ -18,6 +18,8 @@ Responda exclusivamente com um objeto JSON na seguinte estrutura:
     "solicitante": "string ou 'não localizado'",
     "cpf": "string ou 'não localizado'",
     "rg": "string ou 'não localizado'",
+    "orgao_expedidor": "string ou 'não localizado'",
+    "uf": "string ou 'não localizado'",
     "data_nascimento": "string ou 'não localizado'",
     "naturalidade": "string ou 'não localizado'",
     "nome_mae": "string ou 'não localizado'",

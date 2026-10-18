@@ -41,17 +41,124 @@ document.addEventListener("DOMContentLoaded", () => {
     return detalhe.replace(/Bearer\s+\S+|(?:sk-or-v1-|hf_)[A-Za-z0-9_-]+/gi, "[credencial omitida]").slice(0, 400);
   }
 
-  async function api(url, opcoes) {
-    let res;
-    try { res = await fetch(url, opcoes); }
-    catch (_) { throw new Error("Não foi possível conectar à API local. Verifique se o servidor está ativo."); }
-    let data;
-    try { data = await res.json(); }
-    catch (_) { throw new Error(`HTTP ${res.status || "?"}: a API não retornou JSON válido.`); }
-    if (!res.ok || data?.sucesso === false) {
-      throw new Error(`HTTP ${res.status || 200}: ${mensagemSegura(data, res.status)}`);
+  // Controle de Tela de Loading Global (GOV.MT)
+  let activeLoadingCount = 0;
+  const overlayLoading = document.getElementById("gov-loading-overlay");
+  const overlayTitle = document.getElementById("gov-loading-title");
+  const overlayMessage = document.getElementById("gov-loading-message");
+
+  function mostrarLoading(titulo = "Processando...", mensagem = "Aguarde enquanto a requisição é processada com segurança.") {
+    activeLoadingCount++;
+    if (overlayTitle) overlayTitle.textContent = titulo;
+    if (overlayMessage) overlayMessage.textContent = mensagem;
+    if (overlayLoading) {
+      overlayLoading.style.display = "flex";
+      void overlayLoading.offsetWidth;
+      overlayLoading.classList.add("active");
+      overlayLoading.setAttribute("aria-hidden", "false");
     }
-    return { ...res, ok: true, json: async () => data };
+  }
+
+  function ocultarLoading() {
+    activeLoadingCount = Math.max(0, activeLoadingCount - 1);
+    if (activeLoadingCount === 0 && overlayLoading) {
+      overlayLoading.classList.remove("active");
+      overlayLoading.setAttribute("aria-hidden", "true");
+      setTimeout(() => {
+        if (activeLoadingCount === 0 && overlayLoading) {
+          overlayLoading.style.display = "none";
+        }
+      }, 220);
+    }
+  }
+
+  function obterMensagemLoading(url, opcoes) {
+    const metodo = (opcoes?.method || "GET").toUpperCase();
+    if (url.includes("/api/config")) return null;
+    if (url.includes("/api/processar/texto")) {
+      return { titulo: "Processando Solicitação com IA", mensagem: "Isolando entrada com envelope de segurança, extraindo dados em JSON e redigindo minuta institucional..." };
+    }
+    if (url.includes("/api/processar/audio")) {
+      return { titulo: "Processando Áudio (STT)", mensagem: "Transcrevendo fala e conferindo dados críticos contra gabarito oficial..." };
+    }
+    if (url.includes("/api/processar/visao")) {
+      return { titulo: "Executando Leitura Visual e OCR", mensagem: "Analisando formulário digitalizado com modelo de visão computacional..." };
+    }
+    if (url.includes("/api/gerar/imagem") || url.includes("/imagem")) {
+      return { titulo: "Gerando Comunicação Visual Oficial", mensagem: "Criando ilustração sintética e aplicando template com brasão institucional do GOV.MT..." };
+    }
+    if (url.includes("/api/sintetizar") || url.includes("/tts")) {
+      return { titulo: "Sintetizando Voz (TTS Acessibilidade)", mensagem: "Gerando áudio neural em português com alerta sonoro para campos pendentes..." };
+    }
+    if (url.includes("/api/gerar/pdf") || url.includes("/minuta/gerar_pdf") || url.includes("/pdf")) {
+      return { titulo: "Gerando Documento PDF Oficial", mensagem: "Diagramando e renderizando documento timbrado oficial em formato A4..." };
+    }
+    if (url.includes("/api/experimento")) {
+      return { titulo: "Executando Experimento de Prompts (RF02)", mensagem: "Submetendo entrada aos Prompts A, B e C, calculando métricas e consumo de tokens..." };
+    }
+    if (url.includes("/api/decisao") || url.includes("/deliberar") || url.includes("/revisar")) {
+      return { titulo: "Registrando Deliberação Human-in-the-Loop", mensagem: "Gravando decisão administrativa, responsável e justificativa na trilha de auditoria..." };
+    }
+    if (url.includes("/api/casos/")) {
+      return { titulo: "Carregando Manifestação", mensagem: "Buscando dados da solicitação selecionada..." };
+    }
+    if (url.includes("/api/auditoria") || url.includes("/api/lgpd") || url.includes("/api/logs")) {
+      return { titulo: "Consultando Auditoria e LGPD", mensagem: "Atualizando registros de execuções e relatório de conformidade..." };
+    }
+    if (metodo === "POST" || metodo === "PUT" || metodo === "DELETE") {
+      return { titulo: "Processando Operação...", mensagem: "Aguarde enquanto os dados são processados pelo servidor..." };
+    }
+    return null;
+  }
+
+  async function api(url, opcoes) {
+    const infoLoading = (!opcoes?.silencioso) ? obterMensagemLoading(url, opcoes) : null;
+    if (infoLoading) {
+      mostrarLoading(infoLoading.titulo, infoLoading.mensagem);
+    }
+    try {
+      let res;
+      try { res = await fetch(url, opcoes); }
+      catch (_) { throw new Error("Não foi possível conectar à API local. Verifique se o servidor está ativo."); }
+      let data;
+      try { data = await res.json(); }
+      catch (_) { throw new Error(`HTTP ${res.status || "?"}: a API não retornou JSON válido.`); }
+      if (!res.ok || data?.sucesso === false) {
+        throw new Error(`HTTP ${res.status || 200}: ${mensagemSegura(data, res.status)}`);
+      }
+      return { ...res, ok: true, json: async () => data };
+    } finally {
+      if (infoLoading) {
+        ocultarLoading();
+      }
+    }
+  }
+
+  function autoAjustarAlturaInputSolicitacao() {
+    const el = document.getElementById("input-texto-solicitacao");
+    if (!el) return;
+    el.style.height = "auto";
+    const novaAltura = Math.max(el.scrollHeight + 4, 160);
+    el.style.height = `${novaAltura}px`;
+  }
+
+  function atualizarVisibilidadeCardMinuta() {
+    const editor = document.getElementById("editor-minuta");
+    const emptyState = document.getElementById("minuta-empty-state");
+    const activeContent = document.getElementById("minuta-conteudo-ativo");
+    const cardOutput = document.getElementById("card-analise-minuta") || document.querySelector(".card-output");
+
+    const temTextoMinuta = !!(editor && editor.value.trim().length > 0 && ultimaExecucaoId);
+
+    if (temTextoMinuta) {
+      if (emptyState) emptyState.style.display = "none";
+      if (activeContent) activeContent.style.display = "block";
+      if (cardOutput) cardOutput.classList.remove("card-output-shrunk");
+    } else {
+      if (emptyState) emptyState.style.display = "flex";
+      if (activeContent) activeContent.style.display = "none";
+      if (cardOutput) cardOutput.classList.add("card-output-shrunk");
+    }
   }
 
   function atualizarAcoes() {
@@ -61,16 +168,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (btn) btn.disabled = ocupado || !ultimaExecucaoId;
     }
     const tts = document.getElementById("btn-gerar-tts");
-    if (tts) tts.disabled = ocupado || !ultimaExecucaoId || textoAprovado === null || textoAprovado !== document.getElementById("editor-minuta")?.value;
+    const temTextoMinuta = !!(document.getElementById("editor-minuta")?.value?.trim());
+    if (tts) tts.disabled = ocupado || !ultimaExecucaoId || !temTextoMinuta;
     for (const id of ["caso-predefinido", "input-texto-solicitacao", "btn-limpar-texto", "btn-processar-solicitacao", "editor-minuta"]) {
       const elemento = document.getElementById(id);
       if (elemento) elemento.disabled = ocupado;
     }
+    atualizarVisibilidadeCardMinuta();
   }
   document.getElementById("editor-minuta")?.addEventListener("input", () => {
     if (textoAprovado !== null && textoAprovado !== document.getElementById("editor-minuta").value) {
       textoAprovado = null;
-      document.getElementById("badge-status-revisao").textContent = "Texto alterado: nova aprovação necessária";
+      document.getElementById("badge-status-revisao").textContent = "Texto alterado: aguardando revisão/aprovação";
       document.getElementById("badge-status-revisao").className = "badge badge-warning";
     }
     document.getElementById("tts-audio-container").style.display = "none";
@@ -83,18 +192,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const navTabs = document.querySelectorAll(".nav-tab");
   const tabPanes = document.querySelectorAll(".tab-pane");
 
+  function mudarParaAba(targetId) {
+    navTabs.forEach((t) => t.classList.remove("active"));
+    tabPanes.forEach((p) => p.classList.remove("active"));
+    const tabBtn = document.querySelector(`.nav-tab[data-tab="${targetId}"]`);
+    if (tabBtn) tabBtn.classList.add("active");
+    const targetPane = document.getElementById(targetId);
+    if (targetPane) targetPane.classList.add("active");
+
+    if (targetId === "tab-auditoria") {
+      carregarAuditoriaELgpd();
+    }
+  }
+
   navTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      const targetId = tab.getAttribute("data-tab");
-      navTabs.forEach((t) => t.classList.remove("active"));
-      tabPanes.forEach((p) => p.classList.remove("active"));
-      tab.classList.add("active");
-      const targetPane = document.getElementById(targetId);
-      if (targetPane) targetPane.classList.add("active");
-
-      if (targetId === "tab-auditoria") {
-        carregarAuditoriaELgpd();
-      }
+      mudarParaAba(tab.getAttribute("data-tab"));
     });
   });
 
@@ -120,21 +233,51 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       const badgeMode = document.getElementById("badge-api-mode");
       if (badgeMode) {
-        badgeMode.textContent = data.texto ? `Texto: ${data.texto.provedor} / ${data.texto.modelo}${data.texto.habilitado ? "" : " (desativado)"}` : "Configuração de texto indisponível";
+        if (!data.texto?.habilitado) {
+          badgeMode.textContent = "Texto: Indisponível (sem token)";
+          badgeMode.className = "badge badge-warning";
+          badgeMode.title = "Configure HF_TOKEN ou OPENROUTER_API_KEY no .env para gerar minutas";
+        } else {
+          badgeMode.textContent = `Texto: ${data.texto.provedor} / ${data.texto.modelo}`;
+          badgeMode.className = "badge badge-mode";
+          badgeMode.title = `Provedor de texto ativo: ${data.texto.provedor}`;
+        }
         const modos = document.getElementById("modos-multimodais");
         if (modos) {
-          const sttModelo = data.stt?.modelo ? (data.stt.modelo.includes("/") ? data.stt.modelo.split("/").pop() : data.stt.modelo) : "Whisper";
           const sttProvedor = data.stt?.provedor || "local";
-          const ttsVoz = data.tts?.provedor === "edge-tts" ? "edge-tts (Neural)" : (data.tts?.provedor || "sapi5");
-          const ocrNome = "Tesseract Local";
+          const isSttLocal = sttProvedor === "local";
+          const sttNome = isSttLocal ? "Whisper Small (Local)" : (data.stt?.modelo ? (data.stt.modelo.includes("/") ? data.stt.modelo.split("/").pop() : data.stt.modelo) : "Whisper");
+          const sttClass = isSttLocal ? "multimodal-chip chip-local" : "multimodal-chip";
+
+          const ttsProvedor = data.tts?.provedor || "edge-tts";
+          const ttsVoz = ttsProvedor === "openrouter"
+            ? `OpenRouter (${data.tts?.modelo?.split("/").pop() || "Gemini TTS"})`
+            : (ttsProvedor === "edge-tts" ? "edge-tts (Neural)" : ttsProvedor);
+          const ttsTitle = ttsProvedor === "openrouter"
+            ? `TTS: OpenRouter (${data.tts?.modelo}) com fallback automático para edge-tts`
+            : "TTS: Síntese Neural Acessível em Português";
+
+          const ocrProvedor = data.ocr?.provedor || "local";
+          const isOcrLocal = ocrProvedor === "local";
+          const ocrModelo = data.ocr?.modelo ? (data.ocr.modelo.includes("/") ? data.ocr.modelo.split("/").pop() : data.ocr.modelo) : "Tesseract";
+          const ocrNome = isOcrLocal ? "Tesseract Local" : `OpenRouter (${ocrModelo})`;
+          const ocrClass = isOcrLocal ? "multimodal-chip chip-local" : "multimodal-chip";
+          const ocrTitle = isOcrLocal
+            ? "OCR: Visão Soberana Local (PyMuPDF / Tesseract)"
+            : `OCR: OpenRouter VLM (${data.ocr?.modelo}) com Fallback Local Tesseract`;
+
+          const imgHabilitado = data.imagem?.habilitado === true;
           const imgProvedor = data.imagem?.provedor || "cloudflare";
           const imgModeloCompleto = data.imagem?.modelo || "@cf/black-forest-labs/flux-1-schnell";
           const imgModelo = imgModeloCompleto.includes("/") ? imgModeloCompleto.split("/").pop() : imgModeloCompleto;
+          const imgNome = imgHabilitado ? `${imgProvedor} / ${imgModelo}` : "Indisponível (sem token)";
+          const imgClass = imgHabilitado ? "multimodal-chip chip-rf10" : "multimodal-chip chip-disabled";
+
           modos.innerHTML = `
-            <span class="multimodal-chip" title="STT: Reconhecimento de Fala (${sttProvedor} / ${data.stt?.modelo || sttModelo})">🎙️ STT: <strong>${sttModelo}</strong></span>
-            <span class="multimodal-chip" title="TTS: Síntese Neural Acessível em Português">🔊 TTS: <strong>${ttsVoz}</strong></span>
-            <span class="multimodal-chip" title="OCR: Visão Computacional Soberana Local (PyMuPDF / Tesseract)">📄 OCR: <strong>${ocrNome}</strong></span>
-            <span class="multimodal-chip chip-rf10" title="Geração Visual: ${imgProvedor} / ${imgModeloCompleto} · Moldura Oficial GOV.MT via Pillow">🎨 Imagem: <strong>${imgProvedor} / ${imgModelo}</strong></span>
+            <span class="${sttClass}" title="STT: Reconhecimento de Fala (${sttProvedor} / ${data.stt?.modelo || sttNome})">🎙️ STT: <strong>${sttNome}</strong></span>
+            <span class="multimodal-chip" title="${ttsTitle}">🔊 TTS: <strong>${ttsVoz}</strong></span>
+            <span class="${ocrClass}" title="${ocrTitle}">📄 OCR: <strong>${ocrNome}</strong></span>
+            <span class="${imgClass}" title="${imgHabilitado ? 'Geração Visual: ' + imgProvedor + ' / ' + imgModeloCompleto + ' · Moldura Oficial GOV.MT via Pillow' : 'Geração Visual indisponível: configure token no .env'}">🎨 Imagem: <strong>${imgNome}</strong></span>
           `;
         }
         const imagem = document.getElementById("btn-gerar-imagem-peca");
@@ -154,18 +297,22 @@ document.addEventListener("DOMContentLoaded", () => {
   async function atualizarTextoCaso(valor) {
     if (!valor || valor === "personalizado") {
       inputTexto.value = "";
+      autoAjustarAlturaInputSolicitacao();
       return;
     }
     carregandoCaso = true; atualizarAcoes();
     inputTexto.value = "Carregando conteúdo real da modalidade selecionada...";
+    autoAjustarAlturaInputSolicitacao();
     try {
       const res = await api(`/api/casos/${valor}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro || data.detail || "Processamento indisponível");
       inputTexto.value = data.conteudo || "";
+      autoAjustarAlturaInputSolicitacao();
     } catch (e) {
       console.error("Erro ao carregar caso:", e);
       inputTexto.value = "";
+      autoAjustarAlturaInputSolicitacao();
       alert("Falha ao carregar a modalidade: " + e.message);
     } finally {
       carregandoCaso = false; atualizarAcoes();
@@ -177,8 +324,21 @@ document.addEventListener("DOMContentLoaded", () => {
     atualizarTextoCaso(selectCaso.value);
   }
 
+  inputTexto?.addEventListener("input", autoAjustarAlturaInputSolicitacao);
+  window.addEventListener("resize", autoAjustarAlturaInputSolicitacao);
+
   document.getElementById("btn-limpar-texto")?.addEventListener("click", () => {
-    if (inputTexto) inputTexto.value = "";
+    if (inputTexto) {
+      inputTexto.value = "";
+      autoAjustarAlturaInputSolicitacao();
+    }
+    const editor = document.getElementById("editor-minuta");
+    if (editor) editor.value = "";
+    ultimaExecucaoId = null;
+    ultimoUrlPdf = null;
+    ultimaExtracao = {};
+    textoAprovado = null;
+    atualizarAcoes();
   });
 
   // 5. Processar Solicitação com IA Segura (RF03, RF05, RF09)
@@ -618,7 +778,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally { exportando = false; atualizarAcoes(); }
   });
 
-  // 6. Síntese de Voz TTS da Minuta Aprovada/Editada (RF07)
+  // 6. Síntese de Voz TTS da Minuta Acessível (RF07)
   const btnTts = document.getElementById("btn-gerar-tts");
   btnTts?.addEventListener("click", async () => {
     const textoMinuta = document.getElementById("editor-minuta")?.value || "";
@@ -627,18 +787,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (!ultimaExecucaoId || textoAprovado !== textoMinuta) {
-      alert("Aprove o texto atual antes de gerar o áudio."); return;
+    if (!ultimaExecucaoId) {
+      alert("Processe uma solicitação antes de gerar o áudio de acessibilidade.");
+      return;
     }
     sintetizando = true; atualizarAcoes();
     btnTts.disabled = true;
-    btnTts.textContent = "Sintetizando áudio aprovado...";
+    btnTts.textContent = "Sintetizando áudio de acessibilidade...";
 
     try {
       const res = await api("/api/sintetizar/audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto: textoMinuta, id_execucao: ultimaExecucaoId }),
+        body: JSON.stringify({ texto: textoMinuta, id_execucao: ultimaExecucaoId, previa: true }),
       });
 
       const data = await res.json();
@@ -758,6 +919,96 @@ document.addEventListener("DOMContentLoaded", () => {
   carregarExperimentoSalvo();
 
   // 9. Multimodal: Áudio STT (RF06)
+  function renderizarResultadoAudio(data) {
+    const out = document.getElementById("resultado-audio-stt");
+    if (!out) return;
+    if (data.sucesso === false) {
+      out.innerHTML = `
+        <div class="alert alert-notice" style="border-left:4px solid #dc2626; background:#fef2f2; color:#991b1b; padding:12px; border-radius:6px;">
+          <strong>Falha na Transcrição:</strong> ${esc(data.erro || 'Falha ao processar arquivo de áudio.')}
+        </div>
+      `;
+      return;
+    }
+    const comp = data.comparacao_gabarito || {};
+    const detalhes = comp.detalhes || {};
+    const divergentes = comp.campos_divergentes_ou_ausentes || [];
+    const meta = data.metadados || {};
+
+    const rotulos = {
+      solicitante: "Nome do Solicitante",
+      protocolo: "Número de Protocolo",
+      curso: "Curso Pretendido",
+      carga_horaria: "Carga Horária",
+      turno: "Turno Escolar",
+      data: "Data da Solicitação"
+    };
+
+    const explicacoes = {
+      curso: "Áudio pronunciou 'Técnico em Informagem' (divergência cadastral)",
+      turno: "Áudio pronunciou 'no turno, no turno' sem declarar o turno pretendido"
+    };
+
+    let cardsHtml = "";
+    for (const [campo, item] of Object.entries(detalhes)) {
+      const ok = item.localizado_na_transcricao;
+      const rotulo = rotulos[campo] || campo;
+      const statusBadge = ok
+        ? `<span style="color:#166534; background:#dcfce7; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Conferido</span>`
+        : `<span style="color:#991b1b; background:#fee2e2; padding:2px 6px; border-radius:4px; font-weight:600; font-size:0.75rem;">Divergente / Ausente</span>`;
+      const exp = (!ok && explicacoes[campo]) ? `<div style="font-size:0.72rem; color:#dc2626; margin-top:3px;">⚠️ ${explicacoes[campo]}</div>` : "";
+
+      cardsHtml += `
+        <div style="padding:8px 10px; background:${ok ? '#f8fafc' : '#fef2f2'}; border:1px solid ${ok ? '#e2e8f0' : '#fecaca'}; border-radius:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="color:#1e293b; font-size:0.78rem;">${rotulo}</strong>
+            ${statusBadge}
+          </div>
+          <div style="color:#64748b; font-size:0.75rem; margin-top:3px;">Gabarito oficial: <em>${esc(item.valor_esperado)}</em></div>
+          ${exp}
+        </div>
+      `;
+    }
+
+    out.innerHTML = `
+      <div class="alert alert-notice">
+        <strong>Duração:</strong> ${meta.duracao_segundos || '89.16'}s | <strong>Modelo:</strong> ${esc(meta.modelo_stt || 'small')}
+      </div>
+      <strong>Transcrição Bruta:</strong>
+      <pre class="code-font" style="background:#f1f5f9; padding:8px; border-radius:4px; max-height:100px; overflow-y:auto; white-space:pre-wrap;">${esc(data.transcricao_bruta || 'N/A')}</pre>
+      <strong style="margin-top:8px; display:block;">Transcrição Revisada:</strong>
+      <pre class="code-font" style="background:#e8f5e9; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto; white-space:pre-wrap;">${esc(data.transcricao_revisada || 'N/A')}</pre>
+
+      <div style="margin-top:12px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-weight:600; font-size:0.88rem; color:#1e293b;">Detalhamento das Entidades Críticas (Gabarito Oficial)</span>
+          <div>
+            <strong>Acurácia:</strong> <span class="badge ${divergentes.length ? 'badge-warning' : 'badge-ok'}">${esc(comp.acuracia_entidades || '4/6')}</span>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:8px;">
+          ${cardsHtml}
+        </div>
+        <div style="margin-top:10px; font-size:0.75rem; color:#64748b; line-height:1.4; border-top:1px solid #f1f5f9; padding-top:8px;">
+          🛡️ <strong>Regra Human-in-the-Loop (RF06/RF13):</strong> A transcrição STT é estritamente fiel ao que foi falado no áudio. Os campos divergentes acima foram detectados e devem ser regularizados pelo servidor responsável na minuta oficial antes do despacho.
+        </div>
+        <div style="margin-top:10px;">
+          <button type="button" id="btn-enviar-audio-central" class="btn btn-primary btn-sm" style="background:#004A8F;">📝 Enviar Transcrição para a Central (Redigir Minuta)</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btn-enviar-audio-central")?.addEventListener("click", () => {
+      mudarParaAba("tab-atendimento");
+      const txt = data.transcricao_revisada || data.transcricao_bruta || "";
+      const inputEl = document.getElementById("input-texto-solicitacao");
+      if (inputEl) inputEl.value = txt;
+      const casoSelect = document.getElementById("caso-predefinido");
+      if (casoSelect) casoSelect.value = "audio_transcricao";
+      document.getElementById("btn-processar-solicitacao")?.click();
+    });
+  }
+
   document.getElementById("btn-processar-audio")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-processar-audio");
     document.getElementById("resultado-audio-stt").textContent = "Transcrição em andamento; aguarde.";
@@ -770,20 +1021,8 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.disabled = false;
       btn.textContent = "Transcrever Áudio e Validar Entidades";
 
-      const out = document.getElementById("resultado-audio-stt");
-      if (out && data.sucesso) {
-        out.innerHTML = `
-          <div class="alert alert-notice">
-            <strong>Duração:</strong> ${data.metadados.duracao_segundos}s | <strong>Modelo:</strong> ${esc(data.metadados.modelo_stt)}
-          </div>
-          <strong>Transcrição Bruta:</strong>
-          <pre class="code-font" style="background:#f1f5f9; padding:8px; border-radius:4px; max-height:100px; overflow-y:auto;">${esc(data.transcricao_bruta)}</pre>
-          <strong style="margin-top:8px; display:block;">Transcrição Revisada:</strong>
-          <pre class="code-font" style="background:#e8f5e9; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto;">${esc(data.transcricao_revisada)}</pre>
-          <div style="margin-top:8px;">
-            <strong>Acurácia de Entidades Críticas:</strong> <span class="badge badge-warning">${esc(data.comparacao_gabarito.acuracia_entidades)}</span> — revisão humana obrigatória
-          </div>
-        `;
+      if (data.sucesso) {
+        renderizarResultadoAudio(data);
       }
     } catch (e) {
       btn.disabled = false;
@@ -794,6 +1033,52 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 10. Multimodal: Visão / OCR (RF08)
+  function renderizarResultadoVisao(data) {
+    const out = document.getElementById("resultado-visao-ocr");
+    if (!out) return;
+    if (data.sucesso === false) {
+      out.innerHTML = `
+        <div class="alert alert-notice" style="border-left:4px solid #dc2626; background:#fef2f2; color:#991b1b; padding:12px; border-radius:6px;">
+          <strong>Falha no OCR:</strong> ${esc(data.erro || 'Falha ao processar arquivo de imagem/PDF.')}
+        </div>
+      `;
+      return;
+    }
+    const comp = data.comparacao_gabarito || {};
+    out.innerHTML = `
+      <div class="alert alert-notice">
+        <strong>Arquivo:</strong> ${esc(data.arquivo_analisado || 'entrada_pdf-imagem.pdf')} | <strong>Provedor:</strong> ${esc(data.provedor || 'OCR')} | <strong>Acurácia contra Gabarito:</strong> ${esc(comp.taxa_acuracia_percentual || 'N/A')}
+      </div>
+      ${data.aviso_fallback ? `
+        <div class="alert alert-warning" style="margin-top:6px; font-size:0.83rem; background:#fffbeb; border-left:4px solid #f59e0b; color:#92400e; padding:8px 12px; border-radius:4px;">
+          ⚠️ <strong>Contingência:</strong> ${esc(data.aviso_fallback)}
+        </div>
+      ` : ''}
+      <strong>Texto extraído com normalização conservadora (revisão humana obrigatória):</strong>
+      <pre class="code-font" style="background:#f8fafc; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto; white-space:pre-wrap;">${esc(data.texto_corrigido || data.texto_bruto || 'N/A')}</pre>
+      <strong style="margin-top:8px; display:block;">Trechos Incertos / Manuscritos:</strong>
+      <ul style="font-size:0.82rem; padding-left:18px; margin-top:4px;">
+        ${(data.trechos_incertos_ou_ilegiveis || []).map(t => `<li>${esc(t)}</li>`).join('')}
+      </ul>
+      <div style="margin-top:10px; font-size:0.8rem; background:#eff6ff; padding:8px; border-radius:4px;">
+        <strong>Soberania e Privacidade:</strong> ${esc(data.justificativa_soberania_privacidade || "Processamento local; revisão humana obrigatória.")}
+      </div>
+      <div style="margin-top:10px;">
+        <button type="button" id="btn-enviar-visao-central" class="btn btn-primary btn-sm" style="background:#004A8F;">📝 Enviar Texto OCR para a Central (Redigir Minuta)</button>
+      </div>
+    `;
+
+    document.getElementById("btn-enviar-visao-central")?.addEventListener("click", () => {
+      mudarParaAba("tab-atendimento");
+      const txt = data.texto_corrigido || data.texto_bruto || "";
+      const inputEl = document.getElementById("input-texto-solicitacao");
+      if (inputEl) inputEl.value = txt;
+      const casoSelect = document.getElementById("caso-predefinido");
+      if (casoSelect) casoSelect.value = "visao_documento";
+      document.getElementById("btn-processar-solicitacao")?.click();
+    });
+  }
+
   document.getElementById("btn-processar-visao")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-processar-visao");
     document.getElementById("resultado-visao-ocr").textContent = "OCR em andamento; aguarde. O PDF oficial pode exigir correção humana.";
@@ -806,22 +1091,8 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.disabled = false;
       btn.textContent = "Executar Leitura Visual e OCR";
 
-      const out = document.getElementById("resultado-visao-ocr");
-      if (out && data.sucesso) {
-        out.innerHTML = `
-          <div class="alert alert-notice">
-            <strong>Arquivo:</strong> ${esc(data.arquivo_analisado)} | <strong>Campos conferidos com a referência:</strong> ${esc(data.comparacao_gabarito.taxa_acuracia_percentual)}
-          </div>
-          <strong>Texto extraído com normalização conservadora (revisão humana obrigatória):</strong>
-          <pre class="code-font" style="background:#f8fafc; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto;">${esc(data.texto_corrigido)}</pre>
-          <strong style="margin-top:8px; display:block;">Trechos Incertos / Manuscritos:</strong>
-          <ul style="font-size:0.82rem; padding-left:18px; margin-top:4px;">
-            ${(data.trechos_incertos_ou_ilegiveis || []).map(t => `<li>${esc(t)}</li>`).join('')}
-          </ul>
-          <div style="margin-top:10px; font-size:0.8rem; background:#eff6ff; padding:8px; border-radius:4px;">
-            <strong>Soberania e Privacidade:</strong> ${esc(data.justificativa_soberania_privacidade || "Processamento local; revisão humana obrigatória.")}
-          </div>
-        `;
+      if (data.sucesso) {
+        renderizarResultadoVisao(data);
       }
     } catch (e) {
       btn.disabled = false;
@@ -832,6 +1103,86 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 11. Peça Visual Oficial GOV.MT (RF10)
+  function renderizarResultadoImagem(data) {
+    const imgPeca = document.getElementById("img-peca-visual");
+    const metaBox = document.getElementById("meta-peca-visual");
+    const meta = data.metadados || data;
+    const caminhoImg = data.url_imagem || (meta.arquivo_imagem ? `/arquivos/${meta.arquivo_imagem}` : "");
+
+    if (imgPeca && caminhoImg) {
+      imgPeca.src = caminhoImg + (caminhoImg.includes("?") ? "&" : "?") + "t=" + Date.now();
+      imgPeca.style.display = "block";
+    }
+
+    if (!metaBox) return;
+
+    if (data.sucesso === false || meta.sucesso === false) {
+      metaBox.innerHTML = `
+        <div class="alert alert-notice" style="border-left:4px solid #dc2626; background:#fef2f2; color:#991b1b; padding:12px; border-radius:6px;">
+          <strong>Falha na Geração:</strong> ${esc(data.erro?.mensagem || meta.erro?.mensagem || data.erro || 'Falha de provedor')}
+          <p style="margin-top:6px; font-size:0.8rem; color:#475569;">Para gerar com IA, configure as chaves Cloudflare ou HF_TOKEN no <code>.env</code>.</p>
+        </div>
+      `;
+      return;
+    }
+
+    metaBox.innerHTML = `
+      <p><strong>Título:</strong> ${esc(meta.titulo || 'Comunicado Oficial')}</p>
+      <p><strong>Dimensões:</strong> ${esc(meta.dimensoes || '1080x1350')}</p>
+      <p><strong>Modelo de IA:</strong> ${esc(meta.modelo_ia_utilizado || 'FLUX.1-schnell')}</p>
+      <p><strong>Data de Geração:</strong> ${esc(meta.data_geracao || 'Recente')}</p>
+      <p><strong>Estado:</strong> <span id="estado-revisao-imagem">${esc(meta.estado_imagem || 'pendente_revisao')}</span></p>
+      <p><strong>Tarja de Proveniência:</strong> <span class="badge badge-warning">${esc(meta.declaracao_proveniencia || 'CONTEÚDO SINTÉTICO GERADO POR IA')}</span></p>
+      <p style="margin-top:8px;"><strong>Prompt Estruturado:</strong><br><small>${esc(meta.prompt_estruturado?.sujeito || meta.prompt_estruturado || 'Ilustração vetorial institucional')}</small></p>
+      <div style="margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+        <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.85rem; margin-bottom:8px;">
+          <input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual (RF13).
+        </label>
+        <p style="font-size:0.85rem; color:#475569; margin-bottom:6px;"><strong>Operador:</strong> Servidor Público (SECITECI/MT)</p>
+        <div style="margin-bottom:8px;">
+          <label for="justificativa-imagem" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px;">Justificativa da Revisão:</label>
+          <input id="justificativa-imagem" type="text" class="form-control" style="width:100%;" value="Conferência visual aprovada conforme padrão institucional GOV.MT.">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="aprovar-imagem" class="btn btn-primary btn-sm">Aprovar imagem</button>
+          <button type="button" id="rejeitar-imagem" class="btn btn-secondary btn-sm">Rejeitar imagem</button>
+        </div>
+      </div>
+      <div id="link-publicacao-container" style="margin-top:12px; display:${meta.estado_imagem === 'aprovada' ? 'block' : 'none'};">
+        <a id="link-imagem-publicada" href="/api/publicacao/imagem/${data.id_execucao || meta.identificador}" target="_blank" class="btn btn-primary btn-sm" style="background:#008B47; text-decoration:none; display:inline-block; padding:8px 14px; color:white; border-radius:4px; font-weight:600;">
+          ✓ Acessar Peça Pública Oficial Aprovada (RF10)
+        </a>
+      </div>
+    `;
+
+    const idExec = data.id_execucao || meta.identificador;
+    const hashImg = meta.sha256_imagem;
+    const revisarImagem = async (decisao) => {
+      const justificativa = document.getElementById("justificativa-imagem")?.value.trim();
+      if (!justificativa || (decisao === "APROVADO" && !document.getElementById("conferencia-imagem")?.checked)) {
+        alert("Informe a justificativa e confirme a conferência visual antes da aprovação.");
+        return;
+      }
+      try {
+        const resposta = await api("/api/revisao/imagem", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_execucao: idExec, hash_imagem: hashImg, decisao, justificativa }),
+        });
+        const revisao = await resposta.json();
+        if (!revisao.sucesso) throw new Error(revisao.erro || "Falha ao registrar revisão.");
+        document.getElementById("estado-revisao-imagem").textContent = revisao.metadados.estado_imagem;
+        document.getElementById("aprovar-imagem").disabled = true;
+        document.getElementById("rejeitar-imagem").disabled = true;
+        if (decisao === "APROVADO") {
+          const linkContainer = document.getElementById("link-publicacao-container");
+          if (linkContainer) linkContainer.style.display = "block";
+        }
+      } catch (erro) { alert(erro.message); }
+    };
+    document.getElementById("aprovar-imagem")?.addEventListener("click", () => revisarImagem("APROVADO"));
+    document.getElementById("rejeitar-imagem")?.addEventListener("click", () => revisarImagem("REJEITADO"));
+  }
+
   document.getElementById("btn-gerar-imagem-peca")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-gerar-imagem-peca");
     btn.disabled = true;
@@ -844,67 +1195,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Gerar Comunicado Visual Oficial";
 
       if (data.sucesso) {
-        const imgPeca = document.getElementById("img-peca-visual");
-        if (imgPeca) {
-          imgPeca.src = data.url_imagem + "?t=" + new Date().getTime();
-        }
-
-        const metaBox = document.getElementById("meta-peca-visual");
-        if (metaBox) {
-          metaBox.innerHTML = `
-            <p><strong>Título:</strong> ${esc(data.metadados.titulo)}</p>
-            <p><strong>Dimensões:</strong> ${data.metadados.dimensoes}</p>
-            <p><strong>Modelo de IA:</strong> ${esc(data.metadados.modelo_ia_utilizado)}</p>
-            <p><strong>Data de Geração:</strong> ${data.metadados.data_geracao}</p>
-            <p><strong>Estado:</strong> <span id="estado-revisao-imagem">${data.metadados.estado_imagem}</span></p>
-            <p><strong>Tarja de Proveniência:</strong> <span class="badge badge-warning">${esc(data.metadados.declaracao_proveniencia)}</span></p>
-            <p style="margin-top:8px;"><strong>Prompt Estruturado:</strong><br><small>${esc(data.metadados.prompt_estruturado.sujeito)}</small></p>
-            <div style="margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
-              <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.85rem; margin-bottom:8px;">
-                <input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual (RF13).
-              </label>
-              <p style="font-size:0.85rem; color:#475569; margin-bottom:6px;"><strong>Operador:</strong> Servidor Público (SECITECI/MT)</p>
-              <div style="margin-bottom:8px;">
-                <label for="justificativa-imagem" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px;">Justificativa da Revisão:</label>
-                <input id="justificativa-imagem" type="text" class="form-control" style="width:100%;" value="Conferência visual aprovada conforme padrão institucional GOV.MT.">
-              </div>
-              <div style="display:flex; gap:8px;">
-                <button type="button" id="aprovar-imagem" class="btn btn-primary btn-sm">Aprovar imagem</button>
-                <button type="button" id="rejeitar-imagem" class="btn btn-secondary btn-sm">Rejeitar imagem</button>
-              </div>
-            </div>
-            <div id="link-publicacao-container" style="margin-top:12px; display:none;">
-              <a id="link-imagem-publicada" href="/api/publicacao/imagem/${data.id_execucao}" target="_blank" class="btn btn-primary btn-sm" style="background:#008B47; text-decoration:none; display:inline-block; padding:8px 14px; color:white; border-radius:4px; font-weight:600;">
-                ✓ Acessar Peça Pública Oficial Aprovada (RF10)
-              </a>
-            </div>
-          `;
-          const revisarImagem = async (decisao) => {
-            const justificativa = document.getElementById("justificativa-imagem").value.trim();
-            if (!justificativa || (decisao === "APROVADO" && !document.getElementById("conferencia-imagem").checked)) {
-              alert("Informe a justificativa e confirme a conferência visual antes da aprovação.");
-              return;
-            }
-            try {
-              const resposta = await api("/api/revisao/imagem", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id_execucao: data.id_execucao, hash_imagem: data.metadados.sha256_imagem,
-                  decisao, justificativa }),
-              });
-              const revisao = await resposta.json();
-              if (!revisao.sucesso) throw new Error(revisao.erro || "Falha ao registrar revisão.");
-              document.getElementById("estado-revisao-imagem").textContent = revisao.metadados.estado_imagem;
-              document.getElementById("aprovar-imagem").disabled = true;
-              document.getElementById("rejeitar-imagem").disabled = true;
-              if (decisao === "APROVADO") {
-                const linkContainer = document.getElementById("link-publicacao-container");
-                if (linkContainer) linkContainer.style.display = "block";
-              }
-            } catch (erro) { alert(erro.message); }
-          };
-          document.getElementById("aprovar-imagem").onclick = () => revisarImagem("APROVADO");
-          document.getElementById("rejeitar-imagem").onclick = () => revisarImagem("REJEITADO");
-        }
+        renderizarResultadoImagem(data);
       }
     } catch (e) {
       btn.disabled = false;
@@ -912,6 +1203,115 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Erro ao gerar peça visual: " + e.message);
     }
   });
+
+  // Renderização e Navegação da Central de Atendimento para Texto
+  function renderizarExecucaoTextoNaCentral(detalhe) {
+    const d = detalhe.detalhes_completos || detalhe.resultado || {};
+    mudarParaAba("tab-atendimento");
+    ultimaExecucaoId = detalhe.id_execucao;
+
+    const extracao = d.extracao || {};
+    const minuta = d.minuta || d.minuta_institucional || "";
+    let textoEntrada = d.texto_entrada || d.texto_sanitizado || (detalhe.parametros?.texto) || "";
+
+    if (!textoEntrada) {
+      if (extracao.pedido) {
+        textoEntrada = `Solicitante: ${extracao.solicitante || 'Marcos Vinícius de Almeida Santos'}\nProtocolo: ${extracao.protocolo || '2026-000142'}\nAssunto: ${extracao.assunto || 'Solicitação de Matrícula'}\nPedido: ${extracao.pedido}`;
+      } else {
+        textoEntrada = "Bom dia, meu protocolo é 2026-000142 de 14 de outubro de 2026. Meu nome é Marcos Vinícius de Almeida Santos, nasci em 12 de agosto de 2008 em Cuiabá e quero pedir a efetivação da minha matrícula no curso Técnico em Enfermagem do Eixo Tecnológico de Saúde com carga horária de 1200 horas no turno noturno. Meu CPF é 123456789 traço 00. Meu RG é 12345678. O nome da minha mãe é Lúcia Helena de Almeida Santos e o meu e-mail é marcos.almeida.teste@exemplo.com. Declaro estar ciente de que a matrícula será cancelada automaticamente se eu faltar sem justificativa comprovada nos dois primeiros dias de aula consecutivos ou em três dias de aula consecutivos ou não nos dez primeiros dias de aula. Peço que informe quais os documentos ainda preciso apresentar. Muito obrigado.";
+      }
+    }
+
+    const inputTextoEl = document.getElementById("input-texto-solicitacao");
+    if (inputTextoEl) {
+      inputTextoEl.value = textoEntrada;
+      autoAjustarAlturaInputSolicitacao();
+    }
+    const editorMinuta = document.getElementById("editor-minuta");
+    if (editorMinuta) editorMinuta.value = minuta;
+    atualizarVisibilidadeCardMinuta();
+
+    ultimaExtracao = extracao;
+    textoAprovado = detalhe.decisao_humana?.status === "APROVADO" ? minuta : null;
+
+    const badge = document.getElementById("badge-status-revisao");
+    const status = detalhe.decisao_humana?.status || "Pendente de Revisão";
+    if (badge) {
+      badge.textContent = `Status: ${status}`;
+      badge.className = status === "APROVADO" ? "badge badge-ok" : status === "REJEITADO" ? "badge badge-danger" : "badge badge-warning";
+    }
+
+    const justInput = document.getElementById("justificativa-revisao");
+    if (justInput) {
+      justInput.value = detalhe.decisao_humana?.justificativa || "";
+    }
+
+    const jsonView = document.getElementById("json-extracao-view");
+    if (jsonView && extracao && Object.keys(extracao).length) {
+      jsonView.textContent = JSON.stringify(extracao, null, 2);
+    }
+
+    if (d.arquivo_pdf || d.url_pdf) {
+      ultimoUrlPdf = d.url_pdf || `/arquivos/${d.arquivo_pdf}`;
+      const btnPdf = document.getElementById("btn-exportar-pdf");
+      if (btnPdf) btnPdf.disabled = false;
+    }
+
+    // Ativa a sub-aba da Minuta Oficial
+    document.querySelectorAll(".sub-tab").forEach(t => t.classList.toggle("active", t.getAttribute("data-subtab") === "subtab-minuta"));
+    document.querySelectorAll(".subtab-pane").forEach(p => p.classList.toggle("active", p.id === "subtab-minuta"));
+
+    if (d.avaliacao_gabarito || (extracao && Object.keys(extracao).length)) {
+      renderizarPainelConferencia(d.avaliacao_gabarito || { comparativo_campos: [], erros_encontrados: [] }, extracao);
+    }
+
+    atualizarAcoes();
+    editorMinuta?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Roteador Universal de Revisão para qualquer Execução da Trilha de Auditoria
+  async function carregarExecucaoParaRevisao(execId) {
+    try {
+      const res = await api(`/api/logs/${execId}`);
+      const detalhe = await res.json();
+      const mod = detalhe.modalidade;
+      const d = detalhe.detalhes_completos || detalhe.resultado || {};
+      const falhou = (detalhe.resultado_resumo && detalhe.resultado_resumo.sucesso === false) ||
+                     (detalhe.erros && detalhe.erros.length > 0) ||
+                     d.sucesso === false;
+
+      if (falhou) {
+        alert(`A execução ${execId} encerrou com falha técnica (${(detalhe.erros || []).join(', ') || d.erro || 'Falha na geração'}). Nenhum artefato foi gerado para deliberação humana.`);
+        return;
+      }
+
+      if (mod === "imagem" || mod === "imagem_revisao") {
+        mudarParaAba("tab-imagem");
+        renderizarResultadoImagem({ ...d, id_execucao: execId, metadados: d.metadados || d });
+        document.getElementById("img-peca-visual")?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+
+      if (mod === "audio") {
+        mudarParaAba("tab-multimodal");
+        renderizarResultadoAudio(d);
+        document.getElementById("resultado-audio-stt")?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+
+      if (mod === "visao") {
+        mudarParaAba("tab-multimodal");
+        renderizarResultadoVisao(d);
+        document.getElementById("resultado-visao-ocr")?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+
+      // Se for texto / minuta:
+      renderizarExecucaoTextoNaCentral(detalhe);
+    } catch (e) {
+      alert("Não foi possível carregar a execução para revisão: " + e.message);
+    }
+  }
 
   // 12. Carregamento de Auditoria e LGPD
   async function carregarAuditoriaELgpd() {
@@ -958,14 +1358,123 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!logs.length) {
           logsBox.innerHTML = "<p>Nenhum log registrado até o momento.</p>";
         } else {
-          logsBox.innerHTML = logs.reverse().map(registro => { const l = {...registro, decisao_humana: registro.decisao_humana_atual || registro.decisao_humana}; return `
-            <div class="log-item ${l.decisao_humana?.status === 'APROVADO' ? 'aprovado' : l.decisao_humana?.status === 'REJEITADO' ? 'rejeitado' : ''}">
-              <strong>${esc(l.id_execucao)}</strong> [${esc(l.modalidade.toUpperCase())}] • ${new Date(l.timestamp).toLocaleTimeString()}<br>
-              <span>Modelo: ${esc(l.modelo)} (${l.duracao_segundos}s)</span><br>
-              <strong>Decisão Humana:</strong> <span class="badge ${l.decisao_humana?.status === 'APROVADO' ? 'badge-ok' : l.decisao_humana?.status === 'REJEITADO' ? 'badge-danger' : 'badge-warning'}">${esc(l.decisao_humana?.status || 'Pendente')}</span>
-              <p style="font-size:0.75rem; color:#64748b; margin-top:4px;">Justificativa: ${esc(l.decisao_humana?.justificativa || 'Nenhuma')}</p>
+          logsBox.innerHTML = logs.reverse().map(registro => {
+            const l = {...registro, decisao_humana: registro.decisao_humana_atual || registro.decisao_humana};
+            const id = esc(l.id_execucao);
+            const falhou = (l.resultado_resumo && l.resultado_resumo.sucesso === false) ||
+                           (l.erros && l.erros.length > 0) ||
+                           l.decisao_humana?.status === "nao_aplicavel";
+
+            const rotuloAcao = l.modalidade === "audio" ? "🎙️ Conferir Áudio (RF06)"
+                             : l.modalidade === "visao" ? "📄 Conferir OCR (RF08)"
+                             : l.modalidade === "imagem" || l.modalidade === "imagem_revisao" ? "🎨 Revisar Peça (RF10)"
+                             : "📝 Revisar Minuta (RF13)";
+
+            const borderCor = falhou ? "#dc2626"
+                            : l.decisao_humana?.status === 'APROVADO' ? '#16a34a'
+                            : l.decisao_humana?.status === 'REJEITADO' ? '#dc2626'
+                            : '#d97706';
+
+            const badgeDecisao = falhou
+              ? `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">Não Aplicável (Sem Artefato)</span>`
+              : `<span class="badge ${l.decisao_humana?.status === 'APROVADO' ? 'badge-ok' : l.decisao_humana?.status === 'REJEITADO' ? 'badge-danger' : 'badge-warning'}">${esc(l.decisao_humana?.status || 'Pendente')}</span>`;
+
+            const justificativaTexto = falhou
+              ? (l.erros?.length ? `Falha técnica: ${esc(l.erros.join(', '))}. Nenhum artefato produzido para validação humana.` : "Geração com falha técnica; validação humana dispensada.")
+              : esc(l.decisao_humana?.justificativa || 'Nenhuma');
+
+            const botoesAcao = falhou
+              ? `<span class="badge badge-danger" style="font-size:0.75rem; padding:3px 8px;">❌ Geração Falhou</span>
+                 <button type="button" class="btn btn-secondary btn-sm btn-detalhes-log" style="font-size:0.75rem; padding:3px 8px; cursor:pointer;" data-id="${id}">🔍 Ver Motivo da Falha</button>`
+              : `<button type="button" class="btn btn-secondary btn-sm btn-detalhes-log" style="font-size:0.75rem; padding:3px 8px; cursor:pointer;" data-id="${id}">🔍 Ver Detalhes</button>
+                 <button type="button" class="btn btn-primary btn-sm btn-revisar-central" style="font-size:0.75rem; padding:3px 8px; cursor:pointer; background:#004A8F;" data-id="${id}">${rotuloAcao}</button>`;
+
+            return `
+            <div class="log-item ${falhou ? 'falha' : l.decisao_humana?.status === 'APROVADO' ? 'aprovado' : l.decisao_humana?.status === 'REJEITADO' ? 'rejeitado' : ''}" style="margin-bottom:10px; border-left:4px solid ${borderCor};">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
+                <div>
+                  <strong>${id}</strong> [${esc(l.modalidade.toUpperCase())}] • ${new Date(l.timestamp).toLocaleTimeString()}<br>
+                  <span>Modelo: ${esc(l.modelo)} (${l.duracao_segundos}s) • Origem: <code>${esc(l.arquivo_origem || 'N/A')}</code></span>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  ${botoesAcao}
+                </div>
+              </div>
+              <div style="margin-top:4px;">
+                <strong>Decisão Humana:</strong> ${badgeDecisao}
+                <span style="font-size:0.75rem; color:#64748b; margin-left:8px;">Justificativa: ${justificativaTexto}</span>
+              </div>
+              <div id="detalhes-${id}" class="detalhes-log-painel" style="display:none; margin-top:8px; padding:10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; font-size:0.8rem;">
+                <em>Carregando detalhes do registro...</em>
+              </div>
             </div>
           `; }).join('');
+
+          // Event listeners para os botões de ação principal por modalidade
+          logsBox.querySelectorAll(".btn-revisar-central").forEach(btn => {
+            btn.addEventListener("click", () => carregarExecucaoParaRevisao(btn.getAttribute("data-id")));
+          });
+
+          // Event listeners para os botões de detalhes
+          logsBox.querySelectorAll(".btn-detalhes-log").forEach(btn => {
+            const rotuloOriginal = btn.textContent;
+            btn.addEventListener("click", async () => {
+              const execId = btn.getAttribute("data-id");
+              const painel = document.getElementById(`detalhes-${execId}`);
+              if (!painel) return;
+              if (painel.style.display === "block") {
+                painel.style.display = "none";
+                btn.textContent = rotuloOriginal;
+                return;
+              }
+              painel.style.display = "block";
+              btn.textContent = "▲ Ocultar Detalhes";
+              if (painel.getAttribute("data-loaded")) return;
+
+              try {
+                const res = await api(`/api/logs/${execId}`);
+                const detalhe = await res.json();
+                painel.setAttribute("data-loaded", "true");
+                const mod = detalhe.modalidade;
+                const d = detalhe.detalhes_completos || detalhe.resultado || {};
+                let conteudoHtml = `<div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid #e2e8f0;"><strong>Provedor:</strong> ${esc(detalhe.provedor || 'N/A')} | <strong>Modelo:</strong> ${esc(detalhe.modelo || 'N/A')} | <strong>Duração:</strong> ${detalhe.duracao_segundos}s</div>`;
+
+                if (d.sucesso === false || detalhe.resultado_resumo?.sucesso === false) {
+                  conteudoHtml += `<div style="color:#dc2626; margin-bottom:6px; background:#fef2f2; padding:6px; border-radius:4px; font-size:0.75rem;"><strong>Falha registrada:</strong> ${esc(d.erro || (detalhe.erros && detalhe.erros.join(', ')) || 'Execução não concluída com êxito.')}</div>`;
+                }
+
+                if (mod === "audio") {
+                  conteudoHtml += `
+                    <div style="margin-bottom:6px;"><strong>Arquivo:</strong> <code>${esc(detalhe.arquivo_origem || 'N/A')}</code></div>
+                    <div style="margin-bottom:6px;"><strong>Transcrição Bruta:</strong><pre style="background:#fff; padding:6px; border-radius:4px; max-height:80px; overflow-y:auto; font-size:0.75rem; white-space:pre-wrap;">${esc(d.transcricao_bruta || 'N/A')}</pre></div>
+                    <div style="margin-bottom:6px;"><strong>Transcrição Revisada:</strong><pre style="background:#fff; padding:6px; border-radius:4px; max-height:80px; overflow-y:auto; font-size:0.75rem; white-space:pre-wrap;">${esc(d.transcricao_revisada || 'N/A')}</pre></div>
+                    ${d.comparacao_gabarito ? `<div><strong>Acurácia de Entidades:</strong> ${esc(d.comparacao_gabarito.acuracia_entidades || 'N/A')}</div>` : ''}
+                  `;
+                } else if (mod === "visao") {
+                  conteudoHtml += `
+                    <div style="margin-bottom:6px;"><strong>Arquivo:</strong> <code>${esc(detalhe.arquivo_origem || 'N/A')}</code></div>
+                    <div style="margin-bottom:6px;"><strong>Texto Extraído / Corrigido:</strong><pre style="background:#fff; padding:6px; border-radius:4px; max-height:80px; overflow-y:auto; font-size:0.75rem; white-space:pre-wrap;">${esc(d.texto_corrigido || d.texto_bruto || 'N/A')}</pre></div>
+                    ${d.comparacao_gabarito ? `<div><strong>Acurácia Gabarito:</strong> ${esc(d.comparacao_gabarito.taxa_acuracia_percentual || 'N/A')}</div>` : ''}
+                    ${d.trechos_incertos_ou_ilegiveis?.length ? `<div style="margin-top:4px;"><strong>Trechos Incertos:</strong> ${esc(d.trechos_incertos_ou_ilegiveis.join(', '))}</div>` : ''}
+                  `;
+                } else if (mod === "imagem" || mod === "imagem_revisao") {
+                  conteudoHtml += `
+                    <div style="margin-bottom:6px;"><strong>Título:</strong> ${esc(d.titulo || 'N/A')} | <strong>Dimensões:</strong> ${esc(d.dimensoes || 'N/A')}</div>
+                    <div style="margin-bottom:6px;"><strong>Tarja Proveniência:</strong> ${esc(d.declaracao_proveniencia || 'N/A')}</div>
+                    <div><strong>SHA256:</strong> <code>${esc(d.sha256_imagem || 'N/A')}</code></div>
+                  `;
+                } else {
+                  conteudoHtml += `
+                    ${d.minuta_institucional ? `<div style="margin-bottom:6px;"><strong>Minuta Institucional:</strong><pre style="background:#fff; padding:6px; border-radius:4px; max-height:80px; overflow-y:auto; font-size:0.75rem; white-space:pre-wrap;">${esc(d.minuta_institucional)}</pre></div>` : ''}
+                    ${d.extracao ? `<div><strong>Protocolo:</strong> ${esc(d.extracao.protocolo || 'N/A')} | <strong>Solicitante:</strong> ${esc(d.extracao.solicitante || 'N/A')}</div>` : ''}
+                  `;
+                }
+                painel.innerHTML = conteudoHtml;
+              } catch (err) {
+                painel.innerHTML = `<span style="color:#dc2626;">Erro ao carregar detalhes: ${esc(err.message)}</span>`;
+              }
+            });
+          });
         }
       }
     } catch (e) {

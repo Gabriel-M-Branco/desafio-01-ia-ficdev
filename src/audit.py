@@ -52,6 +52,7 @@ class AuditLogger:
             else:
                 params_limpos[k] = v
 
+        falhou = len(erros or []) > 0 or (isinstance(resultado, dict) and resultado.get("sucesso") is False)
         registro = {
             "id_execucao": exec_id,
             "timestamp": datetime.now().isoformat(),
@@ -64,14 +65,22 @@ class AuditLogger:
             "duracao_segundos": duracao_segundos,
             "erros": erros or [],
             "resultado_resumo": {
-                "sucesso": len(erros or []) == 0,
+                "sucesso": not falhou,
                 "campos_extraidos": len(resultado.get("extracao", {})) if isinstance(resultado, dict) else 0,
             },
-            "decisao_humana": decisao_humana or {
-                "status": "pendente_revisao",
-                "operador": "aguardando_validacao",
-                "justificativa": "Aguardando deliberação de servidor responsável no painel web.",
-            },
+            "decisao_humana": decisao_humana or (
+                {
+                    "status": "nao_aplicavel",
+                    "operador": "sistema",
+                    "justificativa": "Geração com falha técnica; nenhum artefato gerado para validação humana.",
+                }
+                if falhou
+                else {
+                    "status": "pendente_revisao",
+                    "operador": "aguardando_validacao",
+                    "justificativa": "Aguardando deliberação de servidor responsável no painel web.",
+                }
+            ),
         }
 
         # Grava no log cumulativo JSON Lines
@@ -185,6 +194,26 @@ class AuditLogger:
                         pass
         return execucoes
 
+    def resumo_revisoes(self):
+        """Decisões atuais dos casos, excluindo TTS e eventos auxiliares do denominador."""
+        contagens = {k: 0 for k in ("APROVADO", "CORRIGIDO", "REJEITADO", "pendente_revisao", "nao_aplicavel")}
+        for evento in self.listar_execucoes():
+            if evento.get("modalidade") not in {"texto", "audio", "visao", "imagem"}:
+                continue
+            try:
+                dado = json.loads((self.log_dir / (evento["id_execucao"] + ".json")).read_text(encoding="utf-8"))
+                status = dado.get("decisao_humana", {}).get("status", "pendente_revisao")
+            except (OSError, ValueError):
+                status = "pendente_revisao"
+            if status in contagens:
+                contagens[status] += 1
+            else:
+                contagens["pendente_revisao"] += 1
+        decididos = sum(contagens[k] for k in ("APROVADO", "CORRIGIDO", "REJEITADO"))
+        return {"contagens": contagens, "casos_decididos": decididos,
+                "taxa_aprovacao_percentual": round(100 * contagens["APROVADO"] / decididos, 1) if decididos else None,
+                "criterio": "Aprovados / (aprovados + corrigidos + rejeitados); pendentes e TTS excluídos."}
+
 
 class LGPDManager:
     """
@@ -236,6 +265,17 @@ class LGPDManager:
             "minimizar_no_prompt": False,
         },
     }
+
+    # Campos contextuais mapeados formalmente com risco de identificação associativa (LGPD)
+    for _campo in ("protocolo", "data", "orgao_expedidor", "naturalidade", "uf", "nome_pai",
+                   "curso", "eixo_tecnologico", "carga_horaria", "turno", "inicio_curso", "telefone",
+                   "assunto", "pedido", "categoria", "nivel_confianca", "campos_ausentes", "necessidade_revisao"):
+        TABELA_CAMPOS_LGPD.setdefault(_campo, {
+            "natureza": "Dado pessoal ou contextual quando vinculado a pessoa identificável",
+            "finalidade": "Triagem, conferência e resposta à solicitação fictícia",
+            "necessidade": "Avaliar caso a caso para fins de conferência cadastral",
+            "risco": "Identificação por associação ou exposição de dados em canais abertos",
+            "minimizar_no_prompt": True})
 
     @staticmethod
     def mascarar_dado_sensivel(valor: str, tipo: str) -> str:
@@ -459,14 +499,26 @@ class QualityEvaluator:
         return texto
 
     @classmethod
+    def _normalizar_campo_comparacao(cls, campo, valor):
+        texto = cls._normalizar_valor_comparacao(valor)
+        # Normalização de pontuação para evitar divergência espúria em CPFs, RGs, telefones e protocolos
+        if campo in {"cpf", "rg", "telefone"} and re.fullmatch(r"[\d.()\s+\-x]+", texto):
+            limpo = re.sub(r"[.()\s+\-]", "", texto)
+            if campo != "cpf" or len(limpo) == 11 and limpo.isdigit():
+                return limpo
+        if campo == "protocolo" and re.fullmatch(r"\d{4}[-/]\d{5,7}", texto):
+            return texto.replace("/", "-")
+        return texto
+
+    @classmethod
     def avaliar_extracao(cls, extracao, gabarito):
         """Ausência na fonte é pendência; não vira acerto nem divergência falsa."""
         esperados = gabarito.get("campos_esperados", {})
         comparativo = []
         for campo, esperado in esperados.items():
             obtido = extracao.get(campo, "não localizado")
-            referencia = cls._normalizar_valor_comparacao(esperado)
-            extraido = cls._normalizar_valor_comparacao(obtido)
+            referencia = cls._normalizar_campo_comparacao(campo, esperado)
+            extraido = cls._normalizar_campo_comparacao(campo, obtido)
             ausente_fonte = referencia == "nao localizado"
             ausente_extraido = extraido == "nao localizado"
             ambos_ausentes = ausente_fonte and ausente_extraido

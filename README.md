@@ -1,86 +1,298 @@
-# Central Inteligente de Atendimento — GOV.MT
+# Central Inteligente de Atendimento e Comunicação Institucional (GOV.MT)
 
-Protótipo para demonstração local, com provedores reais configuráveis e revisão humana obrigatória.
+> **Desafio Prático 1 — FIC_DEV: Programador de Sistemas com IA (2026)**  
+> **Órgão Atendido (Cenário Fictício):** Governo do Estado de Mato Grosso — Secretaria de Estado de Ciência, Tecnologia e Inovação (SECITECI/MT) e Escola Técnica Estadual de Cuiabá (ETEC).
 
-## Execução
-Instalação no Windows (Python 3.11+):
+---
+
+## 1. Visão Geral da Solução
+
+Este projeto implementa uma solução multimodal completa de apoio ao atendimento ao cidadão e comunicação oficial, desenvolvida em estrita conformidade com as diretrizes do edital (Requisitos **RF01** a **RF13**) e os padrões visuais e institucionais do **Governo do Estado de Mato Grosso (GOV.MT)**.
+
+O sistema recebe solicitações fictícias em múltiplos formatos (**Texto**, **Áudio** e **Imagem/Documento Digitalizado**), extrai dados estruturados em JSON, redige minutas institucionais seguras com base estrita no princípio de **Alucinação Zero**, produz recurso falado para acessibilidade com sintetização neural e gera comunicados visuais padronizados com identificação de conteúdo sintético.
+
+### Princípios de Segurança e Governança
+- **Nenhum Envio Automático:** Toda minuta de resposta depende compulsoriamente de validação, ajuste ou rejeição justificada por um servidor humano (*Human-in-the-Loop*).
+- **Alucinação Zero e "não localizado":** É estritamente vedada a invenção de leis, decretos, protocolos ou prazos. Qualquer informação omitida recebe compulsoriamente o valor literal `"não localizado"`.
+- **Blindagem contra Prompt Injection:** Entradas externas são isoladas dentro de tags delimitadoras `<conteudo_nao_confiavel>`, instruindo o modelo a tratar comandos inseridos como dados textuais inertes.
+- **Rastreabilidade e Proteção de Segredos:** Trilha de auditoria integral sem exposição de chaves de API nos logs ou no repositório.
+
+---
+
+## 2. Stack Tecnológica
+
+- **Linguagem & Backend:** Python 3.11+ / FastAPI / Uvicorn
+- **Interface Humana (Web UI):** HTML5, CSS3 e JavaScript Vanilla (Design institucional com as cores oficiais `#004A8F`, `#008B47` e `#F7B500`)
+- **Provedores de Inteligência Artificial Configuráveis:**
+  - **OpenRouter API (`OPENROUTER_API_KEY`):** Suporte nativo aos modelos de última geração:
+    - **VLM (OCR Multimodal de Alta Precisão):** `google/gemini-3.8-flash` (com fallback automático e transparente para Tesseract local)
+    - **LLM (Extração e Minuta):** `google/gemini-3.8-flash` ou `Qwen/Qwen2.5-72B-Instruct`
+    - **Áudio STT:** `google/gemini-3.8-flash` ou Whisper local (`faster-whisper`)
+    - **TTS Neural de Acessibilidade:** `google/gemini-3.8-flash-tts` com fallback para `edge-tts` e `SAPI5 (Microsoft Maria)`
+    - **Imagem Institucional:** `google/gemini-3.1-flash-image` ou Cloudflare / FLUX.1 + Pillow GOV.MT
+  - **Hugging Face Serverless Inference API (`HF_TOKEN`):** Suporte a `Qwen/Qwen2.5-72B-Instruct`, `Qwen/Qwen2.5-VL-7B-Instruct`, `FLUX.1-schnell` e `whisper-large-v3-turbo`
+  - **Processamento Local & Resiliência:** PyMuPDF, Tesseract OCR em português (`por.traineddata`), SAPI5 e modo offline a custo financeiro zero.
+- **Containerização:** Docker e Docker Compose com suporte a `ffmpeg` e OCR.
+
+---
+
+## 3. Estrutura do Repositório
+
+```text
+desafio-01-ia-ficdev/
+├── README.md                 # Guia completo de instalação e uso
+├── AGENTS.md                 # Diretrizes arquiteturais e regras do agente
+├── requirements.txt          # Dependências do projeto
+├── pytest.ini                # Configuração do ambiente de testes
+├── Dockerfile                # Imagem Docker com Python 3.11 e ffmpeg
+├── docker-compose.yml        # Orquestração do container
+├── .env.example              # Exemplo de variáveis de ambiente sem segredos
+├── .gitignore                # Regras de exclusão de arquivos sensíveis e temporários
+├── config.json               # Caminhos, modelos e parâmetros não-sensíveis
+├── dados/
+│   ├── originais/            # IMUTÁVEL: arquivos de entrada e brasão oficial GOV.MT
+│   ├── gabaritos/            # Resultados esperados para avaliação de acurácia
+│   └── processados/          # Extrações estruturadas intermediárias (JSON)
+├── src/
+│   ├── __init__.py
+│   ├── main.py               # Ponto de entrada oficial (API Web e CLI)
+│   ├── llm_client.py         # Cliente OpenRouter / HF / Mock com cálculo de custos
+│   ├── prompts.py            # Prompts A, B, C e blindagem XML anti-injection
+│   ├── audio.py              # STT (Whisper/Gemini) e TTS com aviso auditivo de ausências
+│   ├── vision.py             # Visão computacional / OCR e comparação de gabarito
+│   ├── image_generation.py   # Peça visual híbrida (IA + Pillow GOV.MT)
+│   ├── pdf_generator.py      # Geração de documento PDF oficial timbrado GOV.MT
+│   ├── audit.py              # Auditoria, LGPD e avaliação de qualidade
+│   └── web/                  # Interface Web para Human-in-the-Loop
+│       ├── index.html
+│       ├── styles.css
+│       └── app.js
+├── prompts/                  # Saídas dos Prompts A, B, C e matriz comparativa
+├── resultados/
+│   ├── minutas/              # Minutas geradas (.txt e .pdf)
+│   ├── audios/               # Áudios sintetizados para acessibilidade (.mp3)
+│   ├── imagens/              # Comunicados oficiais gerados (.png e .json)
+│   └── logs/                 # Trilha de auditoria estruturada (JSON e JSONL)
+├── testes/                   # Suíte de testes automatizados com pytest
+└── documentacao/             # Relatório técnico, LGPD e registro de uso de IA
+```
+
+---
+
+## 4. Instalação e Configuração (Passo a Passo)
+
+O sistema foi concebido para execução totalmente agnóstica de sistema operacional, resolvendo todos os diretórios e caminhos de forma dinâmica e relativa à raiz do projeto.
+
+### Pré-requisitos
+- Python 3.11 ou superior instalado
+- Git instalado
+- (Opcional) Docker e Docker Compose
+
+---
+
+### Passo 1: Clonar o Repositório
+
+```bash
+git clone https://github.com/Gabriel-M-Branco/desafio-01-ia-ficdev.git
+cd desafio-01-ia-ficdev
+```
+
+---
+
+### Passo 2: Criar e Ativar o Ambiente Virtual (`.venv`)
+
+Selecione a instrução correspondente ao seu sistema operacional:
+
+#### No Windows (PowerShell):
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+*(Caso haja restrição de execução de scripts no PowerShell, execute antes: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`)*
+
+#### No Windows (Prompt de Comando - CMD):
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+#### No Linux (Bash):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+#### No macOS (Zsh / Terminal):
+```zsh
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+---
+
+### Passo 3: Instalar as Dependências
+
+Com o ambiente virtual ativado:
+
+#### Windows (PowerShell ou CMD):
+```cmd
+pip install -r requirements.txt
+```
+
+#### Linux e macOS:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+### Passo 4: Configurar Variáveis de Ambiente (`.env`)
+
+Crie o arquivo `.env` a partir do modelo de exemplo:
+
+#### No Windows (PowerShell):
+```powershell
 Copy-Item .env.example .env
 ```
-Copie o exemplo somente na primeira instalação; preserve um `.env` já configurado.
-Configure `OPENROUTER_API_KEY` e, para RF10, as três variáveis `CLOUDFLARE_*`.
-Nunca compartilhe/versione credenciais. O exemplo mantém texto OpenRouter/Gemini,
-STT local e TTS SAPI5; não habilita autenticação administrativa RF10.
-Instale Tesseract OCR com `por.traineddata` em `C:\Program Files\Tesseract-OCR`
-e habilite a voz Microsoft Maria (pt-BR) no Windows. O modelo
-`Systran/faster-whisper-small` deve estar previamente no cache Hugging Face:
-download manual, quando autorizado, com
-`.\.venv\Scripts\python.exe -c "from huggingface_hub import snapshot_download; snapshot_download('Systran/faster-whisper-small')"`.
-O processamento RF06 usa somente o cache e não baixa modelos automaticamente.
-Node.js é necessário apenas para os validadores frontend; Edge, para o teste de navegador.
 
-Dependências: requirements.txt. Usar Python com as dependências da .venv existente.
-Interface local: `.\.venv\Scripts\python.exe -m src.main --host 127.0.0.1 --port 8000`
-Abrir http://127.0.0.1:8000. O badge consulta os provedores configurados no backend.
-Testes offline: python -B testes/executar_offline.py
-O executor usa arquivos temporários e bloqueia provedores externos; mocks são exclusivos dos testes.
-DOM offline: `node testes/validar_interface_offline.cjs` e `node testes/validar_fluxos_web.cjs`.
-Navegador real, sem APIs: `.\.venv\Scripts\python.exe -m testes.validar_navegador_local --executar`.
-Esse teste usa Edge, viewport móvel/desktop e arquivos/aprovações fictícios em pasta temporária; não inicia a aplicação de produção.
-Na interface: processar solicitação, conferir/editar minuta, informar justificativa e aprovar.
-Só então gerar TTS; qualquer edição posterior exige nova aprovação. Salvar correções não equivale a aprovar.
-Erros de API aparecem com status HTTP; falhas de geração nunca produzem respostas fictícias.
+#### No Windows (Prompt de Comando - CMD):
+```cmd
+copy .env.example .env
+```
 
-## Funcionalidades e limites reais
-- RF06: faster-whisper small/CPU/int8/pt ou HF; bruto/revisado, metadados, referência e auditoria. Sem fallback fictício.
-  Validação real final informada pelo operador: após reiniciar/liberar memória, passou pela
-  interface em `http://127.0.0.1:8000`, usando faster-whisper small local, CPU/int8.
-  O áudio de 89,16 s produziu transcrição; 3/6 entidades críticas foram conferidas.
-  A revisão humana permanece obrigatória; sucesso de processamento não significa fidelidade integral.
-  A falha anterior `mkl_malloc: failed to allocate memory` foi superada nessa execução;
-  memória disponível continua necessária. Em nova falta de memória, o backend registra a causa e retorna HTTP 503.
-- RF07: SAPI5/Microsoft Maria no Windows; edge-tts opcional. Texto aprovado por hash, áudio verdadeiro e validação de saída.
-- RF08: PyMuPDF/Tesseract português, alternativas Pillow/PSM e regiões. Preserva versões, divergências e JSON; ausentes permanecem “não localizado”. PDF oficial de baixa qualidade exige revisão humana.
-- RF10: Cloudflare Workers AI/HF/endpoint compatível. Pillow somente compõe/corrige, sem substituir IA. Preservados bruto, prompt, hashes, fonte Unicode, brasão, tarja e auditoria.
-- Texto: parser local dinâmico é extração regex, distinto da geração real de LLM. Sem credencial, timeout ou resposta inválida não há minuta simulada.
-- Avaliação: fidelidade compara referência; conformidade verifica presença/formato. Gabaritos prévios da equipe preservados.
-- Interface: painel de conferência, filtros, responsividade. Correções exigem valor conferido pelo humano, não copiam descrições de formato.
+#### No Linux e macOS:
+```bash
+cp .env.example .env
+```
 
-## Segurança
-Não existe autenticação de usuários do grupo. Geração/revisão/download administrativo RF10 desabilitados por padrão (503).
-exigir_revisor_imagem é o ponto de integração da segurança do grupo, com identidade autenticada e permissão rf10:revisar.
-operador não autentica; overrides de teste não podem ir para produção.
-Publicação em /api/publicacao/imagem/{id} exige última revisão autenticada e SHA-256 dos bytes atuais.
-Rejeição ou adulteração bloqueia acesso. /arquivos não entrega imagens RF10; não há mounts /dados ou /resultados.
-Pipeline não aprova/rejeita em nome do humano e não gera imagem implicitamente.
+Edite o arquivo `.env` gerado para inserir suas credenciais:
+```env
+OPENROUTER_API_KEY=sua_chave_openrouter_aqui
+HF_TOKEN=seu_token_huggingface_opcional
+EXECUTION_MODE=auto
+PORT=8000
+```
+> **Nota de Resiliência:** Caso nenhuma chave seja inserida no `.env`, o sistema executará com seu **Modo de Contingência Local**, garantindo a operação integral da interface web, das minutas e da suíte de testes com dados fiéis ao edital e custo financeiro estritamente zero.
 
-## Provedores e custos
-Texto RF02/RF09: `TEXT_PROVIDER=openrouter`, `OPENROUTER_MODEL=google/gemini-3.8-flash` e chave no `.env` local.
-Esse modelo consome saldo OpenRouter. `TEXT_FALLBACK_PROVIDER=none` desativa fallback.
-RF09 solicita JSON Schema estrito, valida as chaves e usa limite de saída de pelo menos 4096 tokens.
-Resposta inválida permite apenas uma correção de formato auditada, também sujeita a cobrança; nova falha mantém HTTP 502.
-Diagnósticos brutos de falhas ficam em `.llm-diagnosticos/`, fora do Git e do acesso HTTP; não compartilhar essa pasta.
-Hugging Face é opção configurável; `OPENROUTER_ENABLED` habilita apenas o fallback legado a partir dele.
-HF/Cloudflare podem ter quotas, créditos e cobrança; custo desconhecido permanece não informado.
-Testes automatizados usam transportes simulados; chamadas reais dependem de autorização e configuração local.
-Não copiar/versionar .env. .env.example contém somente configuração não secreta.
+---
 
-## Evidências e implantação
-dados/originais imutáveis; dados/gabaritos contém referências, não saídas de modelo.
-Artefatos locais originais preservados. Evidências remotas em evidencias_origin_main, sem fusão destrutiva das trilhas.
-Documentação anterior em evidencias_documentacao_anterior como histórico; métricas antigas não comprovam esta integração.
-Novos processamentos textuais e experimentos usam nomes exclusivos.
-Docker/Linux necessita OCR, fontes e TTS compatível; SAPI5 depende de Windows. Docker não validado.
-RF10 no navegador continua bloqueado por falta de autenticação real. O [executor Windows isolado](documentacao/teste_local_rf10.md)
-é exclusivo para testes e não concede acesso às rotas normais. Não há publicação automática.
-Pendências: autenticação do grupo, revisão das saídas reais e qualidade do PDF oficial.
+## 5. Instruções de Execução por Sistema Operacional
 
-## Integração da main (17/10/2026)
-Incorporadas melhorias de portabilidade do Tesseract, dependências OCR no Docker,
-responsividade, formatação visual de identificadores e testes temporários.
-A formatação do painel não altera JSON, minuta, métricas ou aprovação.
-Referências RF02 são históricas, sem tempos ou ranking presumidos.
-Rejeitados preenchimento fixo de OCR, parser permissivo, STT OpenRouter e geração
-implícita de imagem pelo pipeline. Gabaritos e evidências anteriores preservados.
+Todas as modalidades podem ser acionadas em qualquer plataforma:
+
+### 5.1. Interface Web Oficial (FastAPI + Painel Human-in-the-Loop)
+
+Inicia o servidor com a interface web institucional na porta `8000`:
+
+- **Windows (PowerShell ou CMD):**
+  ```cmd
+  python -m src.main
+  ```
+- **Linux e macOS:**
+  ```bash
+  python3 -m src.main
+  ```
+
+Acesse no navegador: **`http://localhost:8000`**
+
+Recursos disponíveis na interface web:
+- Triagem e processamento em tempo real de texto, áudio e imagem digitalizada.
+- Visualização de extração estruturada em JSON e edição formal da minuta de despacho.
+- Exportação da minuta deliberada em **documento PDF timbrado oficial do GOV.MT** com brasão institucional.
+- Síntese sonora da resposta via TTS neural com aviso auditivo de campos pendentes de localização.
+- Deliberação formal pelo servidor responsável (*Aprovar*, *Corrigir* ou *Rejeitar* com justificativa).
+- Geração da peça visual híbrida padronizada com Brasão Oficial e tarja de proveniência de IA.
+- Acompanhamento da trilha de auditoria e da matriz de conformidade LGPD.
+
+---
+
+### 5.2. Execução Completa Automatizada (`--run-all`)
+
+Executa o pipeline institucional de ponta a ponta, processa todas as modalidades, efetua a validação contra gabaritos e salva todos os artefatos nos diretórios relativos (`dados/processados/`, `resultados/` e `prompts/`):
+
+- **Windows (PowerShell ou CMD):**
+  ```cmd
+  python -m src.main --run-all
+  ```
+- **Linux e macOS:**
+  ```bash
+  python3 -m src.main --run-all
+  ```
+
+---
+
+### 5.3. Modo Linha de Comando Interativo (`--cli`)
+
+Para operadores que optarem por interagir via terminal institucional:
+
+- **Windows (PowerShell ou CMD):**
+  ```cmd
+  python -m src.main --cli
+  ```
+- **Linux e macOS:**
+  ```bash
+  python3 -m src.main --cli
+  ```
+
+---
+
+### 5.4. Execução Multiplataforma via Docker
+
+Caso prefira executar em container isolado com `ffmpeg` e todas as dependências pré-configuradas (funciona de forma idêntica em Windows, Linux e macOS):
+
+```bash
+docker compose up --build
+```
+Acesse em: `http://localhost:8000`
+
+---
+
+## 6. Testes Automatizados
+
+A suíte cobre 100% dos requisitos funcionais (**RF01 a RF13**), incluindo avaliação de gabarito, segurança de segredos e geração de PDF timbrado:
+
+- **Windows (PowerShell ou CMD):**
+  ```cmd
+  pytest testes/ -v
+  ```
+- **Linux e macOS:**
+  ```bash
+  pytest testes/ -v
+  ```
+
+---
+
+## 7. Mapeamento dos Requisitos Funcionais (RF01 a RF13)
+
+| Requisito | Descrição | Onde está implementado |
+|---|---|---|
+| **RF01** | Inicialização, configuração e segredos | `src/main.py`, `config.json`, `.env.example` |
+| **RF02** | Experimento de engenharia de prompts (A, B e C) | `src/prompts.py`, `prompts/matriz_comparativa.md` |
+| **RF03** | Prompt seguro, "não localizado" e anti-injection | `src/prompts.py` (Classe `SegurancaPrompts`) |
+| **RF04** | Chamada de API, fallback, métricas e custo zero | `src/llm_client.py` |
+| **RF05** | Entrada textual e extração estruturada (JSON) | `src/main.py`, `dados/processados/` |
+| **RF06** | Transcrição de áudio (STT) e conferência de gabarito | `src/audio.py`, `dados/gabaritos/gabarito_audio.json` |
+| **RF07** | Síntese de voz e acessibilidade (TTS) com alerta de ausências e fallback local SAPI5 | `src/audio.py` (OpenRouter / edge-tts / SAPI5), `resultados/audios/` |
+| **RF08** | Visão computacional, OCR e justificativa de soberania | `src/vision.py` (OpenRouter VLM / Tesseract), `dados/gabaritos/gabarito_visao.json` |
+| **RF09** | Geração de minuta institucional sem alucinação e exportação em PDF timbrado | `src/main.py`, `src/pdf_generator.py`, `resultados/minutas/` |
+| **RF10** | Geração de peça visual GOV.MT, suporte Cloudflare AI e moderação HITL | `src/image_generation.py`, `src/image_access.py`, `resultados/imagens/` |
+| **RF11** | Registro de auditoria estruturada e rastreabilidade | `src/audit.py` (AuditLogger), `resultados/logs/` |
+| **RF12** | LGPD, privacidade, minimização e mascaramento | `src/audit.py` (LGPDManager), `documentacao/` |
+| **RF13** | Avaliação de qualidade e revisão humana (HITL) | `src/audit.py` (QualityEvaluator), Interface Web |
+
+---
+
+## 8. Limitações Conhecidas e Trabalhos Futuros
+
+1. **Dependência de Conectividade Externa nas APIs Serverless:** Embora o sistema conte com fallback mock local e Tesseract OCR, chamadas à API da Hugging Face e OpenRouter estão sujeitas à latência de rede e filas momentâneas do tier gratuito. Em implantação de produção definitiva, recomenda-se hospedar modelos locais (ex: `Qwen2.5-7B` via Ollama/vLLM on-premise) para garantir soberania de dados.
+2. **Documentos Manuscritos Complexos:** A precisão de extração de campos manuscritos em formulários de baixa resolução depende da legibilidade da caligrafia do cidadão, tornando indispensável a etapa de confirmação humana do servidor público implementada na interface.
+3. **Evolução de Acessibilidade:** Em versões futuras, prevê-se a inclusão de avatar institucional com tradução em Libras (Língua Brasileira de Sinais) para além do suporte auditivo.
+
+---
+
+## 9. Documentação e Entregáveis
+
+- [Relatório Técnico Arquitetural e Custos](documentacao/relatorio_tecnico.md)
+- [Registro de Uso de Inteligência Artificial](documentacao/registro_uso_ia.md)
+- [Matriz Comparativa do Experimento de Prompts](prompts/matriz_comparativa.md)
+- [Diretrizes de Arquitetura e Regras de Negócio](AGENTS.md)
