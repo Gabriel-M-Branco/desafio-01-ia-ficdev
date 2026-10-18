@@ -89,10 +89,57 @@ body {
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+.header-status-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
 .header-badges {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.header-multimodal-chips {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.multimodal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--gov-blue-light);
+  border: 1px solid #BFDBFE;
+  color: var(--gov-blue-dark);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+.multimodal-chip:hover {
+  background-color: #DBEAFE;
+  border-color: #93C5FD;
+  color: var(--gov-blue);
+}
+.multimodal-chip strong {
+  color: #0F172A;
+  font-weight: 700;
+}
+.multimodal-chip.chip-rf10 {
+  background-color: var(--gov-yellow-light);
+  border-color: #FDE68A;
+  color: #92400E;
+}
+.multimodal-chip.chip-rf10 strong {
+  color: #78350F;
 }
 
 /* Badges */
@@ -1008,7 +1055,13 @@ body {
     align-items: flex-start;
     gap: 14px;
   }
-  .header-badges {
+  .header-status-panel {
+    align-items: flex-start;
+    width: 100%;
+    gap: 8px;
+  }
+  .header-badges,
+  .header-multimodal-chips {
     width: 100%;
     justify-content: flex-start;
     flex-wrap: wrap;
@@ -1103,4 +1156,24 @@ body {
   padding: 10px 14px;
   vertical-align: middle;
   border-bottom: 1px solid var(--border-color);
+}
+
+/* Mantém a regra final da grade compatível com telas pequenas. */
+.system-modes { margin: 8px 24px; color: #475569; font-size: .85rem; overflow-wrap: anywhere; }
+.pane-grid > *, .multimodal-grid > *, .card { min-width: 0; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.badge-mode { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 1150px) {
+  #tab-atendimento .pane-grid, .pane-grid { grid-template-columns: minmax(0, 1fr); }
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .header-container { padding-left: 0; padding-right: 0; }
+  .brand-group { width: 100%; min-width: 0; gap: 10px; }
+  .brand-text { min-width: 0; overflow-wrap: anywhere; }
+  .card-header { flex-wrap: wrap; gap: 8px; }
+  .card-header > * { min-width: 0; }
+  .form-control { max-width: 100%; min-width: 0; }
+  .image-preview-wrapper, .multimodal-grid { grid-template-columns: minmax(0, 1fr); }
+  .main-content { padding-left: 10px; padding-right: 10px; }
 }

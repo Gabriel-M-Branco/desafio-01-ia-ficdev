@@ -1,4 +1,5 @@
 import sys
+import traceback
 """
 Módulo de Processamento de Áudio: STT (Whisper HF) e TTS com Acessibilidade (RF06, RF07)
 """
@@ -191,7 +192,11 @@ class AudioProcessor:
                 metadados["idioma_detectado"] = idioma.strip()
         except Exception as exc:
             status = getattr(getattr(exc, "response", None), "status_code", None)
-            if provider == "local" and isinstance(exc, FileNotFoundError):
+            memoria = provider == "local" and (isinstance(exc, MemoryError) or
+                "mkl_malloc" in str(exc).lower() or "failed to allocate memory" in str(exc).lower())
+            if memoria:
+                codigo = "memoria_insuficiente"
+            elif provider == "local" and isinstance(exc, FileNotFoundError):
                 codigo = "modelo_local_indisponivel"
             elif status in (401, 403):
                 codigo = "autenticacao"
@@ -203,8 +208,21 @@ class AudioProcessor:
                 codigo = "dependencia_ausente"
             else:
                 codigo = "falha_provedor"
-            # Não propagar mensagens externas que possam conter credenciais.
-            return {"sucesso": False, "erro": "Não foi possível concluir o STT.", "codigo_erro": codigo}
+            falha = {"sucesso": False, "erro": "Não foi possível concluir o STT.", "codigo_erro": codigo}
+            if provider == "local":
+                # Preservar a causa local na auditoria, sem segredos nem variáveis locais.
+                detalhe = str(exc)
+                for nome, valor in os.environ.items():
+                    if len(valor) > 4 and any(k in nome.upper() for k in ("TOKEN", "KEY", "PASSWORD", "SECRET")):
+                        detalhe = detalhe.replace(valor, "[credencial omitida]")
+                detalhe = re.sub(r"Bearer\s+\S+|(?:sk-or-v1-|hf_|token[-_])[A-Za-z0-9_-]+", "[credencial omitida]", detalhe, flags=re.IGNORECASE)
+                frames = traceback.extract_tb(exc.__traceback__)
+                falha["diagnostico"] = {"tipo_excecao": type(exc).__name__, "mensagem": detalhe[:1000],
+                    "origem": [{"arquivo": Path(f.filename).name, "linha": f.lineno, "funcao": f.name} for f in frames]}
+                falha["erro"] = ("Memória insuficiente para carregar/executar faster-whisper small (CPU/int8). "
+                    "Feche aplicativos pesados e verifique a memória virtual/arquivo de paginação do Windows; "
+                    "tente novamente. Causa: " if memoria else "STT local falhou: ") + detalhe[:300]
+            return falha
         revisada = re.sub(r"\s+", " ", bruta).strip()
         return {
             "sucesso": True, "arquivo_audio": caminho_relativo(path), "metadados": metadados,
@@ -225,7 +243,13 @@ class AudioProcessor:
         if resultado.get("sucesso"):
             diretorio = resolver_caminho(self.config.get("paths", {}).get(
                 "dados_processados", "dados/processados"))
-            arquivo = diretorio / f"transcricao_audio_{uuid.uuid4().hex}.json"
+            nome_base = caminho.stem
+            for antigo in diretorio.glob("transcricao_*.json"):
+                try:
+                    antigo.unlink()
+                except OSError:
+                    pass
+            arquivo = diretorio / f"transcricao_{nome_base}.json"
             try:
                 diretorio.mkdir(parents=True, exist_ok=True)
                 resultado["arquivo_transcricao"] = caminho_relativo(arquivo)
@@ -257,6 +281,8 @@ class AudioProcessor:
     def _normalizar_comparacao(texto: str) -> str:
         texto = "".join(c for c in unicodedata.normalize("NFKD", texto.casefold())
                         if not unicodedata.combining(c))
+        # Normaliza pontuação de milhar em números (ex: 1.200 -> 1200)
+        texto = re.sub(r"\b(\d+)\.(\d{3})\b", r"\1\2", texto)
         meses = "janeiro fevereiro marco abril maio junho julho agosto setembro outubro novembro dezembro".split()
         for numero, mes in enumerate(meses, 1):
             texto = re.sub(r"\b(\d{1,2}) de " + mes + r" de (\d{4})\b",
@@ -371,7 +397,7 @@ try {
         from src.audit import AuditLogger
         logger = audit_logger or AuditLogger(self.config.get("paths", {}).get("resultados_logs", "resultados/logs"))
         inicio = time.perf_counter()
-        provider = os.getenv("TTS_PROVIDER", "sapi5" if os.name == "nt" else "edge-tts").strip().lower()
+        provider = os.getenv("TTS_PROVIDER", "edge-tts").strip().lower()
         resultado = {"sucesso": False, "provedor": provider, "metodo": provider,
                      "id_execucao_aprovacao": id_execucao}
         caminho = None

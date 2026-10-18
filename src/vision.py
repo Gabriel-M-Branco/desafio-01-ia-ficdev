@@ -556,7 +556,15 @@ class VisionProcessor:
     def processar_com_auditoria(self, audit_logger, caminho_arquivo="dados/originais/entrada_pdf-imagem.pdf"):
         resultado = self.processar_documento(caminho_arquivo)
         if resultado.get("sucesso"):
-            arquivo = resolver_caminho(self.config.get("paths", {}).get("dados_processados", "dados/processados")) / f"ocr_{uuid.uuid4().hex}.json"
+            diretorio = resolver_caminho(self.config.get("paths", {}).get("dados_processados", "dados/processados"))
+            nome_base = Path(caminho_arquivo).stem
+            # Substitui execuções anteriores do mesmo documento para evitar proliferação de arquivos
+            for antigo in diretorio.glob("ocr_*.json"):
+                try:
+                    antigo.unlink()
+                except OSError:
+                    pass
+            arquivo = diretorio / f"ocr_{nome_base}.json"
             try:
                 if arquivo.resolve().is_relative_to(resolver_caminho("dados/originais").resolve()):
                     raise OSError("Originais imutáveis")
