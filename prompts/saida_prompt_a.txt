@@ -1,35 +1,40 @@
-**Resposta Oficial — Secretaria**
+## Informações extraídas
+
+- **Protocolo:** 2026-000142 | **Canal:** E-mail | **Data:** 14/10/2026
+- **Solicitante:** Marcos Vinícius de Almeida Santos (nasc. 12/08/2008, Cuiabá-MT)
+- **Documentos:** CPF 123.456.789-00; RG 1234567-8
+- **Mãe:** Lúcia Helena de Almeida Santos
+- **E-mail:** marcos.almeida.teste@examplo.com
+- **Solicitação:** efetivação de matrícula no curso Técnico em Enfermagem (eixo tecnológico Saúde, 1200 h, turno noturno), início em 01/02/2027
+- **Pedido:** relação de documentos pendentes
+
+---
+
+## Minuta de resposta oficial
+
+**[Órgão/Secretaria]**
+**Resposta ao Protocolo nº 2026-000142**
+
+Cuiabá, 14 de outubro de 2026.
+
+**Ao Senhor**
+Marcos Vinícius de Almeida Santos
 
 **Assunto:** Requerimento de efetivação de matrícula — Curso Técnico em Enfermagem
-**Protocolo:** 2026-000142
-**Data:** 14/10/2026
-**Canal de atendimento:** E-mail
 
-**Ao cidadão:** Marcos Vinícius de Almeida Santos
-**CPF:** 123.456.789-00 | **RG:** 1234567-8
-**E-mail informado:** marcos.almeida.teste@examplo.com
+Prezado Senhor,
 
-Prezado(a) Senhor(a),
+1. Recebemos seu requerimento, protocolado sob nº 2026-000142, solicitando a efetivação da matrícula no curso **Técnico em Enfermagem**, eixo tecnológico Saúde, carga horária de 1200 horas, turno noturno, com início em 01/02/2027. Seus dados cadastrais foram registrados no sistema desta Secretaria.
 
-Em atenção ao seu contato, informamos que o requerimento de efetivação de matrícula no **curso Técnico em Enfermagem**, eixo tecnológico **Saúde**, carga horária de **1.200 horas**, **turno noturno**, com início em **01/02/2027**, foi registrado nesta Secretaria sob o protocolo **2026-000142**, na data de **14/10/2026**.
+2. Quanto aos documentos necessários, informamos que, em regra, são exigidos para efetivação:
+   - RG e CPF (original e cópia);
+   - Certidão de nascimento;
+   - Histórico escolar ou declaração de conclusão do ensino médio;
+   - Comprovante de residência atualizado;
+   - Uma foto 3x4 recente;
+   - Título de eleitor e comprovante de quitação com a Justiça Eleitoral;
+   - Comprovante de alistamento militar, quando aplicável.
 
-Foram registrados, ainda, os seguintes dados: nascimento em 12/08/2008, em Cuiabá; nome da mãe, Lúcia Helena de Almeida Santos; e ciência das regras de cancelamento automático da matrícula em caso de falta sem justificativa comprovada nos dois primeiros dias de aula consecutivos ou em três dias de aula, consecutivos ou não, nos dez primeiros dias de aula.
+   A relação definitiva de documentos pendentes será encaminhada ao seu e-mail, conforme análise do setor competente. Ressaltamos que, tendo o senhor completado 18 anos em 12/08/2026, não é necessária a representação por responsável legal.
 
-**Documentos pendentes de apresentação:**
-
-1. RG e CPF (original e cópia);
-2. Certidão de nascimento;
-3. Comprovante de residência atualizado;
-4. Histórico escolar ou declaração de conclusão do ensino médio;
-5. Uma foto 3x4 recente;
-6. Título de eleitor e comprovante de quitação eleitoral (maiores de 18 anos);
-7. Comprovante de quitação com o serviço militar (candidatos do sexo masculino, maiores de 18 anos).
-
-Solicitamos, ainda, a **confirmação do endereço de e-mail** informado, pois o mesmo pode conter incorreção, a fim de garantir o recebimento de comunicados sobre a matrícula.
-
-Os documentos deverão ser entregues na Secretaria antes do início das aulas, em 01/02/2027. Em caso de dúvidas, estamos à disposição por este canal, informando sempre o número do protocolo.
-
-Atenciosamente,
-
-**Secretaria de Registro Acadêmico**
-Protocolo 2026-000142
+3. Registramos sua declaração de ciência quanto ao cancelamento automático da matrícula em caso de falta, sem justificativa comprovada, nos dois primeiros dias de aula con

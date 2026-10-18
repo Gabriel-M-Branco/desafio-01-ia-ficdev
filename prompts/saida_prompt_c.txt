@@ -16,12 +16,15 @@
     "inicio_curso": "01/02/2027",
     "email": "marcos.almeida.teste@examplo.com",
     "telefone": "não localizado",
-    "assunto": "Solicitação de efetivação de matrícula em curso técnico e pedido de informação sobre documentação pendente",
+    "assunto": "Solicitação de efetivação de matrícula no curso Técnico em Enfermagem e pedido de informação sobre documentos pendentes",
     "pedido": "Efetivar a matrícula no curso Técnico em Enfermagem (eixo Saúde, 1200 horas, turno noturno, início em 01/02/2027) e informar quais documentos ainda precisam ser apresentados",
     "categoria": "Matrícula e Ingresso",
-    "campos_ausentes": ["nome_pai", "telefone"],
-    "nivel_confianca": "media",
+    "campos_ausentes": [
+      "nome_pai",
+      "telefone"
+    ],
+    "nivel_confianca": "alta",
     "necessidade_revisao": true
   },
-  "minuta_institucional": "Prezado(a) solicitante, registra-se o protocolo 2026-000142, de 14/10/2026, recebido por e-mail, em que Marcos Vinícius de Almeida Santos, CPF 123.456.789-00, RG 1234567-8, nascido em 12/08/2008, natural de Cuiabá, filho de Lúcia Helena de Almeida Santos, solicita a efetivação de matrícula no curso Técnico em Enfermagem, eixo tecnológico Saúde, carga horária de 1200 horas, turno noturno, com início previsto para 01/02/2027, além de informação sobre a documentação ainda necessária. Contato informado: marcos.almeida.teste@examplo.com. ALERTA: não foram localizados no documento os campos nome do pai e telefone, sendo imprescindível sua complementação. Adicionalmente, recomenda-se conferência dos dados informados, pois o CPF apresentado corresponde a uma sequência numérica padrão de exemplo e o domínio do e-mail apresenta possível incorreção de digitação, o que impede a validação automática. A matrícula permanece condicionada à apresentação da documentação exigida e à confirmação dos dados pelo setor competente."
+  "minuta_institucional": "Prezado(a) Marcos Vinícius de Almeida Santos,\n\nA Secretaria de Registro Escolar da Escola Técnica Estadual de Cuiabá / SECITECI-MT registra o recebimento do seu pedido, protocolo 2026-000142, de 14/10/2026, referente à efetivação de matrícula no curso Técnico em Enfermagem, eixo tecnológico Saúde, carga horária de 1200 horas, turno noturno, com início previsto para 01/02/2027. Para fins de identificação, consta o CPF ***.456.789-**.\n\nInformamos que o requerimento foi acolhido para análise e que a conclusão da matrícula depende da conferência da documentação regulamentar exigida para o ingresso.\n\nDOCUMENTOS E DADOS PENDENTES\n- Nome do pai: não localizado na solicitação.\n- Telefone para contato: não localizado na solicitação.\n- Lista oficial de documentos obrigatórios para efetivação da matrícula: não localizado no documento recebido. Diante disso, solicitamos conferência humana pela Coordenação de Atendimento e Registros Escolares, que informará a relação exata de documentos a apresentar, nos termos do edital e das normas vigentes.\n\nSolicitamos, ainda, atenção ao endereço de e-mail informado, que apresenta possível inconsistência de digitação, devendo ser confirmado.\n\nAdvertência de frequência: a matrícula será automaticamente cancelada caso o(a) estudante falte, sem justificativa comprovada, nos dois primeiros dias de aula consecutivos ou em três dias de aula, consecutivos ou não, nos dez primeiros dias de aula.\n\nPermanecemos à disposição para esclarecimentos adicionais.\n\nAtenciosamente,\nCoordenação de Atendimento e Registros Escolares"
 }

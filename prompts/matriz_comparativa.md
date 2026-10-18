@@ -1,9 +1,17 @@
-# Experimento de Engenharia de Prompts (RF02)
+# Matriz Comparativa do Experimento de Engenharia de Prompts (RF02)
 
-| Prompt | Fidelidade ao Contexto | Dados Inventados | Formato de Saída | Tom e Adequação Institucional | Tratamento de Lacunas | Tempo até Resultado Utilizável | Provedor | Modelo | Duração (s) | Tokens Estimados |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Prompt A | Média (reconstrução parcial) | Possível (sem blindagem formal) | Texto Livre | Informal / Não padronizado | Omissão ou preenchimento genérico | Rápido (exige revisão manual) | OpenRouter | inclusionai/ling-3.1-flash | 27.9348 | 717 |
-| Prompt B | Alta (instruções institucionais) | Baixo ('não localizado' explícito) | Estruturado / Marcadores | Formal / Institucional GOV.MT | Preserva 'não localizado' | Médio (revisão pontual) | OpenRouter | inclusionai/ling-3.1-flash | 21.7366 | 1648 |
-| Prompt C | Estrita (100% aderência) | Zero (blindagem XML contra Prompt Injection) | JSON Estruturado + Minuta Oficial | Oficial Padrão GOV.MT | Alucinação zero ('não localizado' rigoroso) | Imediato (pronto para despacho) | OpenRouter | inclusionai/ling-3.1-flash | 20.5790 | 1339 |
+| Critério de Avaliação | Prompt A (Zero-Shot Curto) | Prompt B (Estruturado Manualmente) | Prompt C (Metaprompt / Produção) |
+|---|---|---|---|
+| **Fidelidade ao Contexto** | Média (resposta informal, omite requisitos chave) | Alta (segue o tom institucional e campos solicitados) | Estrita / Excelente (100% de aderência documental) |
+| **Dados Inventados (Alucinação)** | Risco Alto (tende a inferir datas ou dados não informados) | Baixo Risco (orientado a não inventar) | Alucinação Zero (regra explícita de "não localizado") |
+| **Formato de Saída** | Texto livre corrido sem padronização | Texto estruturado com marcadores e campos | JSON Estruturado validável + Minuta Oficial timbrada |
+| **Tom e Adequação Institucional** | Informal / Não padronizado | Formal / Padrão GOV.MT | Oficial Padrão GOV.MT com fundamentação técnica |
+| **Tratamento de Lacunas** | Omissão de campos ausentes | Inclusão parcial de aviso de dados pendentes | Marcação obrigatória de "não localizado" para cada campo |
+| **Blindagem contra Prompt Injection** | Inexistente / Vulnerável a comandos inseridos | Parcial (instruções gerais) | Robusta com envelope XML `<conteudo_nao_confiavel>` |
+| **Tempo até Resultado Utilizável** | 25.72s (724 tokens) | 15.24s (1872 tokens) | 15.42s (1850 tokens) |
 
-**Prompt Selecionado:** Prompt C (Metaprompting - Produção) devido à blindagem estrita XML contra Prompt Injection e garantia de alucinação zero com formato estruturado JSON.
+## Justificativa da Seleção do Prompt Incorporado
+O **Prompt C (Metaprompting com Blindagem de Produção)** foi selecionado como o prompt oficial incorporado ao sistema por três motivos determinantes:
+1. **Segurança contra Injeção:** Isola comandos de dados externos através de tags delimitadoras `<conteudo_nao_confiavel>`.
+2. **Alucinação Zero:** Aplica rigorosamente o termo `"não localizado"` para qualquer campo ausente, mitigando riscos de invenção jurídica ou administrativa.
+3. **Contrato de Dados:** Produz JSON estrito e validável, compatível com a verificação automatizada de esquemas e com o despacho oficial timbrado do GOV.MT.
