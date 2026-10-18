@@ -14,6 +14,14 @@ from src.llm_client import LLMClient, LLMResponse
 from src.prompts import SegurancaPrompts
 
 
+def payload_contrato(extracao, minuta):
+    from src.text_contract import CAMPOS_TEXTO
+    campos = {k: "não localizado" for k in CAMPOS_TEXTO}
+    campos.update(extracao)
+    campos.update(campos_ausentes=[k for k, v in campos.items() if v == "não localizado"], necessidade_revisao=True)
+    return json.dumps({"extracao": campos, "minuta_institucional": minuta})
+
+
 def test_referencia_prompts_nao_inventa_tempos():
     from src.main import obter_experimento_prompts
     referencia = obter_experimento_prompts()
@@ -363,8 +371,7 @@ def test_fluxo_web_texto_revisao_tts_e_edicao_por_hash(web, monkeypatch):
     import wave
     main, pedir = web
     monkeypatch.setenv("TTS_PROVIDER", "sapi5")
-    payload = json.dumps({"extracao": {"protocolo": "2099-123456", "solicitante": "Pessoa Fictícia"},
-                          "minuta_institucional": "Minuta fictícia com informação não localizado."})
+    payload = payload_contrato({"protocolo": "2099-123456", "solicitante": "Pessoa Fictícia"}, "Minuta fictícia com informação não localizado.")
     resposta_llm = LLMResponse(payload, "google/gemini-3.8-flash", "transporte-mock", .01, 1, 1, 2, None, "success")
     monkeypatch.setattr(main.llm_client, "generate", Mock(return_value=resposta_llm))
     resposta = pedir("POST", "/api/processar/texto", json={"texto": "Entrada fictícia", "caso": "personalizado"})
@@ -440,8 +447,7 @@ def test_processamento_novo_nao_sobrescreve_evidencias(web,monkeypatch):
     antiga=main.resolver_caminho("resultados/minutas/minuta_personalizado.pdf")
     antiga.parent.mkdir(parents=True,exist_ok=True)
     antiga.write_bytes(b"Evidencia anterior de teste")
-    payload=json.dumps({"extracao":{"protocolo":"2099-000001","solicitante":"Ana Ficticia"},
-                        "minuta_institucional":"Minuta de teste para conferencia humana."})
+    payload=payload_contrato({"protocolo":"2099-000001","solicitante":"Ana Ficticia"}, "Minuta de teste para conferencia humana.")
     dado=LLMResponse(payload,"modelo","mock-transporte",0.01,1,1,2,None,"success")
     monkeypatch.setattr(main.llm_client,"generate",Mock(return_value=dado))
     corpo={"texto":"Nome: Ana Ficticia\nProtocolo: 2099-000001","caso":"personalizado"}
@@ -480,7 +486,7 @@ def test_json_invalido_e_auditado_sem_texto_ficticio(web,monkeypatch):
 def test_correcao_formato_unica_auditada_sem_expor_resposta_bruta(web, monkeypatch):
     main, pedir = web
     ruim = LLMResponse('```json\n{"extracao":', "modelo", "mock", .1, 1, 1, 2, None, "success", finish_reason="length")
-    bom = LLMResponse(json.dumps({"extracao": {"protocolo": "não localizado"}, "minuta_institucional": "Minuta fictícia."}),
+    bom = LLMResponse(payload_contrato({"protocolo": "não localizado"}, "Minuta fictícia."),
                       "modelo", "mock", .2, 1, 1, 2, None, "success", finish_reason="stop")
     gerar = Mock(side_effect=[ruim, bom])
     monkeypatch.setattr(main.llm_client, "generate", gerar)

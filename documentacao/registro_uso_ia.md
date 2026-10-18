@@ -19,7 +19,7 @@ No processo de desenvolvimento assistido, foram utilizadas as seguintes ferramen
   - `openai/whisper-large-v3-turbo` para transcrição de fala (STT);
   - `black-forest-labs/FLUX.1-schnell` para geração de ilustração vetorial sem texto;
   - `edge-tts` (voz neural `pt-BR-AntonioNeural`) para síntese de voz acessível.
-- **Ambiente de Execução e Testes:** Python 3.14 / Python 3.11-slim (Docker), FastAPI 0.110+, Pillow 10.2+, PyMuPDF 1.24+, Pytest 9.1+.
+- **Ambientes declarados no histórico, não comprovados nesta auditoria:** Python 3.14 / Python 3.11-slim (Docker). O ambiente efetivamente validado é Python 3.13.0; versões exatas em `auditoria_final/ambiente_validado.json`.
 
 ---
 
@@ -49,7 +49,7 @@ No processo de desenvolvimento assistido, foram utilizadas as seguintes ferramen
 
 * **Sugestões Aceitas:**
   - Utilização do `FastAPI` servindo frontend Vanilla (HTML/CSS/JS) sem complexidade desnecessária de frameworks pesados, garantindo execução leve e compatibilidade imediata em qualquer ambiente corporativo.
-  - Implementação de um motor de contingência/mock offline inteligente no `LLMClient`, permitindo rodar a aplicação e demonstrar todos os requisitos mesmo em máquinas sem conexão externa ou sem chave de API configurada.
+  - Mocks foram mantidos exclusivamente nos testes. A proposta de contingência com resultados simulados foi rejeitada para produção; ausência de provedor retorna erro explícito.
   - Utilização do `PyMuPDF` (`pymupdf`) para converter páginas de PDF em imagem de alta resolução em memória, eliminando a dependência de binários externos do Poppler no Windows.
 
 * **Sugestões Modificadas:**
@@ -74,8 +74,8 @@ No processo de desenvolvimento assistido, foram utilizadas as seguintes ferramen
 ## 5. Forma de Validação do Código e Conteúdo Gerado
 
 O código e os artefatos foram submetidos a validação em múltiplas camadas:
-- **Testes Automatizados Unitários e de Integração:** 12 testes executados via `pytest` cobrindo desde a leitura de configurações, tratamento de exceções, extração estruturada, STT, TTS, visão computacional até a gravação dos logs de auditoria e conformidade LGPD.
-- **Execução Integral de Pipeline (--run-all):** Verificação de ponta a ponta gerando todos os arquivos de saída em `dados/processados/`, `resultados/` e `prompts/`.
+- **Testes Automatizados Unitários e de Integração:** consultar a contagem atual e a separação real/mock no relatório da auditoria final. A antiga contagem de 12 testes não representa esta versão.
+- **Pipeline (--run-all):** não há comprovação de uma execução automática integral com revisão humana. Aprovações e RF10 são etapas separadas; mocks não comprovam esse fluxo real.
 - **Inspeção Visual e Auditiva Humana:** Conferência manual da peça gráfica gerada em `resultados/imagens/comunicado_institucional_govmt.png` e audição do arquivo de áudio acessível sintetizado em `resultados/audios/minuta_aprovada_acessivel.mp3`.
 - **Inspeção de Segurança e Credenciais:** Varredura em todo o código e logs garantindo ausência de chaves de API versionadas ou dados pessoais reais.
 
@@ -83,4 +83,24 @@ O código e os artefatos foram submetidos a validação em múltiplas camadas:
 
 ## 6. Declaração de Responsabilidade da Equipe
 
+**Texto a ser confirmado pela equipe antes da entrega; não é atestado ou assinatura do agente:**
+
 Declaramos formalmente que toda a solução entregue neste repositório foi planejada, compreendida, testada e validada pela equipe discente. O uso de ferramentas de inteligência artificial ocorreu estritamente como suporte técnico e pedagógico para produtividade e aceleração de desenvolvimento, permanecendo a responsabilidade integral sobre as decisões de arquitetura, qualidade do código, veracidade das evidências e conformidade institucional com a equipe.
+
+## 7. Registro verificável desta conversa e ressalvas finais
+Assistente: Codex. A versão exata do modelo desta sessão não foi registrada no projeto;
+não deve ser deduzida dos modelos usados pelo aplicativo. Ambiente real nesta auditoria:
+Python 3.13.0, com versões em `auditoria_final/ambiente_validado.json`; a antiga menção a
+Python 3.14/Docker é histórica e não comprova teste de instalação/container.
+Solicitações efetivamente feitas pelo operador (excertos):
+1. "Implemente o RF07 com TTS local gratuito, economizando tokens."
+2. "Corrija as lacunas de segurança identificadas no fluxo de revisão e publicação do RF10, preservando a arquitetura existente."
+3. "Atualize somente a documentação para refletir o resultado final real do RF06"
+4. "Quero uma AUDITORIA FINAL EXAUSTIVA E ADVERSARIAL do Desafio Prático 1."
+Aceitos: provedores reais, bloqueio RF10, aprovação por hash, testes offline e documentação de limitações.
+Modificados: o PDF passou a paginar e indicar fontes; a conferência da origem passou a bloquear a minuta até confirmação.
+Rejeitados: respostas fictícias, aprovação automática, mascarar falta de memória e atribuir acurácia a testes mockados.
+Os erros e a validação reproduzível estão no relatório final. O agente não comprova a
+compreensão individual dos estudantes nem assina por eles: a declaração da seção 6
+precisa ser confirmada pela equipe antes da entrega. Resultados/identidade de revisores
+privados não podem ser publicados automaticamente como evidência fictícia.

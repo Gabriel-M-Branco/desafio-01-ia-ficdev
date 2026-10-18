@@ -7,6 +7,7 @@ import uuid
 import hashlib
 import re
 import unicodedata
+import os
 from datetime import datetime as _datetime
 from pathlib import Path
 from datetime import datetime
@@ -18,13 +19,31 @@ from src import resolver_caminho, caminho_relativo
 class AuditLogger:
     """
     Registrador de auditoria estruturada e rastreabilidade completa (RF11).
-    Garante integridade, anonimização de credenciais e vínculo estrito com arquivos de entrada.
+    Registra vínculos e hashes e sanitiza segredos conhecidos. Não autentica pessoas
+    nem garante anonimização integral ou inviolabilidade dos arquivos locais.
     """
 
     def __init__(self, log_dir: str = "resultados/logs"):
         self.log_dir = resolver_caminho(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.trail_file = self.log_dir / "audit_trail.jsonl"
+
+    @staticmethod
+    def sanitizar(valor):
+        """Remove segredos em profundidade, preservando métricas de tokens."""
+        metricas = {"max_tokens", "total_tokens", "prompt_tokens", "completion_tokens"}
+        if isinstance(valor, dict):
+            return {k: ("[REDACTED]" if str(k).lower() not in metricas and
+                re.search(r"(^|_)(api_key|key|chave|token|secret|secreta|password|pwd|authorization|auth)($|_)", str(k), re.I)
+                else AuditLogger.sanitizar(v)) for k, v in valor.items()}
+        if isinstance(valor, (list, tuple)):
+            return [AuditLogger.sanitizar(v) for v in valor]
+        if isinstance(valor, str):
+            for nome, segredo in os.environ.items():
+                if len(segredo) > 4 and any(t in nome.upper() for t in ("TOKEN", "KEY", "PASSWORD", "SECRET")):
+                    valor = valor.replace(segredo, "[REDACTED]")
+            return re.sub(r"Bearer\s+\S+|(?:sk-or-v1-|hf_)[A-Za-z0-9_-]+", "[REDACTED]", valor, flags=re.I)
+        return valor
 
     def registrar_execucao(
         self,
@@ -45,12 +64,8 @@ class AuditLogger:
         exec_id = f"EXEC_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
 
         # Sanitiza parâmetros removendo possíveis chaves de API
-        params_limpos = {}
-        for k, v in (parametros or {}).items():
-            if any(term in k.lower() for term in ["key", "token", "secret", "auth", "pwd"]):
-                params_limpos[k] = "[REDACTED]"
-            else:
-                params_limpos[k] = v
+        params_limpos = self.sanitizar(parametros or {})
+        resultado = self.sanitizar(resultado)
 
         registro = {
             "id_execucao": exec_id,
@@ -64,7 +79,7 @@ class AuditLogger:
             "duracao_segundos": duracao_segundos,
             "erros": erros or [],
             "resultado_resumo": {
-                "sucesso": len(erros or []) == 0,
+                "sucesso": (resultado.get("sucesso", True) is not False) and not erros,
                 "campos_extraidos": len(resultado.get("extracao", {})) if isinstance(resultado, dict) else 0,
             },
             "decisao_humana": decisao_humana or {
@@ -74,6 +89,7 @@ class AuditLogger:
             },
         }
 
+        registro = self.sanitizar(registro)
         # Grava no log cumulativo JSON Lines
         with open(self.trail_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(registro, ensure_ascii=False) + "\n")
@@ -89,14 +105,15 @@ class AuditLogger:
     def hash_texto(texto: str) -> str:
         return hashlib.sha256(texto.encode("utf-8")).hexdigest()
 
-    def obter_aprovacao_texto(self, exec_id: str, texto: str):
+    def obter_aprovacao_texto(self, exec_id: str, texto: str, modalidade_esperada="texto"):
         """Lê a aprovação persistida; não aceita flags enviadas pelo cliente."""
         if not exec_id or not re.fullmatch(r"[A-Za-z0-9_-]+", exec_id):
             return None
         try:
             dado = json.loads((self.log_dir / f"{exec_id}.json").read_text(encoding="utf-8"))
             decisao = dado.get("decisao_humana", {})
-            if (decisao.get("status") == "APROVADO" and decisao.get("id_aprovacao")
+            if (dado.get("modalidade") == modalidade_esperada
+                    and decisao.get("status") == "APROVADO" and decisao.get("id_aprovacao")
                     and dado.get("texto_final") == texto
                     and decisao.get("hash_texto_aprovado") == self.hash_texto(texto)):
                 return decisao
@@ -113,6 +130,9 @@ class AuditLogger:
                 or not justificativa.strip() or not operador.strip()
                 or (decisao == "APROVADO" and (not isinstance(texto_final, str) or not texto_final.strip()))):
             return False
+        if texto_final is not None and self.sanitizar(texto_final) != texto_final:
+            return False  # Não persistir um segredo como texto institucional aprovado.
+        operador, justificativa = self.sanitizar(operador), self.sanitizar(justificativa)
         individual_file = self.log_dir / f"{exec_id}.json"
         if not individual_file.exists():
             return False
@@ -120,6 +140,7 @@ class AuditLogger:
         with open(individual_file, "r", encoding="utf-8") as f:
             dado = json.load(f)
 
+        dado.setdefault("historico_decisoes", []).append(dado.get("decisao_humana", {}).copy())
         dado["decisao_humana"] = {
             "status": decisao,
             "operador": operador,
@@ -151,6 +172,23 @@ class AuditLogger:
                         pass
         return execucoes
 
+    def resumo_revisoes(self):
+        """Decisões atuais dos casos, excluindo TTS e eventos auxiliares do denominador."""
+        contagens = {k: 0 for k in ("APROVADO", "CORRIGIDO", "REJEITADO", "pendente_revisao")}
+        for evento in self.listar_execucoes():
+            if evento.get("modalidade") not in {"texto", "audio", "visao", "imagem"}:
+                continue
+            try:
+                dado = json.loads((self.log_dir / (evento["id_execucao"] + ".json")).read_text(encoding="utf-8"))
+                status = dado.get("decisao_humana", {}).get("status", "pendente_revisao")
+            except (OSError, ValueError):
+                status = "pendente_revisao"
+            contagens[status if status in contagens else "pendente_revisao"] += 1
+        decididos = sum(contagens[k] for k in ("APROVADO", "CORRIGIDO", "REJEITADO"))
+        return {"contagens": contagens, "casos_decididos": decididos,
+                "taxa_aprovacao_percentual": round(100 * contagens["APROVADO"] / decididos, 1) if decididos else None,
+                "criterio": "Aprovados / (aprovados + corrigidos + rejeitados); pendentes e TTS excluídos. Revisões RF10 isoladas não entram nesta trilha."}
+
 
 class LGPDManager:
     """
@@ -167,9 +205,9 @@ class LGPDManager:
             "minimizar_no_prompt": False,
         },
         "cpf": {
-            "natureza": "Dado Pessoal Sensível/Crítico",
+            "natureza": "Dado pessoal de identificação; risco operacional alto",
             "finalidade": "Unicidade cadastral junto ao MEC e órgãos estaduais de educação.",
-            "necessidade": "Obrigatório para registro educacional oficial.",
+            "necessidade": "Identificador presente no caso fictício; não comprova obrigação legal de coleta. Preferir conferência local.",
             "risco": "Alto (risco de fraude em caso de vazamento externo).",
             "minimizar_no_prompt": True,
         },
@@ -203,6 +241,18 @@ class LGPDManager:
         },
     }
 
+    # Campos adicionais também podem identificar uma pessoa quando combinados.
+    # Estas flags documentam a política proposta; não afirmam anonimização automática.
+    for _campo in ("protocolo", "data", "orgao_expedidor", "naturalidade", "uf", "nome_pai",
+                   "curso", "eixo_tecnologico", "carga_horaria", "turno", "inicio_curso", "telefone",
+                   "assunto", "pedido", "categoria", "nivel_confianca", "campos_ausentes", "necessidade_revisao"):
+        TABELA_CAMPOS_LGPD.setdefault(_campo, {
+            "natureza": "Dado pessoal ou contextual quando vinculado a pessoa identificável",
+            "finalidade": "Triagem, conferência e resposta à solicitação fictícia",
+            "necessidade": "Avaliar caso a caso; não usar a presença no schema como autorização de coleta",
+            "risco": "Identificação por associação, exposição ou decisão baseada em informação incorreta",
+            "minimizar_no_prompt": True})
+
     @staticmethod
     def mascarar_dado_sensivel(valor: str, tipo: str) -> str:
         """Aplica pseudonimização/máscara para exibição segura em telas públicas ou logs."""
@@ -225,13 +275,13 @@ class LGPDManager:
             "titulo": "Relatório de Conformidade com a LGPD (Lei nº 13.709/2018)",
             "orgao": "Governo do Estado de Mato Grosso - SECITECI/MT",
             "principios_atendidos": [
-                {"principio": "Finalidade", "status": "Atendido", "evidencia": "Dados processados estritamente para o ato de matrícula e resposta oficial."},
-                {"principio": "Necessidade/Minimização", "status": "Atendido", "evidencia": "Campos não essenciais são descartados e prompts usam apenas o estritamente necessário."},
-                {"principio": "Segurança", "status": "Atendido", "evidencia": "Chaves de API jamais gravadas em log; opção de processamento local para documentos sensíveis."},
-                {"principio": "Transparência", "status": "Atendido", "evidencia": "Trilha de auditoria integral e identificação clara de conteúdo gerado por IA."},
+                {"principio": "Finalidade", "status": "Delimitada no protótipo", "evidencia": "Triagem e minuta de casos fictícios. Uma implantação real exige avaliação própria de finalidade/necessidade."},
+                {"principio": "Necessidade/Minimização", "status": "PARCIAL", "evidencia": "OCR/STT podem permanecer locais. Texto fictício integral é enviado ao LLM; pseudonimização prévia não implementada."},
+                {"principio": "Segurança", "status": "PARCIAL", "evidencia": "Sanitização e controles locais testados; autenticação do grupo ausente. Não constitui certificação de segurança."},
+                {"principio": "Transparência", "status": "PARCIAL", "evidencia": "IA identificada e novos registros rastreáveis; evidências históricas incompletas exigem seleção e ressalvas."},
             ],
             "matriz_de_dados": cls.TABELA_CAMPOS_LGPD,
-            "declaracao_dados_ficticios": "Todos os dados manipulados neste protótipo são integralmente FICTÍCIOS, sem correspondência com pessoas reais.",
+            "declaracao_dados_ficticios": "Uso autorizado exclusivamente com dados FICTÍCIOS. O sistema não consegue comprovar automaticamente que um texto livre não identifica pessoa real.",
         }
 
 
@@ -388,14 +438,26 @@ class QualityEvaluator:
         return texto
 
     @classmethod
+    def _normalizar_campo_comparacao(cls, campo, valor):
+        texto = cls._normalizar_valor_comparacao(valor)
+        # Apenas apresentação do mesmo identificador; não inferir dígitos/UF/DDI.
+        if campo in {"cpf", "rg", "telefone"} and re.fullmatch(r"[\d.()\s+\-x]+", texto):
+            limpo = re.sub(r"[.()\s+\-]", "", texto)
+            if campo != "cpf" or len(limpo) == 11 and limpo.isdigit():
+                return limpo
+        if campo == "protocolo" and re.fullmatch(r"\d{4}[-/]\d{5,7}", texto):
+            return texto.replace("/", "-")
+        return texto
+
+    @classmethod
     def avaliar_extracao(cls, extracao, gabarito):
         """Ausência na fonte é pendência; não vira acerto nem divergência falsa."""
         esperados = gabarito.get("campos_esperados", {})
         comparativo = []
         for campo, esperado in esperados.items():
             obtido = extracao.get(campo, "não localizado")
-            referencia = cls._normalizar_valor_comparacao(esperado)
-            extraido = cls._normalizar_valor_comparacao(obtido)
+            referencia = cls._normalizar_campo_comparacao(campo, esperado)
+            extraido = cls._normalizar_campo_comparacao(campo, obtido)
             ausente_fonte = referencia == "nao localizado"
             ausente_extraido = extraido == "nao localizado"
             ambos_ausentes = ausente_fonte and ausente_extraido

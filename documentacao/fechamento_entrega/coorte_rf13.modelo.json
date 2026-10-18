@@ -1,0 +1,27 @@
+{
+  "nota": "MODELO SEM DECISOES. Preencher com casos reais distintos revisados pela equipe; nenhuma decisao e criada pelo verificador.",
+  "casos": [
+    {
+      "id_execucao": "",
+      "arquivo_registro": "",
+      "sha256_registro": "",
+      "status_esperado": "APROVADO",
+      "referencia": "dados/originais/entrada_texto.txt",
+      "sha256_referencia": "",
+      "revisado_pela_equipe": false,
+      "criterios": {"fidelidade": "", "completude": "", "formato": "", "linguagem": "", "seguranca": ""},
+      "erros_gravidade_e_acao": []
+    },
+    {
+      "id_execucao": "",
+      "arquivo_registro": "",
+      "sha256_registro": "",
+      "status_esperado": "REJEITADO",
+      "referencia": "",
+      "sha256_referencia": "",
+      "revisado_pela_equipe": false,
+      "criterios": {"fidelidade": "", "completude": "", "formato": "", "linguagem": "", "seguranca": ""},
+      "erros_gravidade_e_acao": []
+    }
+  ]
+}

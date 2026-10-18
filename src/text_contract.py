@@ -4,6 +4,7 @@ import re
 
 CAMPOS_TEXTO = "protocolo data solicitante cpf rg orgao_expedidor data_nascimento naturalidade uf nome_mae nome_pai curso eixo_tecnologico carga_horaria turno inicio_curso email telefone assunto pedido categoria nivel_confianca".split()
 PROPRIEDADES = {campo: {"type": "string", "description": "Somente dados comprovados na entrada; ausente: não localizado."} for campo in CAMPOS_TEXTO}
+PROPRIEDADES["categoria"]["enum"] = ["Matrícula e Ingresso", "Documentação e Certidões", "Assistência Estudantil", "Cursos e Horários", "Outros / Informações Gerais", "não localizado"]
 PROPRIEDADES.update(campos_ausentes={"type": "array", "items": {"type": "string"}},
                     necessidade_revisao={"type": "boolean", "enum": [True]})
 FORMATO_MINUTA = {"type": "json_schema", "json_schema": {"name": "minuta_institucional", "strict": True,
@@ -27,7 +28,7 @@ class ContratoTextoInvalido(ValueError):
         super().__init__(codigo)
 
 
-def interpretar_minuta(texto, finish_reason=None):
+def interpretar_minuta(texto, finish_reason=None, schema_completo=False):
     if finish_reason == "length":
         raise ContratoTextoInvalido("saida_truncada")
     if not isinstance(texto, str):
@@ -63,4 +64,8 @@ def interpretar_minuta(texto, finish_reason=None):
             valido = isinstance(valor, str) and bool(valor.strip())
         if not valido:
             raise ContratoTextoInvalido("tipo_campo_extracao_invalido")
+    if schema_completo and set(dado["extracao"]) != set(PROPRIEDADES):
+        raise ContratoTextoInvalido("campos_schema_incompletos_ou_desconhecidos")
+    if schema_completo and dado["extracao"]["categoria"] not in PROPRIEDADES["categoria"]["enum"]:
+        raise ContratoTextoInvalido("categoria_fora_da_lista")
     return dado

@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, Response, HTMLResponse
 from pydantic import BaseModel
 
-from src import BASE_DIR, resolver_caminho
+from src import BASE_DIR, resolver_caminho, caminho_relativo
 from src.llm_client import LLMClient
 from src.prompts import montar_prompt, sanitizar_entrada_usuario, SegurancaPrompts
 from src.audio import AudioProcessor
@@ -82,6 +82,7 @@ class RequisicaoTexto(BaseModel):
     texto: str
     caso: Optional[str] = "personalizado"
     tipo_prompt: Optional[str] = "PRODUCAO"
+    id_execucao_origem: Optional[str] = None
 
 
 class RequisicaoSintese(BaseModel):
@@ -193,12 +194,47 @@ def processar_texto(requisicao: RequisicaoTexto):
     Processa entrada de texto com prompt blindado (RF03), extrai dados estruturados (RF05)
     e redige minuta oficial (RF09) registrando trilha de auditoria (RF11).
     """
+    if (not isinstance(requisicao.caso, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", requisicao.caso)
+            or not requisicao.texto.strip()):
+        raise HTTPException(422, "Informe texto e identificador de caso válidos.")
+    if AuditLogger.sanitizar(requisicao.texto) != requisicao.texto:
+        raise HTTPException(422, "O conteúdo pode conter credenciais. Remova segredos antes de processar a solicitação fictícia.")
+    fontes = []
+    registro_origem = None
+    referencia_textual_aplicavel = False
+    referencia_injecao_aplicavel = (requisicao.caso == "prompt_injection" and
+        requisicao.texto.strip() == SegurancaPrompts.CASO_TESTE_PROMPT_INJECTION.strip())
+    if requisicao.caso in {"audio_transcricao", "visao_documento"}:
+        origem = requisicao.id_execucao_origem
+        modalidade = "audio" if requisicao.caso == "audio_transcricao" else "visao"
+        if not origem or not audit_logger.obter_aprovacao_texto(origem, requisicao.texto, modalidade):
+            raise HTTPException(409, "Confirme/corrija os dados críticos da transcrição/OCR antes de gerar a minuta; registre revisão humana do texto exato.")
+        registro = json.loads((audit_logger.log_dir / f"{origem}.json").read_text(encoding="utf-8"))
+        registro_origem = registro
+        modalidade = "audio" if requisicao.caso == "audio_transcricao" else "visao"
+        if registro.get("modalidade") != modalidade or not registro.get("resultado_resumo", {}).get("sucesso"):
+            raise HTTPException(409, "A revisão não corresponde a uma extração válida desta modalidade.")
+        fontes.append(registro["arquivo_origem"])
+    elif requisicao.caso == "texto_original":
+        oficial = resolver_caminho("dados/originais/entrada_texto.txt")
+        referencia_textual_aplicavel = (oficial.is_file() and
+            requisicao.texto.replace("\r\n", "\n").strip() == oficial.read_text(encoding="utf-8-sig").strip())
+        if referencia_textual_aplicavel:
+            fontes.append("dados/originais/entrada_texto.txt")
+    # Snapshot do texto realmente recebido: também permite reconstruir entradas personalizadas.
+    entrada = resolver_caminho("dados/processados") / f"entrada_texto_{uuid.uuid4().hex}.txt"
+    entrada.parent.mkdir(parents=True, exist_ok=True)
+    entrada.write_bytes(requisicao.texto.encode("utf-8"))  # Sem conversão implícita LF/CRLF.
+    fonte_snapshot = caminho_relativo(entrada)
+    fontes.append(fonte_snapshot)
     texto_sanitizado = sanitizar_entrada_usuario(requisicao.texto)
     prompt_completo = montar_prompt(texto_sanitizado, requisicao.tipo_prompt)
 
     tentativas = []
     duracao_total_llm = 0.0
     tokens_total_llm = 0
+    custos_llm = []
+    fontes_tokens = []
     limite_json = max(llm_client.default_max_tokens, 4096)
     prompt_atual = prompt_completo
     for numero in (1, 2):
@@ -206,9 +242,11 @@ def processar_texto(requisicao: RequisicaoTexto):
             response_format=FORMATO_MINUTA, max_tokens=limite_json)
         duracao_total_llm += resposta_llm.duration_seconds
         tokens_total_llm += resposta_llm.total_tokens
+        custos_llm.append(resposta_llm.cost_usd)
+        fontes_tokens.append(resposta_llm.token_usage_source)
         if resposta_llm.status != "success":
             identificador = audit_logger.registrar_execucao(
-                modalidade="texto", arquivo_origem="entrada_textual", provedor=resposta_llm.provider,
+                modalidade="texto", arquivo_origem=fonte_snapshot, provedor=resposta_llm.provider,
                 modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt,
                 parametros={"tentativa": numero, "tentativas_formato": tentativas},
                 resultado={"sucesso": False, "codigo_erro": resposta_llm.status},
@@ -218,7 +256,7 @@ def processar_texto(requisicao: RequisicaoTexto):
             return JSONResponse(status_code=503, content={"sucesso": False, "codigo_erro": resposta_llm.status,
                 "erro": "Modelo indisponível; nenhuma minuta fictícia foi produzida.", "id_execucao": identificador})
         try:
-            parsed = interpretar_minuta(resposta_llm.text, resposta_llm.finish_reason)
+            parsed = interpretar_minuta(resposta_llm.text, resposta_llm.finish_reason, schema_completo=True)
         except ContratoTextoInvalido as exc:
             diagnostico = {"tentativa": numero, "codigo_erro": exc.codigo,
                 "linha_json": exc.linha, "coluna_json": exc.coluna,
@@ -231,13 +269,13 @@ def processar_texto(requisicao: RequisicaoTexto):
             try:
                 privado.parent.mkdir(parents=True, exist_ok=True)
                 privado.write_text(json.dumps({**diagnostico,
-                    "resposta_bruta": llm_client._sanitize_log_message(resposta_llm.text)},
+                    "resposta_bruta": AuditLogger.sanitizar(resposta_llm.text)},
                     ensure_ascii=False, indent=2), encoding="utf-8")
                 diagnostico["arquivo_privado"] = str(privado.relative_to(resolver_caminho(".")))
             except OSError:
                 diagnostico["diagnostico_bruto_indisponivel"] = True
             identificador = audit_logger.registrar_execucao(
-                modalidade="texto_formato" if numero == 1 else "texto", arquivo_origem="entrada_textual",
+                modalidade="texto_formato" if numero == 1 else "texto", arquivo_origem=fonte_snapshot,
                 provedor=resposta_llm.provider, modelo=resposta_llm.model, versao_prompt=requisicao.tipo_prompt,
                 parametros={"tentativa": numero, "correcao_formato_habilitada": numero == 1,
                             "response_format": "json_schema", "max_tokens": limite_json},
@@ -288,14 +326,15 @@ def processar_texto(requisicao: RequisicaoTexto):
         caminho_saida_pdf=arquivo_pdf,
         brasao_path=resolver_caminho("dados/originais/brasao.png"),
         identificador_execucao=None,
+        fontes_origem=fontes,
     )
 
     # Avaliacao contra gabarito oficial (RF13)
     avaliacao = None
-    if requisicao.caso == "prompt_injection":
+    if referencia_injecao_aplicavel:
         gabarito_inj = {"campos_esperados": SegurancaPrompts.GABARITO_ESPERADO["campos_reais"]}
         avaliacao = QualityEvaluator.avaliar_extracao(extracao, gabarito_inj)
-    elif requisicao.caso in {"texto_original", "audio_transcricao", "visao_documento"}:
+    elif referencia_textual_aplicavel or requisicao.caso == "audio_transcricao":
         referencias = {"audio_transcricao": "gabarito_audio.json", "visao_documento": "gabarito_visao.json"}
         gabarito_path = resolver_caminho("dados/gabaritos/" + referencias.get(requisicao.caso, "gabarito_texto.json"))
         if gabarito_path.exists():
@@ -309,13 +348,20 @@ def processar_texto(requisicao: RequisicaoTexto):
     # Registro de auditoria estrita sem vazar chaves de API (RF11)
     exec_id = audit_logger.registrar_execucao(
         modalidade="texto",
-        arquivo_origem=f"dados/originais/{requisicao.caso}.txt",
+        arquivo_origem=fonte_snapshot,
         provedor=resposta_llm.provider,
         modelo=resposta_llm.model,
         versao_prompt=requisicao.tipo_prompt,
         parametros={"temperatura": llm_client.default_temp, "max_tokens": limite_json,
                     "response_format": "json_schema", "tentativas_formato": tentativas},
-        resultado={"extracao": extracao, "minuta": minuta, "arquivo_pdf": rel_pdf},
+        resultado={"extracao": extracao, "minuta": minuta, "arquivo_pdf": rel_pdf,
+                   "metricas": {"total_tokens": tokens_total_llm, "fontes_tokens": fontes_tokens,
+                       "custo_usd": sum(custos_llm) if all(c is not None for c in custos_llm) else None},
+                   "rastreabilidade": {"fontes": fontes, "id_execucao_origem": requisicao.id_execucao_origem,
+                       "sha256_entrada": hashlib.sha256(requisicao.texto.encode("utf-8")).hexdigest(),
+                       "prompt_completo": prompt_atual, "instrucao_sistema": INSTRUCAO_JSON,
+                       "arquivo_extracao": caminho_relativo(arquivo_processado),
+                       "arquivo_minuta": caminho_relativo(arquivo_minuta) }},
         duracao_segundos=duracao_total_llm,
     )
 
@@ -324,15 +370,20 @@ def processar_texto(requisicao: RequisicaoTexto):
         "id_execucao": exec_id,
         "extracao": extracao,
         "minuta_institucional": minuta,
+        "fontes_origem": fontes,
         "url_pdf": f"/arquivos/{rel_pdf}",
         "avaliacao_gabarito": avaliacao,
+        "avaliacao_origem": registro_origem.get("detalhes_completos", {}).get("comparacao_gabarito") if registro_origem else None,
+        "referencia_avaliacao": ("Gabarito dos campos de entrada; não comprova qualidade completa da minuta." if avaliacao else
+            "Sem gabarito textual aplicável ao texto exato. Comparação OCR é da origem e não pode ser aplicada a outro schema; formato não comprova fidelidade."),
         "conformidade_formato": QualityEvaluator.avaliar_conformidade_regras(extracao),
         "extracao_preliminar_local": llm_client.extrair_entidades_local(requisicao.texto),
         "metricas": {
             "duracao_segundos": duracao_total_llm,
             "total_tokens": tokens_total_llm,
             "tentativas": len(tentativas),
-            "custo_usd": resposta_llm.cost_usd,
+            "custo_usd": sum(custos_llm) if all(c is not None for c in custos_llm) else None,
+            "fontes_tokens": fontes_tokens,
             "provedor": resposta_llm.provider,
             "modelo": resposta_llm.model,
             "is_mock": resposta_llm.is_mock,
@@ -346,16 +397,29 @@ def gerar_pdf_minuta_endpoint(req: RequisicaoGerarPdf):
     if (not req.texto_minuta.strip() or not req.nome_arquivo or
             not re.fullmatch(r"[A-Za-z0-9_-]+\.pdf", req.nome_arquivo)):
         raise HTTPException(422, "Informe texto e um nome de arquivo PDF válido, sem diretórios.")
+    fontes = []
+    dados_pdf = {}
+    if req.id_execucao:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", req.id_execucao):
+            raise HTTPException(422, "Identificador de execução inválido.")
+        try:
+            registro = json.loads((audit_logger.log_dir / f"{req.id_execucao}.json").read_text(encoding="utf-8"))
+            fontes = registro.get("detalhes_completos", {}).get("rastreabilidade", {}).get("fontes", [])
+            dados_pdf = dict(registro.get("detalhes_completos", {}).get("extracao", {}))
+        except (OSError, ValueError):
+            raise HTTPException(404, "Execução de origem não localizada para exportação.")
     # Cada exportação preserva PDFs anteriores e permanece no diretório permitido.
     nome = f"{req.nome_arquivo[:-4]}_{uuid.uuid4().hex}.pdf"
     caminho_pdf = (resolver_caminho("resultados/minutas") / nome).resolve()
     caminho_pdf.parent.mkdir(parents=True, exist_ok=True)
+    dados_pdf.update(protocolo=req.protocolo, solicitante=req.solicitante, categoria=req.categoria)
     gerar_minuta_pdf(
-        dados_extracao={"protocolo": req.protocolo, "solicitante": req.solicitante, "categoria": req.categoria},
+        dados_extracao=dados_pdf,
         texto_minuta=req.texto_minuta,
         caminho_saida_pdf=caminho_pdf,
         brasao_path=resolver_caminho("dados/originais/brasao.png"),
         identificador_execucao=req.id_execucao,
+        fontes_origem=fontes,
     )
     rel_path = f"resultados/minutas/{nome}"
     return {
@@ -435,6 +499,12 @@ def rodar_experimento_prompts():
         if resp.status != "success" or not resp.text.strip():
             codigo = resp.status if resp.status != "success" else "empty_or_invalid_response"
             mensagem = mensagens_erro.get(codigo, "Provedor de texto indisponível; geração não concluída.")
+            audit_logger.registrar_execucao(modalidade="experimento_prompt",
+                arquivo_origem="dados/originais/entrada_texto.txt", provedor=resp.provider, modelo=resp.model,
+                versao_prompt=tipo, parametros={"temperature": llm_client.default_temp, "max_tokens": llm_client.default_max_tokens},
+                resultado={"sucesso": False, "codigo_erro": codigo, "prompt": montar_prompt(conteudo, tipo),
+                           "resultados_parciais": {k: v.text for k, v in respostas.items()}},
+                duracao_segundos=resp.duration_seconds, erros=[codigo])
             print(f"[RF02] Prompt {tipo}: {mensagem} ({codigo})", flush=True)
             return JSONResponse(status_code=503, content={"sucesso": False,
                 "codigo_erro": codigo, "prompt": tipo,
@@ -448,9 +518,18 @@ def rodar_experimento_prompts():
               "|---|---|---|---|---|"]
     resultados = {}
     for tipo, resp in respostas.items():
+        entrada_prompt = montar_prompt(conteudo, tipo)
+        (destino / f"entrada_prompt_{tipo.lower()}.txt").write_text(entrada_prompt, encoding="utf-8")
         (destino / f"saida_prompt_{tipo.lower()}.txt").write_text(resp.text, encoding="utf-8")
         tabela.append(f"| {tipo} | {resp.provider} | {resp.model} | {resp.duration_seconds:.4f} | {resp.total_tokens} |")
         resultados[f"prompt_{tipo.lower()}"] = {"texto": resp.text, "duracao_segundos": resp.duration_seconds}
+        audit_logger.registrar_execucao(modalidade="experimento_prompt",
+            arquivo_origem="dados/originais/entrada_texto.txt", provedor=resp.provider, modelo=resp.model,
+            versao_prompt=tipo, parametros={"temperature": llm_client.default_temp, "max_tokens": llm_client.default_max_tokens},
+            resultado={"entrada_prompt": str(destino / f"entrada_prompt_{tipo.lower()}.txt"),
+                       "saida_prompt": str(destino / f"saida_prompt_{tipo.lower()}.txt"),
+                       "sha256_prompt": hashlib.sha256(entrada_prompt.encode("utf-8")).hexdigest(),
+                       "avaliacao_humana": "pendente"}, duracao_segundos=resp.duration_seconds)
     tabela += ["", "Fidelidade, linguagem, segurança e escolha final pendentes de avaliação humana com referência."]
     (destino / "matriz_comparativa.md").write_text("\n".join(tabela), encoding="utf-8")
     return {"sucesso": True, "resultados": resultados, "prompt_selecionado": "Pendente de avaliação humana",
@@ -542,6 +621,11 @@ def relatorio_lgpd():
     return LGPDManager.gerar_relatorio_conformidade()
 
 
+@app.get("/api/qualidade/revisoes")
+def resumo_qualidade_revisoes():
+    return audit_logger.resumo_revisoes()
+
+
 # ==============================================================================
 # Execução Completa Automatizada (--run-all)
 # ==============================================================================
@@ -588,14 +672,19 @@ def executar_pipeline_completo():
 
     req_inj = RequisicaoTexto(texto=texto_inj, caso="prompt_injection", tipo_prompt="PRODUCAO")
     res_inj = processar_texto(req_inj)
+    if not isinstance(res_inj, dict) or not res_inj.get("sucesso"):
+        print(" -> Falha no caso adversarial; pipeline interrompido. Consulte a auditoria.")
+        return
     exec_id_inj = res_inj["id_execucao"]
-    print(f" -> Injeção de prompt processada. Comandos neutralizados com sucesso! ID: {exec_id_inj}")
+    print(f" -> Caso adversarial processado; conferência da blindagem pendente. ID: {exec_id_inj}")
 
     print(" -> Caso adversarial pendente de decisão humana; nenhuma decisão automática.")
 
     # 4. Transcrição de Áudio STT (RF06)
     print("\n[RF06] Processando mensagem de voz institucional (Whisper)...")
     res_audio = processar_audio()
+    if isinstance(res_audio, JSONResponse):
+        res_audio = json.loads(res_audio.body)
     if not res_audio.get("sucesso"):
         print(" -> STT indisponível; consulte a auditoria. Nenhuma transcrição foi simulada.")
         return
@@ -655,21 +744,36 @@ def executar_cli_interativa():
         with open(caminho, "r", encoding="utf-8") as f:
             txt = f.read()
         res = processar_texto(RequisicaoTexto(texto=txt, caso="cli_exec"))
+        if not isinstance(res, dict) or not res.get("sucesso"):
+            mensagem = json.loads(res.body).get("erro", "Processamento indisponível") if isinstance(res, JSONResponse) else "Processamento indisponível"
+            print(mensagem)
+            return
         print("\n--- JSON EXTRAÍDO ---")
         print(json.dumps(res["extracao"], indent=2, ensure_ascii=False))
         print("\n--- MINUTA INSTITUCIONAL ---")
         print(res["minuta_institucional"])
     elif opcao == "2":
         res = processar_audio()
+        if isinstance(res, JSONResponse):
+            res = json.loads(res.body)
+        if not res.get("sucesso"):
+            print(res.get("erro", "Falha STT; consulte a auditoria."))
+            return
         print(f"Transcrição: {res['transcricao_revisada']}")
     elif opcao == "3":
         res = processar_visao()
+        if not res.get("sucesso"):
+            print(res.get("erro", "Falha OCR; consulte a auditoria."))
+            return
         print(f"Texto Corrigido: {res['texto_corrigido']}")
     elif opcao == "4":
         print("RF10 administrativo indisponível sem autenticação; validador real requer comando explícito.")
     elif opcao == "5":
         res = rodar_experimento_prompts()
-        print("Experimento concluído e salvo em 'prompts/matriz_comparativa.md'.")
+        if not isinstance(res, dict) or not res.get("sucesso"):
+            print("Experimento indisponível; consulte o erro RF02. Nenhuma saída fictícia produzida.")
+            return
+        print("Experimento salvo em: " + res["diretorio_experimento"])
     elif opcao == "6":
         executar_pipeline_completo()
     else:
@@ -681,20 +785,23 @@ def executar_cli_interativa():
 # ==============================================================================
 def main():
     parser = argparse.ArgumentParser(description="Central Inteligente de Atendimento GOV.MT")
-    parser.add_argument("--run-all", action="store_true", help="Executa o pipeline completo de ponta a ponta e salva evidências.")
+    parser.add_argument("--run-all", action="store_true", help="Executa etapas automáticas; revisão humana e geração RF10 são etapas separadas.")
     parser.add_argument("--cli", action="store_true", help="Inicia o modo interativo em linha de comando.")
     parser.add_argument("--port", type=int, default=8000, help="Porta do servidor web (padrão: 8000).")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host do servidor web (padrão: 0.0.0.0).")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host do servidor local (padrão: 127.0.0.1; não há autenticação geral).")
 
     args = parser.parse_args()
 
-    if args.run_all:
-        executar_pipeline_completo()
-    elif args.cli:
-        executar_cli_interativa()
-    else:
-        print(f"\nIniciando Central de Atendimento GOV.MT em http://localhost:{args.port} ...")
-        uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    try:
+        if args.run_all:
+            executar_pipeline_completo()
+        elif args.cli:
+            executar_cli_interativa()
+        else:
+            print(f"\nIniciando Central de Atendimento GOV.MT em http://localhost:{args.port} ...")
+            uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    except HTTPException as exc:
+        print(f"HTTP {exc.status_code}: {exc.detail}")
 
 
 if __name__ == "__main__":

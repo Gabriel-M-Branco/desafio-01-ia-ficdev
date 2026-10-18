@@ -16,9 +16,9 @@ O sistema processa solicitações fictícias em **texto, áudio e imagem**, extr
 
 - **Backend & Interface Humana:** `FastAPI` + `Uvicorn` servindo um frontend limpo em **HTML5, CSS3 e JavaScript (Vanilla)** (painel do servidor público para aprovar, rejeitar, editar ou regenerar extrações e minutas).
 
-- **Provedor Principal de IA:** **Hugging Face Serverless Inference API** (`huggingface_hub` / `InferenceClient`) usando `HF_TOKEN`:
+- **Provedores configuráveis:** texto atual via OpenRouter; Hugging Face permanece opção explícita usando `HF_TOKEN`:
 
-  - **LLM (Texto/Extração/Minuta):** `Qwen/Qwen2.5-72B-Instruct` ou `meta-llama/Llama-3.3-70B-Instruct`.
+  - **LLM (Texto/Extração/Minuta):** `TEXT_PROVIDER=openrouter`, `OPENROUTER_MODEL=google/gemini-3.8-flash`; JSON Schema, erro explícito e sem fallback silencioso. Modelos HF do config são alternativas, não o modelo efetivo.
 
   - **Visão/OCR (RF08):** PyMuPDF + Tesseract português local; alternativas PSM e regiões, sem preenchimento inventado.
 
@@ -26,7 +26,7 @@ O sistema processa solicitações fictícias em **texto, áudio e imagem**, extr
 
   - **Imagem (RF10 - Abordagem Híbrida):** Cloudflare Workers AI FLUX ou HF/endpoint configurável (gera apenas a arte/ilustração central sem texto) + composição programática de layout institucional GOV.MT com `Pillow` (PIL).
 
-- **Provedor de Fallback (Opcional):** **OpenRouter API** (`OPENROUTER_API_KEY`) usando modelos `:free` caso o rate limit da Hugging Face seja atingido, sem simulação de produção; ausência de chave retorna erro explícito.
+- **Fallback opcional:** somente quando configurado explicitamente. O ambiente validado usa `TEXT_FALLBACK_PROVIDER=none`; chamadas pagas exigem autorização e saldo. Ausência de chave retorna erro explícito, sem simulação de produção.
 
 - **Síntese de Voz / Acessibilidade (RF07):** SAPI5/Microsoft Maria no Windows ou edge-tts opcional, ambos exigindo aprovação persistida do texto exato.
 
@@ -74,15 +74,15 @@ desafio_ia_generativa/
 
 │   ├── main.py           # Entrypoint: python -m src.main (inicia API/Web UI e CLI de testes)
 
-│   ├── llm_client.py     # Cliente Hugging Face + Fallback OpenRouter + Mock + cálculo de tokens/custo (RF04)
+│   ├── llm_client.py     # OpenRouter/HF configuráveis; falhas explícitas e métricas (RF04)
 
 │   ├── prompts.py        # Prompts A, B e C + blindagem XML contra Prompt Injection (RF02, RF03)
 
-│   ├── audio.py          # STT (Whisper HF) e TTS (edge-tts) com filtro de "não localizado" (RF06, RF07)
+│   ├── audio.py          # faster-whisper local/HF; SAPI5 local/edge-tts opcional; aprovação por hash
 
-│   ├── vision.py         # Visão multimodal/OCR (HF VLM) + comparação com gabarito (RF08)
+│   ├── vision.py         # PyMuPDF/Tesseract local conservador e comparação com gabarito (RF08)
 
-│   ├── image_generation.py # Abordagem Híbrida: Geração HF (FLUX.1) + Moldura Institucional GOV.MT via Pillow (RF10)
+│   ├── image_generation.py # Cloudflare/HF/endpoint + composição institucional Pillow (RF10)
 
 │   ├── audit.py          # Logs estruturados, LGPD/minimização e métricas de qualidade (RF11, RF12, RF13)
 

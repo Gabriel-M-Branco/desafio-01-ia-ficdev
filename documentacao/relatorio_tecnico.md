@@ -13,7 +13,7 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
 
 ### Princípios Arquiteturais Centrais:
 1. **Governança Estrita e Human-in-the-Loop (RF13):** A inteligência artificial atua exclusivamente como assistente de triagem, síntese e formatação. Nenhuma resposta ou documento é despachado automaticamente ao cidadão. Cada minuta exige revisão, justificativa e deliberação formal (Aprovação, Correção ou Rejeição) por um servidor humano.
-2. **Alucinação Zero e Regra do "Não Localizado" (RF03, RF05, RF09):** O sistema é estritamente proibido de inferir dados ausentes, inventar números de leis, decretos, protocolos ou prazos. Campos omitidos recebem compulsoriamente o valor literal `"não localizado"`.
+2. **Objetivo de não inventar dados e regra do "não localizado" (RF03, RF05, RF09):** Os prompts proíbem invenção; isso não é garantia de alucinação zero. Schema valida formato, e revisão humana confere fatos e ausências.
 3. **Provedores reais configuraveis (RF04):** Texto via OpenRouter/Gemini pago; STT/OCR/TTS locais. Sem contingencia ficticia.
 4. **Padronização Visual Oficial Híbrida (RF10):** Geração de imagem central via IA generativa (`FLUX.1-schnell`) sem elementos textuais, acoplada programaticamente a um template em Pillow contendo o Brasão Oficial do Estado de Mato Grosso e a tarja obrigatória de identificação de conteúdo sintético.
 
@@ -27,14 +27,14 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
         ├────────────────────────────────────────────────────────┤
         │ • Texto: Isolamento em envelope XML anti-injeção       │
         │ • Áudio: Validação e STT Whisper (RF06)                │
-        │ • Imagem: Renderização e OCR/VLM Qwen2.5-VL (RF08)     │
+        │ • Imagem: PyMuPDF/Tesseract local português (RF08)     │
         └────────────────────────────┬───────────────────────────┘
                                      │
                                      ▼
         ┌────────────────────────────────────────────────────────┐
         │              NÚCLEO DE INTELIGÊNCIA ARTIFICIAL         │
         ├────────────────────────────────────────────────────────┤
-        │ • LLM: Qwen2.5-72B-Instruct / Llama-3.3-70B           │
+        │ • LLM: OpenRouter / google/gemini-3.8-flash            │
         │ • Extração Estruturada (JSON) com "não localizado"     │
         │ • Geração de Minuta Formal Padrão GOV.MT               │
         │ • Imagem Sintética: FLUX.1 + Pillow (RF10)             │
@@ -51,7 +51,7 @@ O sistema foi concebido como uma **Central Multimodal de Apoio ao Atendimento In
         └────────────────────────────┬───────────────────────────┘
                                      │
                                      ▼
-                     [ RESPOSTA INSTITUCIONAL HOMOLOGADA ]
+                     [ MINUTA: DECISÃO HUMANA OBRIGATÓRIA ]
 ```
 
 ---
@@ -130,7 +130,16 @@ Para assegurar conformidade estrita e soberania visual:
 - Obras e diretórios internos sensíveis (como `.env`, `.git` ou configurações estruturais) são protegidos com bloqueio determinístico.
 
 ### 6.3. Fallback Resiliente de Voz (TTS) SAPI5 / edge-tts (`src/audio.py`)
-- Em ambientes locais Windows sem conectividade à internet, o sintetizador nativo **SAPI5 (Microsoft Maria Desktop)** assume automaticamente a geração de voz acessível, garantindo que o direito de acessibilidade auditiva não seja interrompido por oscilações de rede.
+- SAPI5/Microsoft Maria é o padrão Windows, selecionado explicitamente; edge-tts é uma alternativa configurável. Não há fallback automático. Falhas são reportadas, sem áudio fictício.
 
 ### 6.4. Cobertura Abrangente de Testes Automatizados
-- A suíte de testes unitários e de integração conta com **mais de 220 testes automatizados**, assegurando cobertura estrita para cenários de injeção de prompt, documentos ilegíveis, arquivos corrompidos, falhas de rede, limites de taxa e integridade de auditoria.
+- A contagem e os limites da suíte atual estão em `auditoria_final/relatorio_final.md`. Testes unitários/ASGI usam mocks de inferência; não provam acurácia ou qualidade auditiva real.
+
+### 6.5. Complemento da auditoria final de 18/10/2026
+O relatório em `auditoria_final/relatorio_final.md` e sua matriz discriminam implementação,
+evidência e critério de aceite. Entradas textuais novas passam a ter snapshot e hash;
+o PDF identifica fontes e pagina textos longos, sem protocolo/data inventados.
+Transcrição/OCR precisam de confirmação humana persistida antes da minuta. Aprovação de
+fonte e aprovação de minuta para TTS são decisões distintas. Nenhuma evidência antiga foi reescrita.
+Minimização no payload LLM permanece parcial. Autenticação real não foi implementada:
+RF10 administrativo continua 503; aprovação local não autoriza publicação pública.

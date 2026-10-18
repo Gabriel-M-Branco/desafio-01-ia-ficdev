@@ -11,12 +11,42 @@ import pymupdf
 from src import BASE_DIR, resolver_caminho, caminho_relativo
 
 
+def _inserir_corpo(doc, pagina, texto, retangulo):
+    """Paginação sem perda silenciosa: probes não são incorporados ao PDF."""
+    restante = texto
+    while restante:
+        shape = pagina.new_shape()
+        if shape.insert_textbox(retangulo, restante, fontsize=9.5, fontname="helv") >= 0:
+            shape.commit()
+            return
+        baixo, alto, cabe = 1, len(restante), 0
+        while baixo <= alto:
+            meio = (baixo + alto) // 2
+            probe = pagina.new_shape()
+            if probe.insert_textbox(retangulo, restante[:meio], fontsize=9.5, fontname="helv") >= 0:
+                cabe, baixo = meio, meio + 1
+            else:
+                alto = meio - 1
+        if not cabe:
+            raise ValueError("Não foi possível diagramar a minuta sem perder conteúdo.")
+        corte = restante.rfind(" ", 0, cabe)
+        corte = corte if corte > 0 else cabe
+        shape = pagina.new_shape()
+        shape.insert_textbox(retangulo, restante[:corte], fontsize=9.5, fontname="helv")
+        shape.commit()
+        restante = restante[corte:].lstrip()
+        pagina = doc.new_page(width=595, height=842)
+        pagina.insert_text((45, 45), "MINUTA - CONTINUACAO - REVISAO HUMANA OBRIGATORIA", fontsize=10)
+        retangulo = pymupdf.Rect(45, 70, 550, 780)
+
+
 def gerar_minuta_pdf(
     dados_extracao: Dict[str, Any],
     texto_minuta: str,
     caminho_saida_pdf: Union[str, Path],
     brasao_path: Optional[Union[str, Path]] = None,
     identificador_execucao: Optional[str] = None,
+    fontes_origem: Optional[list] = None,
 ) -> str:
     """
     Gera um documento PDF oficial em formato A4 timbrado com brasao,
@@ -71,9 +101,10 @@ def gerar_minuta_pdf(
     page.draw_line(pymupdf.Point(45, 92), pymupdf.Point(550, 92), color=(200/255, 205/255, 215/255), width=1)
 
     # 4. Dados de Identificacao do Ato e Protocolo
-    protocolo = dados_extracao.get("protocolo", "2026-000142")
-    solicitante = dados_extracao.get("solicitante", "Interessado")
-    data_registro = dados_extracao.get("data", datetime.now().strftime("%d/%m/%Y"))
+    protocolo = dados_extracao.get("protocolo") or "não localizado"
+    solicitante = dados_extracao.get("solicitante") or "não localizado"
+    data_registro = dados_extracao.get("data") or "não localizado"
+    categoria = dados_extracao.get("categoria") or "não localizado"
 
     page.insert_text(
         (45, 115),
@@ -93,20 +124,17 @@ def gerar_minuta_pdf(
     # 5. Quadro Resumo do Requerente
     page.draw_rect(pymupdf.Rect(45, 128, 550, 175), color=(220/255, 225/255, 235/255), fill=(248/255, 250/255, 252/255))
     page.insert_text((55, 144), f"Interessado: {solicitante}", fontsize=9, fontname="helv", color=(15/255, 23/255, 42/255))
-    page.insert_text((55, 158), f"Protocolo: {protocolo}  |  Canal: Atendimento Oficial  |  Categoria: {dados_extracao.get('categoria', 'Atendimento')}", fontsize=8, fontname="helv", color=(70/255, 80/255, 95/255))
+    page.insert_text((55, 158), f"Protocolo: {protocolo}  |  Canal: Atendimento Oficial  |  Categoria: {categoria}", fontsize=8, fontname="helv", color=(70/255, 80/255, 95/255))
 
     # 6. Corpo da Minuta
     # Limpa quebras escapadas caso existam
     texto_formatado = texto_minuta.replace("\\n", "\n").strip()
     rect_corpo = pymupdf.Rect(45, 190, 550, 680)
-    page.insert_textbox(
-        rect_corpo,
-        texto_formatado,
-        fontsize=9.5,
-        fontname="helv",
-        color=(15/255, 23/255, 42/255),
-        align=pymupdf.TEXT_ALIGN_LEFT,
-    )
+    _inserir_corpo(doc, page, texto_formatado, rect_corpo)
+    page = doc[0]  # Inserir páginas pode invalidar referências Page anteriores.
+    page.insert_text((45, 184), "MINUTA - REVISAO HUMANA OBRIGATORIA", fontsize=7)
+    page.insert_textbox(pymupdf.Rect(45, 690, 550, 740),
+        "Fontes: " + "; ".join(fontes_origem or ["não localizado"]), fontsize=7)
 
     # 7. Espaco para Assinatura do Servidor Responsavel
     page.draw_line(pymupdf.Point(170, 755), pymupdf.Point(425, 755), color=(150/255, 150/255, 150/255), width=1)

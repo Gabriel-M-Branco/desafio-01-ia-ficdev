@@ -18,6 +18,7 @@ __pycache__/
 .rf10-testes-locais/
 .llm-diagnosticos/
 .integracao-local/
+.entrega-local/
 pytest-cache-files-*/
 .coverage
 htmlcov/

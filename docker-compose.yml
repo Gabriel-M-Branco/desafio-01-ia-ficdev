@@ -6,7 +6,7 @@ services:
     container_name: central_atendimento_gov_mt
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
@@ -21,8 +21,6 @@ services:
       - STT_PROVIDER=${STT_PROVIDER:-local}
       - TTS_PROVIDER=${TTS_PROVIDER:-sapi5}
       - TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
-      - HOST=0.0.0.0
-      - PORT=8000
     volumes:
       - ./resultados:/app/resultados
       - ./dados/processados:/app/dados/processados

@@ -244,7 +244,40 @@ class AudioProcessor:
         return {"todos_campos_criticos_conferidos": not erros, "detalhes": detalhes,
                 "campos_divergentes_ou_ausentes": erros,
                 "acuracia_entidades": f"{len(detalhes)-len(erros)}/{len(detalhes)}",
+                "comparacao_texto_referencia": self._comparar_texto_referencia(
+                    transcricao, gabarito.get("transcricao_referencia")),
                 "confirmacao_humana_pendente": True}
+
+    @classmethod
+    def _comparar_texto_referencia(cls, transcricao, referencia):
+        """WER por Levenshtein, sem preencher/corrigir a transcrição com a referência."""
+        if not isinstance(referencia, str) or not referencia.strip():
+            return {"status": "referencia_textual_indisponivel"}
+        ref = re.findall(r"\w+", cls._normalizar_comparacao(referencia))
+        obtido = re.findall(r"\w+", cls._normalizar_comparacao(transcricao))
+        if not ref:
+            return {"status": "referencia_textual_indisponivel"}
+        if len(ref) * len(obtido) > 1_000_000:
+            return {"status": "limite_comparacao_integral", "palavras_referencia": len(ref)}
+        # Cada célula guarda custo/substituições/exclusões/inserções; só duas linhas.
+        anterior = [(j, 0, 0, j) for j in range(len(obtido) + 1)]
+        for i, esperado in enumerate(ref, 1):
+            atual = [(i, 0, i, 0)]
+            for j, extraido in enumerate(obtido, 1):
+                c, s, d, ins = anterior[j - 1]
+                troca = int(esperado != extraido)
+                diagonal = (c + troca, s + troca, d, ins)
+                c, s, d, ins = anterior[j]
+                exclusao = (c + 1, s, d + 1, ins)
+                c, s, d, ins = atual[j - 1]
+                insercao = (c + 1, s, d, ins + 1)
+                atual.append(min((diagonal, exclusao, insercao), key=lambda v: v[0]))
+            anterior = atual
+        custo, subs, dels, insercoes = anterior[-1]
+        return {"status": "comparado", "palavras_referencia": len(ref), "palavras_transcricao": len(obtido),
+                "substituicoes": subs, "exclusoes": dels, "insercoes": insercoes,
+                "wer_percentual": round(100 * custo / len(ref), 2),
+                "criterio": "Comparação lexical normalizada, não equivalência semântica nem aprovação humana; pode superar 100%."}
 
     def preparar_texto_para_acessibilidade(self, texto_minuta: str) -> str:
         aviso = "Atenção: informação pendente de localização no sistema."

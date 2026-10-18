@@ -30,4 +30,4 @@ COPY . .
 EXPOSE 8000
 
 # Executa o ponto de entrada oficial documentado
-CMD ["python", "-m", "src.main"]
+CMD ["python", "-m", "src.main", "--host", "0.0.0.0"]

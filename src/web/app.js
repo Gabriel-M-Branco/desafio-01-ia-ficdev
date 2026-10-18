@@ -12,6 +12,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let sintetizando = false;
   let exportando = false;
   let carregandoCaso = false;
+  let idOrigem = null;
+  let textoOrigemConfirmado = null;
+  let confirmandoOrigem = false;
   let formatoVisual = "original";
   let conferenciaAtual = null;
 
@@ -55,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function atualizarAcoes() {
-    const ocupado = processando || decidindo || sintetizando || exportando || carregandoCaso;
+    const ocupado = processando || decidindo || sintetizando || exportando || carregandoCaso || confirmandoOrigem;
     for (const id of ["btn-aprovar-minuta", "btn-corrigir-minuta", "btn-rejeitar-minuta", "btn-exportar-pdf"]) {
       const btn = document.getElementById(id);
       if (btn) btn.disabled = ocupado || !ultimaExecucaoId;
@@ -66,6 +69,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const elemento = document.getElementById(id);
       if (elemento) elemento.disabled = ocupado;
     }
+    const multimodal = ["audio_transcricao", "visao_documento"].includes(document.getElementById("caso-predefinido")?.value);
+    const textoFonte = document.getElementById("input-texto-solicitacao")?.value.trim();
+    const processar = document.getElementById("btn-processar-solicitacao");
+    if (processar && multimodal) processar.disabled = ocupado || !idOrigem || textoOrigemConfirmado !== textoFonte;
+    const confirmar = document.getElementById("btn-confirmar-origem");
+    if (confirmar) confirmar.disabled = ocupado || !idOrigem || !textoFonte;
+    const rejeitarOrigem = document.getElementById("btn-rejeitar-origem");
+    if (rejeitarOrigem) rejeitarOrigem.disabled = ocupado || !idOrigem;
   }
   document.getElementById("editor-minuta")?.addEventListener("input", () => {
     if (textoAprovado !== null && textoAprovado !== document.getElementById("editor-minuta").value) {
@@ -137,8 +148,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputTexto = document.getElementById("input-texto-solicitacao");
 
   async function atualizarTextoCaso(valor) {
+    idOrigem = null; textoOrigemConfirmado = null;
+    const blocoOrigem = document.getElementById("revisao-origem");
+    if (blocoOrigem) blocoOrigem.style.display = ["audio_transcricao", "visao_documento"].includes(valor) ? "block" : "none";
     if (!valor || valor === "personalizado") {
       inputTexto.value = "";
+      atualizarAcoes();
       return;
     }
     carregandoCaso = true; atualizarAcoes();
@@ -148,6 +163,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro || data.detail || "Processamento indisponível");
       inputTexto.value = data.conteudo || "";
+      idOrigem = data.id_execucao_origem || null;
+      const status = document.getElementById("status-revisao-origem");
+      if (status) status.textContent = "Revisão humana pendente";
     } catch (e) {
       console.error("Erro ao carregar caso:", e);
       inputTexto.value = "";
@@ -156,6 +174,44 @@ document.addEventListener("DOMContentLoaded", () => {
       carregandoCaso = false; atualizarAcoes();
     }
   }
+
+  inputTexto?.addEventListener("input", () => {
+    if (["texto_original", "prompt_injection"].includes(selectCaso?.value)) {
+      selectCaso.value = "personalizado"; // Texto editado não é mais o caso controlado do gabarito.
+    }
+    textoOrigemConfirmado = null;
+    const status = document.getElementById("status-revisao-origem");
+    if (status) status.textContent = "Texto alterado; confirme novamente na fonte";
+    atualizarAcoes();
+  });
+  document.getElementById("btn-confirmar-origem")?.addEventListener("click", async () => {
+    if (!idOrigem || !inputTexto.value.trim()) return;
+    const justificativa = window.prompt("Registre: 1) campos conferidos na fonte; 2) correções feitas; 3) campos ausentes/ilegíveis e impacto. Confira nomes, protocolo, datas, curso, carga horária e turno. Se dados críticos continuarem duvidosos, cancele e rejeite a leitura; não confirme por suposição.");
+    if (!justificativa?.trim()) return;
+    const texto = inputTexto.value.trim();
+    confirmandoOrigem = true; atualizarAcoes();
+    try {
+      await api("/api/revisao/decisao", {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id_execucao:idOrigem, decisao:"APROVADO", justificativa, texto_final:texto})});
+      textoOrigemConfirmado = texto;
+      document.getElementById("status-revisao-origem").textContent = "Conferência humana registrada para este texto";
+    } catch (e) { alert(e.message); }
+    finally { confirmandoOrigem = false; atualizarAcoes(); }
+  });
+
+  document.getElementById("btn-rejeitar-origem")?.addEventListener("click", async () => {
+    if (!idOrigem) return;
+    const justificativa = window.prompt("Explique por que a leitura não é confiável, quais campos não puderam ser conferidos e qual ação é necessária. A rejeição não altera o original nem autoriza minuta.");
+    if (!justificativa?.trim()) return;
+    textoOrigemConfirmado = null;
+    confirmandoOrigem = true; atualizarAcoes();
+    try {
+      await api("/api/revisao/decisao", {method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id_execucao:idOrigem, decisao:"REJEITADO", justificativa, texto_final:inputTexto.value.trim()})});
+      document.getElementById("status-revisao-origem").textContent = "Leitura rejeitada; geração de minuta bloqueada até nova conferência";
+    } catch (e) { alert(e.message); }
+    finally { confirmandoOrigem = false; atualizarAcoes(); }
+  });
 
   if (selectCaso) {
     selectCaso.addEventListener("change", (e) => atualizarTextoCaso(e.target.value));
@@ -195,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await api("/api/processar/texto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texto: texto, caso: selectCaso?.value || "texto_original" }),
+        body: JSON.stringify({ texto: texto, caso: selectCaso?.value || "texto_original", id_execucao_origem: idOrigem }),
       });
 
       const data = await res.json();
@@ -236,6 +292,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Exibe avaliacao resumida na aba de métricas
       const gabaritoBox = document.getElementById("comparacao-gabarito-view");
+      if (gabaritoBox && !data.avaliacao_gabarito) {
+        gabaritoBox.textContent = data.referencia_avaliacao || "Fidelidade não avaliada; somente formato conferido.";
+        const origem = data.avaliacao_origem;
+        if (origem) gabaritoBox.textContent += " Comparação da origem: " +
+          (origem.acuracia_entidades || origem.taxa_acuracia_percentual || "consultar auditoria") +
+          ". Essa pontuação não valida a minuta.";
+      }
       if (gabaritoBox && data.avaliacao_gabarito) {
         const aval = data.avaliacao_gabarito;
         gabaritoBox.innerHTML = `
@@ -439,7 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
           } else if (isPendencia) {
             extraidoHtml = `<span class="val-pendencia-destaque">não localizado</span>`;
             statusBadge = `<span class="diag-tag diag-pendente">○ Pendência</span>`;
-            acaoHtml = `<span style="color:#64748B; font-size:0.75rem;">Documento Exigido</span>`;
+            acaoHtml = `<span style="color:#64748B; font-size:0.75rem;">Dado pendente; conferir na fonte</span>`;
           } else if (item.status !== "CORRETO") {
             extraidoHtml = `<strong>${esc(apresentarIdentificador(item.campo, item.obtido))}</strong>`;
             statusBadge = '<span class="diag-tag diag-pendente">Não conferido com referência</span>';

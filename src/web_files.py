@@ -19,5 +19,8 @@ def arquivo_publico(base, caminho):
         return False
     if arquivo.suffix.lower() not in {".png", ".jpg", ".jpeg", ".pdf", ".mp3", ".wav", ".json", ".jsonl", ".txt"}:
         return False
-    return (partes[:1] == ("resultados",) or
-            partes[:2] in {("dados", "originais"), ("dados", "processados")})
+    # Somente fixtures públicas conhecidas usadas pelo navegador, nunca diretórios inteiros.
+    if partes[:2] == ("dados", "originais"):
+        return len(partes) == 3 and partes[2] in {"brasao.png", "entrada_audio.mp3", "entrada_pdf-imagem.pdf"}
+    return (partes[:2] == ("resultados", "minutas") and arquivo.suffix.lower() in {".pdf", ".txt"}
+            or partes[:2] == ("resultados", "audios") and arquivo.suffix.lower() in {".wav", ".mp3"})

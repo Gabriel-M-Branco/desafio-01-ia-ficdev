@@ -38,8 +38,9 @@ def executar():
         if getattr(rota, "path", "") == "/arquivos":
             rota.app.directory = str(raiz)
             rota.app.all_directories = [str(raiz)]
-    payload = json.dumps({"extracao": {"solicitante": "Pessoa Fictícia", "protocolo": "inválido"},
-                          "minuta_institucional": "Minuta fictícia. Protocolo inválido. Informação não localizado."})
+    from testes.test_integracao_main_emilly import payload_contrato
+    payload = payload_contrato({"solicitante": "Pessoa Fictícia", "protocolo": "inválido"},
+                              "Minuta fictícia. Protocolo inválido. Informação não localizado.")
     main.llm_client.generate = lambda *a, **kw: LLMResponse(payload, "modelo-teste", "mock-browser", .01, 1, 1, 2, None, "success")
     os.environ["TTS_PROVIDER"] = "sapi5"  # Somente no processo de teste.
     def voz(texto, caminho):
@@ -48,13 +49,18 @@ def executar():
             wav.writeframes(b"\x00\x00" * 800)
         return "Voz simulada no teste"
     main.audio_processor._sintetizar_sapi5 = voz
-    main.audio_processor.processar_com_auditoria = lambda *a: {
+    def fonte_auditada(modalidade, resultado):
+        arquivo = "dados/originais/entrada_audio.mp3" if modalidade == "audio" else "dados/originais/entrada_pdf-imagem.pdf"
+        resultado["id_execucao"] = main.audit_logger.registrar_execucao(
+            modalidade, arquivo, "mock-browser", "modelo-teste", "teste", {}, resultado.copy(), .01)
+        return resultado
+    main.audio_processor.processar_com_auditoria = lambda *a: fonte_auditada("audio", {
         "sucesso": True, "metadados": {"duracao_segundos": 1, "modelo_stt": "small"},
         "transcricao_bruta": "Áudio fictício", "transcricao_revisada": "Áudio fictício",
-        "comparacao_gabarito": {"acuracia_entidades": "0/6"}}
-    main.vision_processor.processar_com_auditoria = lambda *a: {
+        "comparacao_gabarito": {"acuracia_entidades": "0/6"}})
+    main.vision_processor.processar_com_auditoria = lambda *a: fonte_auditada("visao", {
         "sucesso": True, "arquivo_analisado": "teste.pdf", "texto_corrigido": "OCR fictício",
-        "comparacao_gabarito": {"taxa_acuracia_percentual": "0.0%"}, "trechos_incertos_ou_ilegiveis": []}
+        "comparacao_gabarito": {"taxa_acuracia_percentual": "0.0%"}, "trechos_incertos_ou_ilegiveis": []})
     def bloquear(*a, **kw):
         raise AssertionError("Cloudflare proibida no teste de navegador")
     main.image_generator._gerar_ilustracao_ia = bloquear
@@ -153,6 +159,17 @@ def executar():
             clicar("btn-processar-audio", "document.getElementById('resultado-audio-stt').textContent.includes('Áudio fictício')")
             clicar("btn-processar-visao", "document.getElementById('resultado-visao-ocr').textContent.includes('OCR fictício')")
             assert js("document.getElementById('btn-gerar-imagem-peca').disabled")
+            for caso in ["audio_transcricao", "visao_documento"]:
+                js("{document.querySelector('[data-tab=tab-atendimento]').click();let s=document.getElementById('caso-predefinido');s.value=" + json.dumps(caso) + ";s.dispatchEvent(new Event('change'));}")
+                esperar("document.getElementById('revisao-origem').style.display==='block' && !document.getElementById('btn-confirmar-origem').disabled")
+                assert js("document.getElementById('btn-processar-solicitacao').disabled")
+                js("window.prompt=()=> 'Conferência automatizada de fonte fictícia';")
+                clicar("btn-confirmar-origem", "!document.getElementById('btn-processar-solicitacao').disabled")
+                clicar("btn-processar-solicitacao", "document.getElementById('editor-minuta').value.includes('Minuta fictícia') && !document.getElementById('btn-processar-solicitacao').disabled")
+                assert js("document.getElementById('btn-gerar-tts').disabled")
+                js("{let e=document.getElementById('input-texto-solicitacao');e.value+=' alterada';e.dispatchEvent(new Event('input'));}")
+                assert js("document.getElementById('btn-processar-solicitacao').disabled")
+            js("{let s=document.getElementById('caso-predefinido');s.value='personalizado';s.dispatchEvent(new Event('change'));document.getElementById('input-texto-solicitacao').value='Pedido fictício';}")
             main.llm_client.generate = lambda *a, **kw: LLMResponse("JSON inválido", "modelo", "mock", .01, 1, 1, 2, None, "success")
             js("document.querySelector('[data-tab=tab-atendimento]').click();window.alertasTeste=[];")
             clicar("btn-processar-solicitacao", "alertasTeste.some(m=>m.includes('HTTP 502') && m.includes('JSON válido'))")
@@ -161,7 +178,7 @@ def executar():
             cdp("Emulation.setDeviceMetricsOverride", {"width": 390, "height": 1000, "deviceScaleFactor": 1, "mobile": True})
             captura = cdp("Page.captureScreenshot", {"format": "png"})
             (raiz / "mobile.png").write_bytes(base64.b64decode(captura["data"]))
-            print("BROWSER_OK: abas, texto, PDF/WAV HTTP, revisão/hash, RF02/06/08 com mocks, RF10 bloqueado e erro 502. Evidência:", raiz / "mobile.png", flush=True)
+            print("BROWSER_OK: abas, texto, PDF/WAV HTTP, revisão/hash, confirmação prévia de fontes RF06/08 com mocks, RF10 bloqueado e erro 502. Evidência:", raiz / "mobile.png", flush=True)
             cdp("Browser.close")
     finally:
         if browser and browser.poll() is None: browser.terminate()

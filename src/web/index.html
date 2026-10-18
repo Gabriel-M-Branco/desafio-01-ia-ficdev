@@ -82,6 +82,13 @@
             <div class="form-group">
               <label for="input-texto-solicitacao">Texto da Solicitação:</label>
               <textarea id="input-texto-solicitacao" class="form-control code-font" rows="12" placeholder="Insira aqui o texto da solicitação..."></textarea>
+              <div id="revisao-origem" style="display:none; margin-top:12px;">
+                <p>Antes de gerar a minuta, confira o áudio/PDF original: nomes, protocolos, datas, curso, carga horária e turno. Registre na justificativa o que foi confirmado, corrigido e o que permanece ilegível/ausente. No PDF oficial, 0/23 não é extração satisfatória. Não preencha dados por adivinhação.</p>
+                <p><a href="/arquivos/dados/originais/entrada_audio.mp3" target="_blank" rel="noopener">Abrir áudio oficial</a> | <a href="/arquivos/dados/originais/entrada_pdf-imagem.pdf" target="_blank" rel="noopener">Abrir PDF oficial</a></p>
+                <button type="button" id="btn-confirmar-origem" class="btn btn-secondary">Confirmar dados críticos na fonte</button>
+                <button type="button" id="btn-rejeitar-origem" class="btn btn-secondary">Rejeitar leitura não confiável</button>
+                <span id="status-revisao-origem">Revisão humana pendente</span>
+              </div>
             </div>
 
             <div class="form-actions">
@@ -115,7 +122,7 @@
               <div id="banner-conferencia-operador" class="conferencia-banner" style="display: none;"></div>
 
               <div class="alert alert-notice">
-                <strong>Revisão de Minuta:</strong> Nenhum envio automático. Realize a conferência do texto antes de registrar a decisão e gerar o documento oficial.
+                <strong>Revisão de Minuta:</strong> Nenhum envio automático. Confira o texto antes de registrar a decisão e exportar a versão revisada da minuta.
               </div>
               <div class="form-group">
                 <label for="editor-minuta">Texto da Minuta Oficial (Editavel pelo Servidor):</label>
