@@ -12,7 +12,7 @@ from src.audio import AudioProcessor
 from src.llm_client import LLMResponse
 from src.pdf_generator import gerar_minuta_pdf
 from src.text_contract import interpretar_minuta, ContratoTextoInvalido
-from testes.test_integracao_main_emilly import web, llm, payload_contrato
+from testes.test_integracao_main import web, llm, payload_contrato
 
 
 def test_pdf_longo_nao_perde_corpo_e_nao_inventa_protocolo(tmp_path):

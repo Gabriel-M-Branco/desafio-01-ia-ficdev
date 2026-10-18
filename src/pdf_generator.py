@@ -11,6 +11,14 @@ import pymupdf
 from src import BASE_DIR, resolver_caminho, caminho_relativo
 
 
+def normalizar_caracteres_pdf(texto: str) -> str:
+    """Adapta pontuação à fonte PDF; não corrige nomes, fatos ou instituições."""
+    trocas = {"—": " - ", "–": "-", "‘": "'", "’": "'", "“": '"', "”": '"', "…": "...", "•": "-", "\u00a0": " "}
+    for origem, destino in trocas.items():
+        texto = texto.replace(origem, destino)
+    return texto
+
+
 def _inserir_corpo(doc, pagina, texto, retangulo):
     """Paginação sem perda silenciosa: probes não são incorporados ao PDF."""
     restante = texto
@@ -128,7 +136,7 @@ def gerar_minuta_pdf(
 
     # 6. Corpo da Minuta
     # Limpa quebras escapadas caso existam
-    texto_formatado = texto_minuta.replace("\\n", "\n").strip()
+    texto_formatado = normalizar_caracteres_pdf(texto_minuta.replace("\\n", "\n").strip())
     rect_corpo = pymupdf.Rect(45, 190, 550, 680)
     _inserir_corpo(doc, page, texto_formatado, rect_corpo)
     page = doc[0]  # Inserir páginas pode invalidar referências Page anteriores.

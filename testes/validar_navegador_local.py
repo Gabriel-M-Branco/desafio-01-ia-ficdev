@@ -38,7 +38,7 @@ def executar():
         if getattr(rota, "path", "") == "/arquivos":
             rota.app.directory = str(raiz)
             rota.app.all_directories = [str(raiz)]
-    from testes.test_integracao_main_emilly import payload_contrato
+    from testes.test_integracao_main import payload_contrato
     payload = payload_contrato({"solicitante": "Pessoa Fictícia", "protocolo": "inválido"},
                               "Minuta fictícia. Protocolo inválido. Informação não localizado.")
     main.llm_client.generate = lambda *a, **kw: LLMResponse(payload, "modelo-teste", "mock-browser", .01, 1, 1, 2, None, "success")

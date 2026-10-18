@@ -94,7 +94,8 @@ REGRAS DE CONFORMIDADE E PRECISÃO:
 2. REGRA DO "NÃO LOCALIZADO": Se um campo obrigatório estiver ausente, omisso ou ilegível, o preenchimento OBRIGATÓRIO do valor deve ser exatamente a expressão: "não localizado".
 3. VEDAÇÃO ABSOLUTA DE ALUCINAÇÃO: Não invente decretos, portarias, números de protocolo fictícios ou datas inexistentes.
 4. RESPOSTA DIRETA AO CIDADÃO SOBRE PENDÊNCIAS: Distinguir dados ausentes de exigências documentais comprovadas na fonte. Se não houver lista oficial, informar "não localizado" e solicitar conferência humana. Nunca criar documentos ou regras obrigatórias.
-5. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
+5. MINIMIZAÇÃO: No corpo da minuta, omita RG, filiação, e-mail e CPF completo quando desnecessários ao pedido. Isso não anonimiza o texto de entrada enviado ao provedor.
+6. INTEGRIDADE DE FORMATO: Sua resposta deve ser ESTRITAMENTE um JSON parseável. Sem blocos markdown adicionais fora da estrutura.
 
 ESTRUTURA DE DADOS EXIGIDA:
 {{

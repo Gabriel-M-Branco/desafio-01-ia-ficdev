@@ -29,14 +29,14 @@ REQUISITOS = {
  ("avaliar tempo até um resultado utilizável", "P", "Duração de API existe; tempo de revisão/correção até uso NÃO COMPROVADO."),
  ("selecionar e justificar o prompt incorporado", "L", "C escolhido por estrutura/blindagem; escolha não demonstra qualidade perfeita nem avaliação humana completa."),
  ("ACEITE: três entradas, saídas e matriz acompanham entrega", "L", "Arquivos existem localmente; experimento real ignorado pelo Git precisa entrar no ZIP selecionado. Entradas históricas nem sempre vinculadas por hash.")]),
-3: (4, "src/prompts.py; src/text_contract.py; src/main.py:processar_texto", "Prompts salvos; casos adversariais; logs texto", "test_text_contract; test_integracao_main_emilly; test_sistema", [
+3: (4, "src/prompts.py; src/text_contract.py; src/main.py:processar_texto", "Prompts salvos; casos adversariais; logs texto", "test_text_contract; test_integracao_main; test_sistema", [
  ("delimitar claramente o conteúdo externo", "A", "Envelope XML e escape de delimitadores; testes de tentativas de quebra."),
  ("tratar instruções de documentos como dados, não comandos", "L", "Instrução de sistema e sanitização; não há garantia matemática contra injeção."),
  ("proibir invenção de fatos, prazos, autoridades e fundamentos legais", "L", "Prompt proíbe; validação sintática não comprova veracidade factual. Humano necessário."),
  ("usar não localizado para campo obrigatório ausente", "L", "Schema/prompt exigem regra; conferência semântica continua humana."),
  ("solicitar saída estruturada e verificável", "A", "Schema remoto e checagem local completa no caminho de produção; no máximo uma reparação de formato."),
  ("incluir teste de prompt injection em pelo menos uma entrada", "A", "Caso fictício existe; testes mockados não provam resistência do modelo real atual.")]),
-4: (4, "src/llm_client.py:generate", "Logs reais Gemini; metadata RF10 Cloudflare; varredura_segredos.json", "test_integracao_main_emilly; test_cloudflare_rf10; test_auditoria_final", [
+4: (4, "src/llm_client.py:generate", "Logs reais Gemini; metadata RF10 Cloudflare; varredura_segredos.json", "test_integracao_main; test_cloudflare_rf10; test_auditoria_final", [
  ("realizar pelo menos uma chamada programática a provedor", "A", "Registros reais Gemini/Cloudflare e artefatos; não houve nova chamada nesta auditoria."),
  ("enviar modelo, mensagem e parâmetros configuráveis", "A", "Reutiliza cliente existente; parâmetros efetivos distinguem APIs."),
  ("definir timeout", "A", "requests/HF com timeout; teste simula esgotamento."),
@@ -87,7 +87,7 @@ REQUISITOS = {
  ("comparar com gabarito e registrar acertos/erros", "A", "Oficial 0/23; sintético 22/23 (e-mail não conferido). Limitações não ocultadas."),
  ("justificar processamento local por soberania/privacidade", "A", "Justificativa em código/documentação; PDF não é enviado ao LLM neste OCR."),
  ("ACEITE: confirmação humana dos dados críticos", "P", "Confirmação por hash antes da minuta adicionada; falta decisão real final sobre OCR oficial/sintético. Rejeitar ilegíveis em vez de inventar.")]),
-9: (5, "src/main.py:processar_texto; src/pdf_generator.py", "Minutas reais anteriores e novos testes de fontes/PDF", "test_sistema; test_integracao_main_emilly; test_auditoria_final", [
+9: (5, "src/main.py:processar_texto; src/pdf_generator.py", "Minutas reais anteriores e novos testes de fontes/PDF", "test_sistema; test_integracao_main; test_auditoria_final", [
  ("usar somente dados da entrada ou contexto", "L", "Prompts proíbem invenção; defaults de protocolo/data inventados removidos do PDF; revisão factual humana continua necessária."),
  ("seguir modelo institucional da equipe", "A", "PDF com brasão original, cabeçalho e marcação de minuta; paginação protege corpo longo."),
  ("marcar ausências explicitamente", "A", "Schema e placeholders; não converte ausências em fatos."),

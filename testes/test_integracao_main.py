@@ -236,9 +236,12 @@ def web(tmp_path, monkeypatch):
     monkeypatch.setattr(main.app, "dependency_overrides", {})
     t_proc = tmp_path / "dados" / "processados"
     t_minutas = tmp_path / "resultados" / "minutas"
+    t_prompts = tmp_path / "prompts"
     t_proc.mkdir(parents=True, exist_ok=True)
     t_minutas.mkdir(parents=True, exist_ok=True)
+    import shutil
     orig_resolver = main.resolver_caminho
+    shutil.copytree(orig_resolver("prompts"), t_prompts, dirs_exist_ok=True)
     def mock_resolver(caminho):
         p_str = str(caminho).replace("\\", "/")
         if "dados/processados" in p_str:
@@ -247,6 +250,9 @@ def web(tmp_path, monkeypatch):
         if "resultados/minutas" in p_str:
             rel = p_str.split("resultados/minutas", 1)[1].lstrip("/")
             return t_minutas / rel if rel else t_minutas
+        if "prompts" in p_str:
+            rel = p_str.split("prompts", 1)[1].lstrip("/")
+            return t_prompts / rel if rel else t_prompts
         return orig_resolver(caminho)
     monkeypatch.setattr(main, "resolver_caminho", mock_resolver)
     async def enviar(metodo, url, **kwargs):
@@ -398,6 +404,9 @@ def test_fluxo_web_texto_revisao_tts_e_edicao_por_hash(web, monkeypatch):
         decisao["decisao"] = status
         assert pedir("POST", "/api/revisao/decisao", json=decisao).status_code == 200
         assert pedir("POST", "/api/sintetizar/audio", json={"texto": texto, "id_execucao": identificador}).status_code == 403
+    gerado = main.resolver_caminho(tts.json()["detalhes"]["caminho_arquivo"])
+    if gerado.exists():
+        gerado.unlink()
 
 
 def test_experimento_sem_modelo_nao_cria_classificacao_ficticia(web,monkeypatch):

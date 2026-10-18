@@ -154,7 +154,7 @@ class LLMClient:
             if response_format:
                 parametros.update(response_format=response_format, provider={"require_parameters": True})
             dado = requests.post("https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {self.openrouter_key}"},
+                headers={"Authorization": f"Bearer {self.openrouter_key}", "Content-Type": "application/json"},
                 json=parametros,
                 timeout=espera, allow_redirects=False)
             if dado.status_code != 200:

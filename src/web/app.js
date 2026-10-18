@@ -133,7 +133,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (badgeMode) {
         badgeMode.textContent = data.texto ? `Texto: ${data.texto.provedor} / ${data.texto.modelo}${data.texto.habilitado ? "" : " (desativado)"}` : "Configuração de texto indisponível";
         const modos = document.getElementById("modos-multimodais");
-        if (modos) modos.textContent = `STT: ${data.stt?.provedor || "não informado"} / ${data.stt?.modelo || "não informado"} · TTS: ${data.tts?.provedor || "não informado"} · OCR local · RF10 administrativo bloqueado`;
+        if (modos) {
+          modos.innerHTML = [
+            `STT: ${data.stt?.provedor || "não informado"} / ${data.stt?.modelo || "não informado"}`,
+            `TTS: ${data.tts?.provedor || "não informado"}`,
+            "OCR: Tesseract local",
+            `Imagem: ${data.imagem?.provedor || "não informado"} / ${data.imagem?.modelo || "não informado"}`,
+            "RF10 administrativo bloqueado: requer autenticação real"
+          ].map(texto => `<span class="multimodal-chip">${esc(texto)}</span>`).join("");
+        }
         const imagem = document.getElementById("btn-gerar-imagem-peca");
         if (imagem) { imagem.disabled = data.rf10_administrativo_habilitado !== true; imagem.title = "Requer autenticação real da equipe; use o executor local controlado para testes."; }
       }

@@ -48,7 +48,7 @@ audit_logger = AuditLogger()
 @app.middleware("http")
 async def interface_sem_cache(request, call_next):
     resposta = await call_next(request)
-    if request.url.path in {"/", "/app.js", "/styles.css"} or request.url.path.startswith("/static/"):
+    if request.url.path in {"/", "/app.js", "/styles.css", "/favicon.ico", "/favicon.png"} or request.url.path.startswith("/static/"):
         resposta.headers["Cache-Control"] = "no-store, max-age=0"
         resposta.headers["Pragma"] = "no-cache"
     return resposta
@@ -132,6 +132,22 @@ def obter_app_js():
     return FileResponse(str(BASE_DIR / "src/web/app.js"))
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def obter_favicon_ico():
+    caminho = BASE_DIR / "src/web/favicon.ico"
+    if caminho.exists():
+        return FileResponse(str(caminho), media_type="image/x-icon")
+    return FileResponse(str(BASE_DIR / "dados/originais/brasao.png"), media_type="image/png")
+
+
+@app.get("/favicon.png", include_in_schema=False)
+def obter_favicon_png():
+    caminho = BASE_DIR / "src/web/favicon.png"
+    if caminho.exists():
+        return FileResponse(str(caminho), media_type="image/png")
+    return FileResponse(str(BASE_DIR / "dados/originais/brasao.png"), media_type="image/png")
+
+
 @app.get("/api/config")
 def obter_configuracoes():
     """Retorna o estado e parametrizações do sistema (RF01)."""
@@ -147,6 +163,7 @@ def obter_configuracoes():
         "stt": {"provedor": os.getenv("STT_PROVIDER", "huggingface"), "modelo": audio_processor.stt_model},
         "tts": {"provedor": os.getenv("TTS_PROVIDER", "sapi5")},
         "ocr": {"provedor": "Tesseract local / PyMuPDF", "revisao_humana_obrigatoria": True},
+        "imagem": {"provedor": image_generator.image_provider, "modelo": image_generator.image_model},
         "rf10_administrativo_habilitado": False,
     }
 
