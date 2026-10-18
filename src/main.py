@@ -246,7 +246,6 @@ def processar_texto(requisicao: RequisicaoTexto):
                 "id_resposta_provedor": resposta_llm.provider_response_id,
                 "caracteres": len(resposta_llm.text),
                 "sha256_resposta": hashlib.sha256(resposta_llm.text.encode("utf-8")).hexdigest()}
-            # Resposta bruta nunca entra em logs públicos/URLs /arquivos.
             privado = resolver_caminho(".llm-diagnosticos") / f"formato_{uuid.uuid4().hex}.json"
             try:
                 privado.parent.mkdir(parents=True, exist_ok=True)
@@ -284,24 +283,23 @@ def processar_texto(requisicao: RequisicaoTexto):
     minuta = parsed["minuta_institucional"]
     if not re.fullmatch(r"[A-Za-z0-9_-]+", requisicao.caso):
         raise HTTPException(400, "Identificador de caso inválido.")
-    # Every new processing creates new files, preserving original evidence.
-    sufixo = f"{requisicao.caso}_{uuid.uuid4().hex}"
-
-    # Salva extração estruturada em dados/processados/ (RF05)
+    
+    # Salva extração estruturada canônica em dados/processados/ (RF05)
     dir_proc = resolver_caminho("dados/processados")
     dir_proc.mkdir(parents=True, exist_ok=True)
-    arquivo_processado = dir_proc / f"extracao_{sufixo}.json"
+    arquivo_processado = dir_proc / f"extracao_{requisicao.caso}.json"
     with open(arquivo_processado, "w", encoding="utf-8") as f:
         json.dump(extracao, f, ensure_ascii=False, indent=2)
 
-    # Salva minuta em resultados/minutas/ tanto em TXT quanto em PDF oficial timbrado (RF09)
+    # Salva minuta única em resultados/minutas/ preservando evidências de execuções distintas (RF09)
+    sufixo_minuta = f"{requisicao.caso}_{uuid.uuid4().hex}"
     dir_minutas = resolver_caminho("resultados/minutas")
     dir_minutas.mkdir(parents=True, exist_ok=True)
-    arquivo_minuta = dir_minutas / f"minuta_{sufixo}.txt"
+    arquivo_minuta = dir_minutas / f"minuta_{sufixo_minuta}.txt"
     with open(arquivo_minuta, "w", encoding="utf-8") as f:
         f.write(minuta)
 
-    arquivo_pdf = dir_minutas / f"minuta_{sufixo}.pdf"
+    arquivo_pdf = dir_minutas / f"minuta_{sufixo_minuta}.pdf"
     gerar_minuta_pdf(
         dados_extracao=extracao,
         texto_minuta=minuta,
@@ -324,7 +322,7 @@ def processar_texto(requisicao: RequisicaoTexto):
             avaliacao = QualityEvaluator.avaliar_extracao(extracao, {"campos_esperados":
                 gabarito.get("campos_esperados", gabarito.get("entidades_criticas", {}))})
 
-    rel_pdf = f"resultados/minutas/minuta_{sufixo}.pdf"
+    rel_pdf = f"resultados/minutas/minuta_{sufixo_minuta}.pdf"
 
     # Registro de auditoria estrita sem vazar chaves de API (RF11)
     exec_id = audit_logger.registrar_execucao(
@@ -669,7 +667,7 @@ def executar_pipeline_completo():
     relatorio_lgpd = LGPDManager.gerar_relatorio_conformidade()
     dir_doc = resolver_caminho("documentacao")
     dir_doc.mkdir(parents=True, exist_ok=True)
-    with open(dir_doc / f"relatorio_lgpd_{uuid.uuid4().hex}.json", "x", encoding="utf-8") as f:
+    with open(dir_doc / "relatorio_lgpd.json", "w", encoding="utf-8") as f:
         json.dump(relatorio_lgpd, f, ensure_ascii=False, indent=2)
 
     print("\n" + "=" * 80)
