@@ -27,6 +27,8 @@ class LLMResponse:
     status: str
     error_message: Optional[str] = None
     is_mock: bool = False
+    finish_reason: Optional[str] = None
+    provider_response_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -44,19 +46,23 @@ class LLMClient:
     def __init__(self, config_path: str = "config.json"):
         self.config = self._load_config(config_path)
         self.hf_token = os.getenv("HF_TOKEN", "").strip()
-        self.openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        # Suporta tanto OPENROUTER_API_KEY quanto OPENAI_API_KEY como alias multiuso
+        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
         self.execution_mode = os.getenv("EXECUTION_MODE", "auto").lower()
 
         # Modelos configurados
         models_cfg = self.config.get("models", {})
-        self.primary_model = models_cfg.get("llm_primary", "Qwen/Qwen2.5-72B-Instruct")
+        self.hf_model = models_cfg.get("llm_primary", "Qwen/Qwen2.5-72B-Instruct")
+        self.text_provider = os.getenv("TEXT_PROVIDER", "openrouter" if self.openrouter_key else "huggingface").strip().lower()
+        self.primary_model = (os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
+                              if self.text_provider == "openrouter" else self.hf_model)
         self.fallback_model = models_cfg.get("llm_fallback", "meta-llama/Llama-3.3-70B-Instruct")
 
         # Parâmetros padrão
         gen_cfg = self.config.get("generation_params", {})
         self.default_temp = gen_cfg.get("temperature", 0.1)
         self.default_max_tokens = gen_cfg.get("max_tokens", 1500)
-        self.default_timeout = gen_cfg.get("timeout_seconds", 30)
+        self.default_timeout = int(os.getenv("LLM_TIMEOUT", gen_cfg.get("timeout_seconds", 60)))
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         try:
@@ -84,7 +90,7 @@ class LLMClient:
         return clean
 
     def generate(self, prompt, system_instruction=None, model=None, temperature=None,
-                 max_tokens=None, timeout=None) -> LLMResponse:
+                 max_tokens=None, timeout=None, response_format=None) -> LLMResponse:
         """Somente provedores reais. Indisponibilidade nunca vira resposta fictícia."""
         inicio = time.perf_counter()
         modelo = model or self.primary_model
@@ -93,26 +99,20 @@ class LLMClient:
         espera = self.default_timeout if timeout is None else timeout
         mensagens = ([{"role": "system", "content": system_instruction}] if system_instruction else [])
         mensagens.append({"role": "user", "content": prompt})
-        llm_provedor = os.getenv("LLM_PROVIDER", "").lower().strip()
-        if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("TEST_FORCE_OPENROUTER"):
-            llm_provedor = ""
-        
-        def extrair_detalhe_erro(exc):
-            msg = str(exc)
-            resp = getattr(exc, "response", None)
-            if resp is not None:
-                try:
-                    corpo = resp.json()
-                    if isinstance(corpo, dict):
-                        err_obj = corpo.get("error", {})
-                        if isinstance(err_obj, dict) and "message" in err_obj:
-                            msg = f"HTTP {resp.status_code}: {err_obj['message']}"
-                        elif "message" in corpo:
-                            msg = f"HTTP {resp.status_code}: {corpo['message']}"
-                except Exception:
-                    if getattr(resp, "text", ""):
-                        msg = f"HTTP {resp.status_code}: {resp.text[:300]}"
-            return self._sanitize_log_message(msg)
+
+        def resposta(texto, provedor, modelo_efetivo, status="success", detalhe_erro=None, finish_reason=None, response_id=None):
+            entrada = self._estimate_tokens(prompt + (system_instruction or "")) if texto else 0
+            saida = self._estimate_tokens(texto)
+            return LLMResponse(
+                text=texto, model=modelo_efetivo, provider=provedor,
+                duration_seconds=time.perf_counter()-inicio, prompt_tokens=entrada,
+                completion_tokens=saida, total_tokens=entrada+saida, cost_usd=None,
+                status=status,
+                error_message=detalhe_erro if detalhe_erro else (None if texto else "Geração indisponível; nenhum conteúdo simulado foi produzido."),
+                is_mock=False,
+                finish_reason=finish_reason,
+                provider_response_id=response_id,
+            )
 
         def classificar(exc):
             codigo = getattr(getattr(exc, "response", None), "status_code", None)
@@ -123,77 +123,74 @@ class LLMClient:
             if isinstance(exc, ValueError): return "empty_or_invalid_response"
             return "service_unavailable"
 
-        def resposta(texto, provedor, modelo_efetivo, status="success", detalhe_erro=None):
-            entrada = self._estimate_tokens(prompt + (system_instruction or "")) if texto else 0
-            saida = self._estimate_tokens(texto)
-            return LLMResponse(
-                text=texto, model=modelo_efetivo, provider=provedor,
-                duration_seconds=time.perf_counter()-inicio, prompt_tokens=entrada,
-                completion_tokens=saida, total_tokens=entrada+saida, cost_usd=None,
-                status=status,
-                error_message=detalhe_erro if detalhe_erro else (None if texto else f"Geração indisponível ({status})."),
-                is_mock=False
-            )
-
         if self.execution_mode not in {"auto", "api"}:
-            return resposta("", "none", modelo, "remote_disabled", "Execução remota desativada pelo modo de configuração.")
+            return resposta("", "none", modelo, "remote_disabled")
 
-        modelo_or = os.getenv("OPENROUTER_MODEL", "inclusionai/ling-3.1-flash")
+        if self.text_provider not in {"openrouter", "huggingface"}:
+            return resposta("", "none", modelo, "invalid_provider")
 
-        def chamar_openrouter(is_fallback=False):
-            permitir_pago = os.getenv("OPENROUTER_ALLOW_PAID") and not os.getenv("PYTEST_CURRENT_TEST")
-            if is_fallback and not modelo_or.endswith(":free") and not permitir_pago:
-                return resposta("", "OpenRouter", modelo_or, "fallback_model_not_free", "Fallback OpenRouter restrito a modelos :free conforme edital.")
+        def chamar_hf():
+            if not self.hf_token:
+                return resposta("", "none", self.hf_model, "credentials_missing")
+            from huggingface_hub import InferenceClient
+            modelo_hf = (model if self.text_provider == "huggingface" else None) or self.hf_model
+            cliente = InferenceClient(token=self.hf_token, timeout=espera)
+            parametros = {"response_format": response_format} if response_format else {}
+            dado = cliente.chat_completion(messages=mensagens, model=modelo_hf,
+                                           temperature=temp, max_tokens=limite, **parametros)
+            texto = dado.choices[0].message.content
+            if not isinstance(texto, str) or not texto.strip():
+                raise ValueError("Resposta HF vazia.")
+            return resposta(texto, "HuggingFace_Serverless", modelo_hf,
+                            finish_reason=getattr(dado.choices[0], "finish_reason", None))
+
+        def chamar_openrouter():
+            if not self.openrouter_key:
+                return resposta("", "none", modelo, "credentials_missing")
+            import requests
+            modelo_or = (model if self.text_provider == "openrouter" else None) or os.getenv("OPENROUTER_MODEL", "openrouter/free")
+            gratuito = modelo_or == "openrouter/free" or modelo_or.endswith(":free")
+            if self.text_provider != "openrouter" and not gratuito:
+                return resposta("", "none", modelo_or, "fallback_model_not_free")
+            parametros = {"model": modelo_or, "messages": mensagens, "temperature": temp, "max_tokens": limite}
+            if response_format:
+                parametros.update(response_format=response_format, provider={"require_parameters": True})
+            dado = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {self.openrouter_key}", "Content-Type": "application/json"},
+                json=parametros,
+                timeout=espera, allow_redirects=False
+            )
+            if dado.status_code != 200:
+                erro = RuntimeError(f"OpenRouter HTTP {dado.status_code}")
+                erro.response = dado
+                raise erro
+            corpo = dado.json()
+            escolhas = corpo.get("choices") or [{}]
+            texto = escolhas[0].get("message", {}).get("content")
+            if not isinstance(texto, str) or not texto.strip():
+                raise ValueError("Resposta OpenRouter vazia.")
+            nome_provedor = "OpenRouter_Free" if gratuito else "OpenRouter"
+            return resposta(texto, nome_provedor, corpo.get("model") or modelo_or,
+                            finish_reason=escolhas[0].get("finish_reason"),
+                            response_id=corpo.get("id"))
+
+        provedores = [self.text_provider]
+        if self.text_provider == "huggingface" and os.getenv("OPENROUTER_ENABLED", "false").lower() == "true":
+            provedores.append("openrouter")
+        if self.text_provider == "openrouter" and os.getenv("TEXT_FALLBACK_PROVIDER", "none").lower() == "huggingface":
+            provedores.append("huggingface")
+
+        for indice, provedor in enumerate(provedores):
             try:
-                import requests
-                dado = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {self.openrouter_key}", "Content-Type": "application/json"},
-                    json={"model": modelo_or, "messages": mensagens, "temperature": temp, "max_tokens": limite},
-                    timeout=espera, allow_redirects=False
-                )
-                if dado.status_code != 200:
-                    erro = RuntimeError(f"OpenRouter HTTP {dado.status_code}")
-                    erro.response = dado
-                    raise erro
-                corpo = dado.json()
-                choices = corpo.get("choices", [])
-                if not choices or "message" not in choices[0]:
-                    raise ValueError(f"OpenRouter retornou resposta sem choices: {dado.text[:200]}")
-                texto = choices[0]["message"].get("content", "")
-                if not isinstance(texto, str) or not texto.strip():
-                    raise ValueError("Resposta OpenRouter vazia.")
-                nome_provedor = "OpenRouter" if not modelo_or.endswith(":free") else "OpenRouter_Free"
-                return resposta(texto, nome_provedor, modelo_or)
+                resultado = chamar_openrouter() if provedor == "openrouter" else chamar_hf()
             except Exception as exc:
-                return resposta("", "OpenRouter", modelo_or, classificar(exc), extrair_detalhe_erro(exc))
-
-        # 1. Se configurado explicitamente para OpenRouter como primário
-        if llm_provedor == "openrouter" and self.openrouter_key:
-            return chamar_openrouter(is_fallback=False)
-
-        # 2. Hugging Face Serverless
-        if self.hf_token:
-            try:
-                from huggingface_hub import InferenceClient
-                cliente = InferenceClient(token=self.hf_token, timeout=espera)
-                dado = cliente.chat_completion(messages=mensagens, model=modelo,
-                                                temperature=temp, max_tokens=limite)
-                texto = dado.choices[0].message.content
-                if not isinstance(texto, str) or not texto.strip():
-                    raise ValueError("Resposta HF vazia.")
-                return resposta(texto, "HuggingFace_Serverless", modelo)
-            except Exception as exc:
-                # Se falhou e OpenRouter estiver habilitado como fallback
-                if os.getenv("OPENROUTER_ENABLED", "false").lower() == "true" and self.openrouter_key:
-                    return chamar_openrouter(is_fallback=True)
-                return resposta("", "HuggingFace_Serverless", modelo, classificar(exc), extrair_detalhe_erro(exc))
-
-        # 3. Fallback ou sem HF Token
-        if os.getenv("OPENROUTER_ENABLED", "false").lower() == "true" and self.openrouter_key:
-            return chamar_openrouter(is_fallback=True)
-
-        return resposta("", "none", modelo, "credentials_missing", "Chave de API não configurada no ambiente (.env).")
+                resultado = resposta("", provedor, modelo, classificar(exc))
+            if resultado.status == "success":
+                return resultado
+            if indice + 1 < len(provedores):
+                print(f"[Texto] {provedor} falhou ({resultado.status}); fallback explicitamente habilitado: {provedores[indice + 1]}.", flush=True)
+        return resultado
 
 
 

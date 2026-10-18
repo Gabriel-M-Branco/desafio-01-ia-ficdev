@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Define o prefixo canônico do tessdata no Debian/Ubuntu
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+ENV HOST=0.0.0.0
+ENV PORT=8000
 
 # Copia e instala as dependências Python
 COPY requirements.txt .

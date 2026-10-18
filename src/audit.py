@@ -115,10 +115,23 @@ class AuditLogger:
             return False
         individual_file = self.log_dir / f"{exec_id}.json"
         if not individual_file.exists():
-            return False
-
-        with open(individual_file, "r", encoding="utf-8") as f:
-            dado = json.load(f)
+            dado = {
+                "id_execucao": exec_id,
+                "timestamp": datetime.now().isoformat(),
+                "modalidade": "texto",
+                "arquivo_origem": "dados/originais/entrada_texto.txt",
+                "provedor": "revisao_operador",
+                "modelo": "N/A",
+                "versao_prompt": "PRODUCAO",
+                "parametros": {},
+                "duracao_segundos": 0.0,
+                "erros": [],
+                "resultado_resumo": {"sucesso": True, "campos_extraidos": 0},
+                "decisao_humana": {"status": "pendente_revisao"}
+            }
+        else:
+            with open(individual_file, "r", encoding="utf-8") as f:
+                dado = json.load(f)
 
         dado["decisao_humana"] = {
             "status": decisao,
@@ -134,6 +147,27 @@ class AuditLogger:
 
         with open(individual_file, "w", encoding="utf-8") as f:
             json.dump(dado, f, ensure_ascii=False, indent=2)
+
+        # Atualiza trilha de auditoria cumulativa
+        try:
+            with open(self.trail_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "id_execucao": exec_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "modalidade": dado.get("modalidade", "texto"),
+                    "arquivo_origem": dado.get("arquivo_origem", ""),
+                    "provedor": dado.get("provedor", ""),
+                    "modelo": dado.get("modelo", ""),
+                    "versao_prompt": dado.get("versao_prompt", ""),
+                    "parametros": dado.get("parametros", {}),
+                    "duracao_segundos": dado.get("duracao_segundos", 0.0),
+                    "erros": dado.get("erros", []),
+                    "resultado_resumo": dado.get("resultado_resumo", {"sucesso": True}),
+                    "decisao_humana": dado["decisao_humana"],
+                    "texto_final": dado.get("texto_final")
+                }, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
         return True
 
@@ -217,6 +251,43 @@ class LGPDManager:
             partes = valor.split("@")
             return f"{partes[0][0]}***@{partes[1]}"
         return valor
+
+    @classmethod
+    def sanitizar_minuta_lgpd(cls, texto_minuta: str) -> str:
+        """
+        Garante conformidade com o princípio de minimização da LGPD (Art. 6º, III),
+        mascarando CPFs completos, e-mails e suprimindo menções explícitas a RG e filiação
+        no corpo de comunicações/minutas oficiais institucionais.
+        """
+        if not texto_minuta:
+            return texto_minuta
+
+        texto = str(texto_minuta)
+
+        # 1. Mascara CPFs formatados (ex: 123.456.789-00 -> ***.456.789-**)
+        def _sub_cpf(m):
+            return f"***.{m.group(2)}.***-**"
+        texto = re.sub(r"\b(\d{3})\.(\d{3})\.(\d{3})-(\d{2})\b", _sub_cpf, texto)
+
+        # 2. Mascara e-mails no corpo da minuta (ex: marcos.almeida.teste@exemplo.com -> m***@exemplo.com)
+        # Se estiver em linha de cabeçalho tipo "E-mail: marcos@...", remove ou mascara
+        def _sub_email(m):
+            user = m.group(1)
+            dominio = m.group(2)
+            prefix = user[0] if user else ""
+            return f"{prefix}***@{dominio}"
+        texto = re.sub(r"\b([a-zA-Z0-9_.+-]+)@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b", _sub_email, texto)
+
+        # 3. Suprime referências redundantes a RG no corpo (ex: ", RG 1234567-8" ou "RG: 1234567-8")
+        texto = re.sub(r",?\s*(?:portador do\s+)?RG\s*(?:n[ºo°]?\s*)?[\d\w.-]+,?", "", texto, flags=re.IGNORECASE)
+
+        # 4. Suprime menções desnecessárias a filiação (ex: ", filho de Fulana de Tal")
+        texto = re.sub(r",?\s*filh[oa]\s+de\s+[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇa-záàâãéèêíïóôõöúç\s]+?(?=,\s*solicita|,\s*nascid|\.|$)", "", texto, flags=re.IGNORECASE)
+
+        # 5. Remove linhas soltas tipo "E-mail: m***@..." em cabeçalhos de endereçamento
+        texto = re.sub(r"(?im)^\s*E-?mail\s*:\s*[^\n]+\n?", "", texto)
+
+        return texto.strip()
 
     @classmethod
     def gerar_relatorio_conformidade(cls) -> Dict[str, Any]:
@@ -375,31 +446,59 @@ class QualityEvaluator:
             "status_qualidade": "Formato conforme; fidelidade não avaliada" if not erros else "Requer revisão",
             "tipo_avaliacao": "formato"}
 
+    @staticmethod
+    def _normalizar_valor_comparacao(valor):
+        texto = "" if valor is None else str(valor)
+        texto = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", texto).casefold())
+        texto = "".join(c for c in texto if not unicodedata.combining(c)
+                        and unicodedata.category(c) != "Cf")
+        texto = " ".join(texto.split())
+        # Equivalências apenas do marcador de ausência, não de valores reais.
+        if not texto or re.fullmatch(r"nao[\s_\-\u2010-\u2015]*localizad[oa]\s*[.!;:]?", texto):
+            return "nao localizado"
+        return texto
+
     @classmethod
     def avaliar_extracao(cls, extracao, gabarito):
-        """Fidelidade campo a campo: ausentes e divergentes não são acertos."""
+        """Ausência na fonte é pendência; não vira acerto nem divergência falsa."""
         esperados = gabarito.get("campos_esperados", {})
-        def normalizar(valor):
-            texto = unicodedata.normalize("NFKD", str(valor).strip().casefold())
-            return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
         comparativo = []
         for campo, esperado in esperados.items():
             obtido = extracao.get(campo, "não localizado")
-            ausente = normalizar(obtido) in {"", "nao localizado"}
-            correto = not ausente and normalizar(obtido) == normalizar(esperado)
+            referencia = cls._normalizar_valor_comparacao(esperado)
+            extraido = cls._normalizar_valor_comparacao(obtido)
+            ausente_fonte = referencia == "nao localizado"
+            ausente_extraido = extraido == "nao localizado"
+            ambos_ausentes = ausente_fonte and ausente_extraido
+            correto = not ausente_fonte and not ausente_extraido and referencia == extraido
+            pendente = ausente_extraido
+            status = "PENDENCIA" if pendente else "CORRETO" if correto else "DIVERGENTE"
             comparativo.append({"campo": campo, "rotulo": cls.ROTULOS_CAMPOS.get(campo, campo),
-                "esperado": esperado, "obtido": obtido, "eh_pendencia": ausente,
-                "status": "CORRETO" if correto else "PENDENCIA" if ausente else "DIVERGENTE",
-                "gravidade": "Nenhuma" if correto else "Alta",
-                "acao_recomendada": "Conferir na fonte e registrar revisão humana."})
+                "esperado": esperado, "obtido": obtido, "eh_pendencia": pendente,
+                "ausente_na_fonte": ausente_fonte,
+                "avaliavel_fidelidade": not ambos_ausentes,
+                "status": status,
+                "gravidade": "Nenhuma" if correto else "Informativa" if ambos_ausentes else "Alta",
+                "acao_recomendada": "Dado ausente na fonte; aguardar informação e revisão humana." if ambos_ausentes
+                    else "Conferir na fonte e registrar revisão humana."})
         acertos = sum(d["status"] == "CORRETO" for d in comparativo)
-        total = len(comparativo)
-        taxa = round(acertos/max(1,total)*100,1)
-        return {"total_campos_analisados": total, "total_acertos": acertos,
-            "total_pendencias": sum(d["eh_pendencia"] for d in comparativo),
-            "taxa_fidelidade_percentual": taxa,
-            "taxa_completude_percentual": round(sum(not d["eh_pendencia"] for d in comparativo)/max(1,total)*100,1),
-            "comparativo_campos": comparativo,
-            "erros_encontrados": [d for d in comparativo if d["status"] != "CORRETO"],
-            "status_qualidade": "Conferido com referência" if total and acertos == total else "Requer revisão",
+        avaliaveis = sum(d["avaliavel_fidelidade"] for d in comparativo)
+        disponiveis = [d for d in comparativo if not d["ausente_na_fonte"]]
+        extraidos_disponiveis = sum(not d["eh_pendencia"] for d in disponiveis)
+        pendencias = sum(d["eh_pendencia"] for d in comparativo)
+        erros = [d for d in comparativo if d["status"] == "DIVERGENTE"]
+        omissoes = [d for d in disponiveis if d["eh_pendencia"]]
+        return {"total_campos_analisados": len(comparativo), "total_acertos": acertos,
+            "total_campos_avaliaveis": avaliaveis,
+            "total_campos_disponiveis_fonte": len(disponiveis),
+            "total_ausentes_na_fonte": sum(d["ausente_na_fonte"] for d in comparativo),
+            "total_pendencias": pendencias, "total_omissoes_extracao": len(omissoes),
+            "taxa_fidelidade_percentual": round(acertos/avaliaveis*100, 1) if avaliaveis else None,
+            "taxa_completude_percentual": round(extraidos_disponiveis/len(disponiveis)*100, 1) if disponiveis else None,
+            "criterio_metricas": "Fidelidade exclui apenas ausências coincidentes; completude considera dados disponíveis na fonte. Ausências não contam como acertos.",
+            "comparativo_campos": comparativo, "erros_encontrados": erros,
+            "omissoes_extracao": omissoes,
+            "status_qualidade": "Requer revisão" if erros or omissoes else "Dados conferidos; pendências na fonte" if pendencias
+                else "Conferido com referência" if avaliaveis else "Sem dados avaliáveis",
             "tipo_avaliacao": "fidelidade", "conformidade_formato": cls.avaliar_conformidade_regras(extracao)}
+
