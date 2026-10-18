@@ -46,13 +46,14 @@ class LLMClient:
     def __init__(self, config_path: str = "config.json"):
         self.config = self._load_config(config_path)
         self.hf_token = os.getenv("HF_TOKEN", "").strip()
-        self.openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        # Suporta tanto OPENROUTER_API_KEY quanto OPENAI_API_KEY como alias multiuso
+        self.openrouter_key = (os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
         self.execution_mode = os.getenv("EXECUTION_MODE", "auto").lower()
 
         # Modelos configurados
         models_cfg = self.config.get("models", {})
         self.hf_model = models_cfg.get("llm_primary", "Qwen/Qwen2.5-72B-Instruct")
-        self.text_provider = os.getenv("TEXT_PROVIDER", "openrouter").strip().lower()
+        self.text_provider = os.getenv("TEXT_PROVIDER", "openrouter" if self.openrouter_key else "huggingface").strip().lower()
         self.primary_model = (os.getenv("OPENROUTER_MODEL", "openrouter/free").strip()
                               if self.text_provider == "openrouter" else self.hf_model)
         self.fallback_model = models_cfg.get("llm_fallback", "meta-llama/Llama-3.3-70B-Instruct")
@@ -61,7 +62,7 @@ class LLMClient:
         gen_cfg = self.config.get("generation_params", {})
         self.default_temp = gen_cfg.get("temperature", 0.1)
         self.default_max_tokens = gen_cfg.get("max_tokens", 1500)
-        self.default_timeout = gen_cfg.get("timeout_seconds", 30)
+        self.default_timeout = int(os.getenv("LLM_TIMEOUT", gen_cfg.get("timeout_seconds", 60)))
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         try:
@@ -98,14 +99,21 @@ class LLMClient:
         espera = self.default_timeout if timeout is None else timeout
         mensagens = ([{"role": "system", "content": system_instruction}] if system_instruction else [])
         mensagens.append({"role": "user", "content": prompt})
-        def resposta(texto, provedor, modelo_efetivo, status="success", finish_reason=None, response_id=None):
+
+        def resposta(texto, provedor, modelo_efetivo, status="success", detalhe_erro=None, finish_reason=None, response_id=None):
             entrada = self._estimate_tokens(prompt + (system_instruction or "")) if texto else 0
             saida = self._estimate_tokens(texto)
-            return LLMResponse(text=texto, model=modelo_efetivo, provider=provedor,
+            return LLMResponse(
+                text=texto, model=modelo_efetivo, provider=provedor,
                 duration_seconds=time.perf_counter()-inicio, prompt_tokens=entrada,
                 completion_tokens=saida, total_tokens=entrada+saida, cost_usd=None,
-                status=status, error_message=None if texto else "Geração indisponível; nenhum conteúdo simulado foi produzido.",
-                is_mock=False, finish_reason=finish_reason, provider_response_id=response_id)
+                status=status,
+                error_message=detalhe_erro if detalhe_erro else (None if texto else "Geração indisponível; nenhum conteúdo simulado foi produzido."),
+                is_mock=False,
+                finish_reason=finish_reason,
+                provider_response_id=response_id,
+            )
+
         def classificar(exc):
             codigo = getattr(getattr(exc, "response", None), "status_code", None)
             if codigo in (401, 403): return "auth_error"
@@ -114,10 +122,13 @@ class LLMClient:
             if isinstance(exc, TimeoutError) or "timeout" in type(exc).__name__.lower(): return "timeout"
             if isinstance(exc, ValueError): return "empty_or_invalid_response"
             return "service_unavailable"
+
         if self.execution_mode not in {"auto", "api"}:
             return resposta("", "none", modelo, "remote_disabled")
+
         if self.text_provider not in {"openrouter", "huggingface"}:
             return resposta("", "none", modelo, "invalid_provider")
+
         def chamar_hf():
             if not self.hf_token:
                 return resposta("", "none", self.hf_model, "credentials_missing")
@@ -126,7 +137,7 @@ class LLMClient:
             cliente = InferenceClient(token=self.hf_token, timeout=espera)
             parametros = {"response_format": response_format} if response_format else {}
             dado = cliente.chat_completion(messages=mensagens, model=modelo_hf,
-                                            temperature=temp, max_tokens=limite, **parametros)
+                                           temperature=temp, max_tokens=limite, **parametros)
             texto = dado.choices[0].message.content
             if not isinstance(texto, str) or not texto.strip():
                 raise ValueError("Resposta HF vazia.")
@@ -144,12 +155,14 @@ class LLMClient:
             parametros = {"model": modelo_or, "messages": mensagens, "temperature": temp, "max_tokens": limite}
             if response_format:
                 parametros.update(response_format=response_format, provider={"require_parameters": True})
-            dado = requests.post("https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {self.openrouter_key}"},
+            dado = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {self.openrouter_key}", "Content-Type": "application/json"},
                 json=parametros,
-                timeout=espera, allow_redirects=False)
+                timeout=espera, allow_redirects=False
+            )
             if dado.status_code != 200:
-                erro = RuntimeError("Falha OpenRouter")
+                erro = RuntimeError(f"OpenRouter HTTP {dado.status_code}")
                 erro.response = dado
                 raise erro
             corpo = dado.json()
@@ -157,14 +170,17 @@ class LLMClient:
             texto = escolhas[0].get("message", {}).get("content")
             if not isinstance(texto, str) or not texto.strip():
                 raise ValueError("Resposta OpenRouter vazia.")
-            return resposta(texto, "OpenRouter_Free" if gratuito else "OpenRouter", corpo.get("model") or modelo_or,
-                            finish_reason=escolhas[0].get("finish_reason"), response_id=corpo.get("id"))
+            nome_provedor = "OpenRouter_Free" if gratuito else "OpenRouter"
+            return resposta(texto, nome_provedor, corpo.get("model") or modelo_or,
+                            finish_reason=escolhas[0].get("finish_reason"),
+                            response_id=corpo.get("id"))
 
         provedores = [self.text_provider]
         if self.text_provider == "huggingface" and os.getenv("OPENROUTER_ENABLED", "false").lower() == "true":
             provedores.append("openrouter")
         if self.text_provider == "openrouter" and os.getenv("TEXT_FALLBACK_PROVIDER", "none").lower() == "huggingface":
             provedores.append("huggingface")
+
         for indice, provedor in enumerate(provedores):
             try:
                 resultado = chamar_openrouter() if provedor == "openrouter" else chamar_hf()
@@ -175,7 +191,6 @@ class LLMClient:
             if indice + 1 < len(provedores):
                 print(f"[Texto] {provedor} falhou ({resultado.status}); fallback explicitamente habilitado: {provedores[indice + 1]}.", flush=True)
         return resultado
-
 
 
 

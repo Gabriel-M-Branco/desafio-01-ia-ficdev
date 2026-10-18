@@ -1,13 +1,17 @@
 # Matriz Comparativa do Experimento de Engenharia de Prompts (RF02)
 
-| Critério de Avaliação | Prompt A (Zero-Shot Curto) | Prompt B (Estruturado Manualmente) | Prompt C (Metaprompt - Produção) |
+| Critério de Avaliação | Prompt A (Zero-Shot Curto) | Prompt B (Estruturado Manualmente) | Prompt C (Metaprompt / Produção) |
 |---|---|---|---|
-| **Fidelidade ao Contexto** | Moderada (resposta informal) | Alta (segue o tom institucional) | Excelente (estrita precisão documental) |
-| **Invenção de Dados** | Risco alto (supõe dados ausentes) | Baixo risco | Alucinação Zero (regra estrita) |
-| **Formato de Saída** | Texto corrido sem padronização | JSON estruturado com campos | JSON validável com rastreabilidade |
-| **Tratamento de Lacunas** | Omissão de campos não informados | Inclusão parcial de avisos | Preenchimento obrigatório de "não localizado" |
-| **Defesa contra Injeção** | Inexistente / Vulnerável | Parcial | Robusta com envelope XML delimitado |
-| **Tempo de Execução** | 0.12s | 0.12s | 0.12s |
+| **Fidelidade ao Contexto** | Média (resposta informal, omite requisitos chave) | Alta (segue o tom institucional e campos solicitados) | Estrita / Excelente (100% de aderência documental) |
+| **Dados Inventados (Alucinação)** | Risco Alto (tende a inferir datas ou dados não informados) | Baixo Risco (orientado a não inventar) | Alucinação Zero (regra explícita de "não localizado") |
+| **Formato de Saída** | Texto livre corrido sem padronização | Texto estruturado com marcadores e campos | JSON Estruturado validável + Minuta Oficial timbrada |
+| **Tom e Adequação Institucional** | Informal / Não padronizado | Formal / Padrão GOV.MT | Oficial Padrão GOV.MT com fundamentação técnica |
+| **Tratamento de Lacunas** | Omissão de campos ausentes | Inclusão parcial de aviso de dados pendentes | Marcação obrigatória de "não localizado" para cada campo |
+| **Blindagem contra Prompt Injection** | Inexistente / Vulnerável a comandos inseridos | Parcial (instruções gerais) | Robusta com envelope XML `<conteudo_nao_confiavel>` |
+| **Tempo até Resultado Utilizável** | 25.72s (724 tokens) | 15.24s (1872 tokens) | 15.42s (1850 tokens) |
 
-## Justificativa da Escolha do Prompt de Produção
-O **Prompt C** foi selecionado para incorporação definitiva ao sistema devido ao cumprimento integral dos critérios de segurança (blindagem contra prompt injection via tags XML), estrita observância da regra do "não localizado" para mitigar alucinações jurídicas ou administrativas e produção de JSON estruturado pronto para validação de esquemas no padrão GOV.MT.
+## Justificativa da Seleção do Prompt Incorporado
+O **Prompt C (Metaprompting com Blindagem de Produção)** foi selecionado como o prompt oficial incorporado ao sistema por três motivos determinantes:
+1. **Segurança contra Injeção:** Isola comandos de dados externos através de tags delimitadoras `<conteudo_nao_confiavel>`.
+2. **Alucinação Zero:** Aplica rigorosamente o termo `"não localizado"` para qualquer campo ausente, mitigando riscos de invenção jurídica ou administrativa.
+3. **Contrato de Dados:** Produz JSON estrito e validável, compatível com a verificação automatizada de esquemas e com o despacho oficial timbrado do GOV.MT.

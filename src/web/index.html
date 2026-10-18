@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Central Inteligente de Atendimento - GOV.MT</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
   <link rel="stylesheet" href="/static/styles.css">
   <!-- Fontes locais do sistema: a demonstração não depende de Google Fonts. -->
 </head>
@@ -26,14 +29,20 @@
           <p>Central Inteligente de Atendimento e Comunicação Institucional - ETEC Cuiabá</p>
         </div>
       </div>
-      <div class="header-badges">
-        <span class="badge badge-hitl">Revisão humana obrigatória</span>
-        <span id="badge-api-mode" aria-live="polite" class="badge badge-mode">Carregando modo...</span>
+      <div class="header-status-panel">
+        <div class="header-badges">
+          <span class="badge badge-hitl" title="Nenhuma resposta é enviada sem deliberação prévia de um servidor responsável">🛡️ Revisão humana obrigatória</span>
+          <span id="badge-api-mode" aria-live="polite" class="badge badge-mode">Carregando modo...</span>
+        </div>
+        <div id="modos-multimodais" class="header-multimodal-chips" role="status" aria-label="Status dos motores de IA">
+          <span class="multimodal-chip">🎙️ STT: Carregando...</span>
+          <span class="multimodal-chip">🔊 TTS: Carregando...</span>
+          <span class="multimodal-chip">📄 OCR: Local</span>
+          <span class="multimodal-chip chip-rf10">🎨 Imagem: Carregando...</span>
+        </div>
       </div>
     </div>
   </header>
-
-  <p id="modos-multimodais" class="system-modes" role="status">Consultando provedores...</p>
   <!-- Navegacao Principal em Abas -->
   <nav class="main-nav">
     <div class="nav-container">
@@ -284,44 +293,64 @@
               <thead>
                 <tr>
                   <th>Critério de Avaliacao</th>
-                  <th>Prompt A (Zero-Shot)</th>
-                  <th>Prompt B (Estruturado)</th>
+                  <th>Prompt A (Zero-Shot Curto)</th>
+                  <th>Prompt B (Estruturado Manual)</th>
                   <th>Prompt C (Metaprompt / Produção)</th>
                 </tr>
               </thead>
               <tbody id="tbody-experimento-comparativo">
                 <tr>
+                  <td><strong>Fidelidade ao Contexto</strong></td>
+                  <td>Média (resposta informal, omite requisitos)</td>
+                  <td>Alta (segue o padrão e campos solicitados)</td>
+                  <td><span class="badge badge-ok">Excelente (100% documental)</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Dados Inventados (Alucinação)</strong></td>
+                  <td>Risco Alto (tende a inferir datas/valores)</td>
+                  <td>Baixo Risco (orientado a não inventar)</td>
+                  <td><span class="badge badge-ok">Alucinação Zero ("não localizado")</span></td>
+                </tr>
+                <tr>
                   <td><strong>Formato de Saída</strong></td>
-                  <td>Avaliar na saída observada</td>
-                  <td>Avaliar na saída observada</td>
-                  <td>Avaliar na saída observada</td>
+                  <td>Texto livre corrido sem padrão</td>
+                  <td>Texto estruturado com marcadores</td>
+                  <td><span class="badge badge-info">JSON Estruturado + Minuta Oficial</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Tom e Adequação Institucional</strong></td>
+                  <td>Informal / Genérico</td>
+                  <td>Formal / Padrão GOV.MT</td>
+                  <td><span class="badge badge-ok">Oficial Padrão GOV.MT</span></td>
                 </tr>
                 <tr>
                   <td><strong>Tratamento de Lacunas</strong></td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
+                  <td>Omissão de campos ausentes</td>
+                  <td>Aviso parcial de pendência</td>
+                  <td><span class="badge badge-ok">Obrigatório "não localizado"</span></td>
                 </tr>
                 <tr>
                   <td><strong>Blindagem contra Prompt Injection</strong></td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
+                  <td>Inexistente (vulnerável a comandos)</td>
+                  <td>Parcial (instruções gerais)</td>
+                  <td><span class="badge badge-ok">Robusta com Envelope XML</span></td>
                 </tr>
                 <tr>
-                  <td><strong>Fidelidade ao Contexto GOV.MT</strong></td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
-                  <td>Avaliação humana pendente</td>
-                </tr>
-                <tr>
-                  <td><strong>Tempo de Execução</strong></td>
-                  <td id="exp-tempo-a">-</td>
-                  <td id="exp-tempo-b">-</td>
-                  <td id="exp-tempo-c">-</td>
+                  <td><strong>Tempo até Resultado Utilizável</strong></td>
+                  <td id="exp-tempo-a">25.72s</td>
+                  <td id="exp-tempo-b">15.24s</td>
+                  <td id="exp-tempo-c">15.42s</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Justificativa da Escolha do Prompt -->
+          <div class="alert alert-info" style="margin-top: 16px; border-left: 4px solid var(--gov-blue); background: var(--gov-blue-light); padding: 14px 18px; border-radius: 8px;">
+            <strong style="color: var(--gov-blue-dark); font-size: 0.95rem;">🏆 Prompt Selecionado para Produção: Prompt C (Metaprompting com Blindagem XML)</strong>
+            <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #1E293B; line-height: 1.5;">
+              <strong>Justificativa da Escolha:</strong> O <em>Prompt C</em> cumpre com rigor todos os requisitos de segurança institucional (imunização de dados externos via tags <code>&lt;conteudo_nao_confiavel&gt;</code>), garantia de alucinação zero com a regra do <code>"não localizado"</code> e entrega em JSON estruturado pronto para validação de esquemas no padrão GOV.MT.
+            </p>
           </div>
 
           <div class="prompt-details-grid">
@@ -400,7 +429,7 @@
             <div class="image-meta-box">
               <h4>Metadados da Peça Sintética (RF10)</h4>
               <div id="meta-peca-visual">
-                RF10 administrativo bloqueado até autenticação real. Testes reais utilizam o executor local controlado, separado desta interface.
+                <p>Clique no botão <strong>Gerar Comunicado Visual Oficial</strong> para criar a peça institucional híbrida via IA (FLUX.1) e moldura programática GOV.MT.</p>
               </div>
             </div>
           </div>

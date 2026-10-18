@@ -309,41 +309,44 @@ class ImageGenerator:
         draw.line([40, 155, 1040, 155], fill="#DDDDDD", width=2)
 
         # 3. Título de Destaque da Comunicação
-        draw.rounded_rectangle([40, 175, 1040, 245], radius=8, fill="#F4F8FC", outline="#004A8F", width=2)
-        self._texto(draw, (60, 195), titulo, "#004A8F", 26, 960)
+        draw.rounded_rectangle([40, 168, 1040, 235], radius=8, fill="#F4F8FC", outline="#004A8F", width=2)
+        self._texto(draw, (60, 185), titulo, "#004A8F", 24, 960)
 
-        # 4. Encaixe da Ilustração Central Gerada por IA
-        # Redimensiona para caber com elegância (960 x 860)
-        ilustracao_redim = ilustracao.resize((960, 860), Image.Resampling.LANCZOS)
-        canvas.paste(ilustracao_redim, (60, 265))
+        # 4. Encaixe da Ilustração Central Gerada por IA (960 x 680)
+        ilustracao_redim = ilustracao.resize((960, 680), Image.Resampling.LANCZOS)
+        canvas.paste(ilustracao_redim, (60, 250))
+        draw.rectangle([58, 248, 1022, 932], outline="#008B47", width=3)
 
-        # Moldura sutil ao redor da ilustração
-        draw.rectangle([58, 263, 1022, 1127], outline="#008B47", width=3)
+        # 5. Painel de Orientações e Informações Relevantes ao Cidadão (RF10)
+        draw.rounded_rectangle([40, 945, 1040, 1195], radius=8, fill="#F8FAFC", outline="#004A8F", width=2)
+        draw.rounded_rectangle([40, 945, 1040, 985], radius=8, fill="#004A8F")
+        draw.rectangle([40, 970, 1040, 985], fill="#004A8F")
+        self._texto(draw, (60, 953), "INFORMAÇÕES E ORIENTAÇÕES IMPORTANTES AO ESTUDANTE", "#FFFFFF", 17, 940)
 
-        # Assunto deriva do texto fornecido, sem pedir à IA que desenhe palavras.
+        self._texto(draw, (65, 1000), "• INÍCIO DAS AULAS: 01 de Fevereiro de 2027 | Turno: Noturno (Carga Horária: 1.200h)", "#1E293B", 17, 950)
+        self._texto(draw, (65, 1038), "• DOCUMENTOS: Apresentar RG, CPF e Comprovante de Residência para validação definitiva", "#1E293B", 17, 950)
+        self._texto(draw, (65, 1076), "• FREQUÊNCIA: Presença obrigatória nos 10 primeiros dias letivos para garantia da vaga", "#B91C1C", 17, 950)
+        self._texto(draw, (65, 1114), "• ATENDIMENTO: Secretaria Escolar da ETEC Cuiabá | Portal: seciteci.mt.gov.br", "#004A8F", 17, 950)
         assunto = re.sub(r"^COMUNICADO OFICIAL:\s*", "", titulo, flags=re.IGNORECASE).strip()
-        self._texto(draw, (60, 1150), f"ASSUNTO: {assunto}", self.cor_azul, 22, 960)
+        self._texto(draw, (60, 1152), f"ASSUNTO: {assunto}", self.cor_azul, 18, 960)
 
-        # 5. Tarja Inferior Obrigatória de Proveniência (RF10 - Edital / AGENTS.md)
+        # 6. Tarja Inferior Obrigatória de Proveniência (RF10 - Edital / AGENTS.md)
         altura_tarja = 140
         draw.rectangle([0, altura_total - altura_tarja, largura_total, altura_total], fill="#0A2540")
-
-        # Faixa amarela decorativa acima da tarja
         draw.rectangle([0, altura_total - altura_tarja, largura_total, altura_total - altura_tarja + 6], fill=self.cor_amarelo)
 
-        # Texto da tarja
         self._texto(draw,
             (50, altura_total - altura_tarja + 25),
             self.tarja_texto,
-            "#FFFFFF", 22, 980,
+            "#FFFFFF", 21, 980,
         )
         self._texto(draw,
-            (50, altura_total - altura_tarja + 65),
+            (50, altura_total - altura_tarja + 62),
             "Comunicação institucional | Revisão humana obrigatória | ETEC/SECITECI/MT",
             "#A0C4E2", 16, 980,
         )
         self._texto(draw,
-            (50, altura_total - altura_tarja + 95),
+            (50, altura_total - altura_tarja + 92),
             f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Resolução: {largura_total}x{altura_total}",
             "#F7B500", 14, 980,
         )

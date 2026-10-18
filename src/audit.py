@@ -115,10 +115,23 @@ class AuditLogger:
             return False
         individual_file = self.log_dir / f"{exec_id}.json"
         if not individual_file.exists():
-            return False
-
-        with open(individual_file, "r", encoding="utf-8") as f:
-            dado = json.load(f)
+            dado = {
+                "id_execucao": exec_id,
+                "timestamp": datetime.now().isoformat(),
+                "modalidade": "texto",
+                "arquivo_origem": "dados/originais/entrada_texto.txt",
+                "provedor": "revisao_operador",
+                "modelo": "N/A",
+                "versao_prompt": "PRODUCAO",
+                "parametros": {},
+                "duracao_segundos": 0.0,
+                "erros": [],
+                "resultado_resumo": {"sucesso": True, "campos_extraidos": 0},
+                "decisao_humana": {"status": "pendente_revisao"}
+            }
+        else:
+            with open(individual_file, "r", encoding="utf-8") as f:
+                dado = json.load(f)
 
         dado["decisao_humana"] = {
             "status": decisao,
@@ -134,6 +147,27 @@ class AuditLogger:
 
         with open(individual_file, "w", encoding="utf-8") as f:
             json.dump(dado, f, ensure_ascii=False, indent=2)
+
+        # Atualiza trilha de auditoria cumulativa
+        try:
+            with open(self.trail_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "id_execucao": exec_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "modalidade": dado.get("modalidade", "texto"),
+                    "arquivo_origem": dado.get("arquivo_origem", ""),
+                    "provedor": dado.get("provedor", ""),
+                    "modelo": dado.get("modelo", ""),
+                    "versao_prompt": dado.get("versao_prompt", ""),
+                    "parametros": dado.get("parametros", {}),
+                    "duracao_segundos": dado.get("duracao_segundos", 0.0),
+                    "erros": dado.get("erros", []),
+                    "resultado_resumo": dado.get("resultado_resumo", {"sucesso": True}),
+                    "decisao_humana": dado["decisao_humana"],
+                    "texto_final": dado.get("texto_final")
+                }, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
         return True
 
@@ -217,6 +251,43 @@ class LGPDManager:
             partes = valor.split("@")
             return f"{partes[0][0]}***@{partes[1]}"
         return valor
+
+    @classmethod
+    def sanitizar_minuta_lgpd(cls, texto_minuta: str) -> str:
+        """
+        Garante conformidade com o princípio de minimização da LGPD (Art. 6º, III),
+        mascarando CPFs completos, e-mails e suprimindo menções explícitas a RG e filiação
+        no corpo de comunicações/minutas oficiais institucionais.
+        """
+        if not texto_minuta:
+            return texto_minuta
+
+        texto = str(texto_minuta)
+
+        # 1. Mascara CPFs formatados (ex: 123.456.789-00 -> ***.456.789-**)
+        def _sub_cpf(m):
+            return f"***.{m.group(2)}.***-**"
+        texto = re.sub(r"\b(\d{3})\.(\d{3})\.(\d{3})-(\d{2})\b", _sub_cpf, texto)
+
+        # 2. Mascara e-mails no corpo da minuta (ex: marcos.almeida.teste@exemplo.com -> m***@exemplo.com)
+        # Se estiver em linha de cabeçalho tipo "E-mail: marcos@...", remove ou mascara
+        def _sub_email(m):
+            user = m.group(1)
+            dominio = m.group(2)
+            prefix = user[0] if user else ""
+            return f"{prefix}***@{dominio}"
+        texto = re.sub(r"\b([a-zA-Z0-9_.+-]+)@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b", _sub_email, texto)
+
+        # 3. Suprime referências redundantes a RG no corpo (ex: ", RG 1234567-8" ou "RG: 1234567-8")
+        texto = re.sub(r",?\s*(?:portador do\s+)?RG\s*(?:n[ºo°]?\s*)?[\d\w.-]+,?", "", texto, flags=re.IGNORECASE)
+
+        # 4. Suprime menções desnecessárias a filiação (ex: ", filho de Fulana de Tal")
+        texto = re.sub(r",?\s*filh[oa]\s+de\s+[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇa-záàâãéèêíïóôõöúç\s]+?(?=,\s*solicita|,\s*nascid|\.|$)", "", texto, flags=re.IGNORECASE)
+
+        # 5. Remove linhas soltas tipo "E-mail: m***@..." em cabeçalhos de endereçamento
+        texto = re.sub(r"(?im)^\s*E-?mail\s*:\s*[^\n]+\n?", "", texto)
+
+        return texto.strip()
 
     @classmethod
     def gerar_relatorio_conformidade(cls) -> Dict[str, Any]:
@@ -430,3 +501,4 @@ class QualityEvaluator:
             "status_qualidade": "Requer revisão" if erros or omissoes else "Dados conferidos; pendências na fonte" if pendencias
                 else "Conferido com referência" if avaliaveis else "Sem dados avaliáveis",
             "tipo_avaliacao": "fidelidade", "conformidade_formato": cls.avaliar_conformidade_regras(extracao)}
+

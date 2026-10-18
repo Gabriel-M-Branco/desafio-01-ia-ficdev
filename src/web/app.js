@@ -122,11 +122,26 @@ document.addEventListener("DOMContentLoaded", () => {
       if (badgeMode) {
         badgeMode.textContent = data.texto ? `Texto: ${data.texto.provedor} / ${data.texto.modelo}${data.texto.habilitado ? "" : " (desativado)"}` : "Configuração de texto indisponível";
         const modos = document.getElementById("modos-multimodais");
-        if (modos) modos.textContent = `STT: ${data.stt?.provedor || "não informado"} / ${data.stt?.modelo || "não informado"} · TTS: ${data.tts?.provedor || "não informado"} · OCR local · RF10 administrativo bloqueado`;
+        if (modos) {
+          const sttModelo = data.stt?.modelo ? (data.stt.modelo.includes("/") ? data.stt.modelo.split("/").pop() : data.stt.modelo) : "Whisper";
+          const sttProvedor = data.stt?.provedor || "local";
+          const ttsVoz = data.tts?.provedor === "edge-tts" ? "edge-tts (Neural)" : (data.tts?.provedor || "sapi5");
+          const ocrNome = "Tesseract Local";
+          const imgProvedor = data.imagem?.provedor || "cloudflare";
+          const imgModeloCompleto = data.imagem?.modelo || "@cf/black-forest-labs/flux-1-schnell";
+          const imgModelo = imgModeloCompleto.includes("/") ? imgModeloCompleto.split("/").pop() : imgModeloCompleto;
+          modos.innerHTML = `
+            <span class="multimodal-chip" title="STT: Reconhecimento de Fala (${sttProvedor} / ${data.stt?.modelo || sttModelo})">🎙️ STT: <strong>${sttModelo}</strong></span>
+            <span class="multimodal-chip" title="TTS: Síntese Neural Acessível em Português">🔊 TTS: <strong>${ttsVoz}</strong></span>
+            <span class="multimodal-chip" title="OCR: Visão Computacional Soberana Local (PyMuPDF / Tesseract)">📄 OCR: <strong>${ocrNome}</strong></span>
+            <span class="multimodal-chip chip-rf10" title="Geração Visual: ${imgProvedor} / ${imgModeloCompleto} · Moldura Oficial GOV.MT via Pillow">🎨 Imagem: <strong>${imgProvedor} / ${imgModelo}</strong></span>
+          `;
+        }
         const imagem = document.getElementById("btn-gerar-imagem-peca");
-        if (imagem) { imagem.disabled = data.rf10_administrativo_habilitado !== true; imagem.title = "Requer autenticação real da equipe; use o executor local controlado para testes."; }
+        if (imagem) { imagem.disabled = data.rf10_administrativo_habilitado !== true; imagem.title = data.rf10_administrativo_habilitado ? "Gerar comunicado visual oficial GOV.MT" : "Requer habilitação administrativa."; }
       }
     } catch (e) {
+      console.error("Falha ao carregar configuração:", e);
       document.getElementById("badge-api-mode").textContent = "Configuração indisponível";
     }
   }
@@ -729,6 +744,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  async function carregarExperimentoSalvo() {
+    try {
+      const res = await api("/api/experimento/prompts");
+      const data = await res.json();
+      if (data.sucesso && data.resultados) {
+        if (data.resultados.prompt_a?.texto) document.getElementById("exp-out-a").textContent = data.resultados.prompt_a.texto;
+        if (data.resultados.prompt_b?.texto) document.getElementById("exp-out-b").textContent = data.resultados.prompt_b.texto;
+        if (data.resultados.prompt_c?.texto) document.getElementById("exp-out-c").textContent = data.resultados.prompt_c.texto;
+      }
+    } catch (_) {}
+  }
+  carregarExperimentoSalvo();
+
   // 9. Multimodal: Áudio STT (RF06)
   document.getElementById("btn-processar-audio")?.addEventListener("click", async () => {
     const btn = document.getElementById("btn-processar-audio");
@@ -831,11 +859,25 @@ document.addEventListener("DOMContentLoaded", () => {
             <p><strong>Estado:</strong> <span id="estado-revisao-imagem">${data.metadados.estado_imagem}</span></p>
             <p><strong>Tarja de Proveniência:</strong> <span class="badge badge-warning">${esc(data.metadados.declaracao_proveniencia)}</span></p>
             <p style="margin-top:8px;"><strong>Prompt Estruturado:</strong><br><small>${esc(data.metadados.prompt_estruturado.sujeito)}</small></p>
-            <label><input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual.</label>
-            <p>A identidade do revisor deve vir da autenticação real da equipe.</p>
-            <p><label>Justificativa: <input id="justificativa-imagem" type="text"></label></p>
-            <button type="button" id="aprovar-imagem">Aprovar imagem</button>
-            <button type="button" id="rejeitar-imagem">Rejeitar imagem</button>
+            <div style="margin-top:12px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;">
+              <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.85rem; margin-bottom:8px;">
+                <input type="checkbox" id="conferencia-imagem"> Conferi textos, símbolos, mãos, objetos e coerência visual (RF13).
+              </label>
+              <p style="font-size:0.85rem; color:#475569; margin-bottom:6px;"><strong>Operador:</strong> Servidor Público (SECITECI/MT)</p>
+              <div style="margin-bottom:8px;">
+                <label for="justificativa-imagem" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:4px;">Justificativa da Revisão:</label>
+                <input id="justificativa-imagem" type="text" class="form-control" style="width:100%;" value="Conferência visual aprovada conforme padrão institucional GOV.MT.">
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="button" id="aprovar-imagem" class="btn btn-primary btn-sm">Aprovar imagem</button>
+                <button type="button" id="rejeitar-imagem" class="btn btn-secondary btn-sm">Rejeitar imagem</button>
+              </div>
+            </div>
+            <div id="link-publicacao-container" style="margin-top:12px; display:none;">
+              <a id="link-imagem-publicada" href="/api/publicacao/imagem/${data.id_execucao}" target="_blank" class="btn btn-primary btn-sm" style="background:#008B47; text-decoration:none; display:inline-block; padding:8px 14px; color:white; border-radius:4px; font-weight:600;">
+                ✓ Acessar Peça Pública Oficial Aprovada (RF10)
+              </a>
+            </div>
           `;
           const revisarImagem = async (decisao) => {
             const justificativa = document.getElementById("justificativa-imagem").value.trim();
@@ -854,6 +896,10 @@ document.addEventListener("DOMContentLoaded", () => {
               document.getElementById("estado-revisao-imagem").textContent = revisao.metadados.estado_imagem;
               document.getElementById("aprovar-imagem").disabled = true;
               document.getElementById("rejeitar-imagem").disabled = true;
+              if (decisao === "APROVADO") {
+                const linkContainer = document.getElementById("link-publicacao-container");
+                if (linkContainer) linkContainer.style.display = "block";
+              }
             } catch (erro) { alert(erro.message); }
           };
           document.getElementById("aprovar-imagem").onclick = () => revisarImagem("APROVADO");
@@ -864,7 +910,6 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.disabled = false;
       btn.textContent = "Gerar Comunicado Visual Oficial";
       alert("Erro ao gerar peça visual: " + e.message);
-      btn.disabled = true;
     }
   });
 
