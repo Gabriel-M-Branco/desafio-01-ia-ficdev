@@ -5,6 +5,8 @@
 
 ---
 
+Membros do trio: Gabriel Moreira Branco, Emilly Caroline dos Santos Arruda e Marcos Vinícius G. S. Campos.
+
 ## 1. Visão Geral da Solução
 
 Este projeto implementa uma solução multimodal completa de apoio ao atendimento ao cidadão e comunicação oficial, desenvolvida em estrita conformidade com as diretrizes do edital (Requisitos **RF01** a **RF13**) e os padrões visuais e institucionais do **Governo do Estado de Mato Grosso (GOV.MT)**.
